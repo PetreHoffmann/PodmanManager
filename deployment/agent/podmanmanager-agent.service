@@ -1,0 +1,16 @@
+[Unit]
+Description=PodmanManager Agent (rootless)
+Wants=podman.socket
+After=podman.socket
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/podmanmanager/agent.env
+ExecStart=@NODE@ %h/.local/share/podmanmanager-agent/dist/index.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

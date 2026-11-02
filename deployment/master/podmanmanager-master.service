@@ -1,0 +1,24 @@
+[Unit]
+Description=PodmanManager Master
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=podmanmanager
+Group=podmanmanager
+WorkingDirectory=/opt/podmanmanager/apps/master
+EnvironmentFile=/etc/podmanmanager/master.env
+Environment=NODE_ENV=production
+ExecStart=/opt/podmanmanager/node_modules/.bin/next start -H ${MASTER_HOST} -p ${MASTER_PORT}
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/podmanmanager
+StateDirectory=podmanmanager
+
+[Install]
+WantedBy=multi-user.target
