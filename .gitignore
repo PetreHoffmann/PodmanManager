@@ -8,3 +8,5 @@ dist/
 *.db
 *.db-journal
 *.log
+next-env.d.ts
+tsconfig.tsbuildinfo

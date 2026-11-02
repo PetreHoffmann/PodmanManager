@@ -1,6 +1,6 @@
 {
   "name": "podmanmanager",
   "private": true,
-  "workspaces": ["apps/agent"],
+  "workspaces": ["apps/agent", "apps/master"],
   "engines": { "node": ">=22" }
 }
