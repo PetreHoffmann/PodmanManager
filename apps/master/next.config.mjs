@@ -1,6 +1,15 @@
+import { fileURLToPath } from "node:url";
+
+const standalone = process.env.NEXT_OUTPUT === "standalone";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // Only for container images: self-contained server in .next/standalone
+  ...(standalone && {
+    output: "standalone",
+    outputFileTracingRoot: fileURLToPath(new URL("../..", import.meta.url)),
+  }),
   async headers() {
     return [{
       source: "/:path*",

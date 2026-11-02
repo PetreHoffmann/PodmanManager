@@ -1,0 +1,23 @@
+# Build from repo root: docker build -f deployment/Dockerfile.master -t podmanmanager-master .
+FROM node:22-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY apps/master/package.json apps/master/
+COPY apps/agent/package.json apps/agent/
+RUN npm ci --no-audit --no-fund
+COPY apps/master apps/master
+COPY shared shared
+ENV NEXT_OUTPUT=standalone NEXT_TELEMETRY_DISABLED=1
+RUN MASTER_SECRET_KEY=build-only npm run build -w apps/master
+
+FROM node:22-slim
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=8080 DATABASE_URL=file:/data/master.db
+WORKDIR /app
+COPY --from=build /app/apps/master/.next/standalone ./
+COPY --from=build /app/apps/master/.next/static ./apps/master/.next/static
+RUN mkdir /data && chown node:node /data
+USER node
+VOLUME /data
+EXPOSE 8080
+# MASTER_SECRET_KEY must be provided at runtime (openssl rand -base64 32)
+CMD ["node", "apps/master/server.js"]
