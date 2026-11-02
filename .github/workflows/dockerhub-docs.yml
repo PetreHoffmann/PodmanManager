@@ -1,0 +1,31 @@
+name: Docker Hub descriptions
+
+on:
+  push:
+    tags: ["v*"]
+    branches: [main]
+    paths: ["deployment/dockerhub/**", ".github/workflows/dockerhub-docs.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  description:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - app: master
+            short: "Web UI to view, start, stop and restart rootless Podman containers on many hosts."
+          - app: agent
+            short: "Agent for PodmanManager: manages rootless Podman via its unix socket. Never root."
+    steps:
+      - uses: actions/checkout@v4
+      - uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USER }}/podmanmanager-${{ matrix.app }}
+          short-description: ${{ matrix.short }}
+          readme-filepath: deployment/dockerhub/README.${{ matrix.app }}.md
