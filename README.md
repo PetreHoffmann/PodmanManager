@@ -30,6 +30,33 @@ MASTER_SECRET_KEY=$(openssl rand -base64 32) deployment/master/start.sh
 # 3. http://<master>:8080 öffnen → Admin-Passwort setzen → Hosts → Agent hinzufügen
 ```
 
+## Docker-Images
+
+Fertige Images (Apache-2.0) liegen öffentlich auf Docker Hub: [`petrecalinoiu/podmanmanager-master`](https://hub.docker.com/r/petrecalinoiu/podmanmanager-master) und [`petrecalinoiu/podmanmanager-agent`](https://hub.docker.com/r/petrecalinoiu/podmanmanager-agent). Tags: `0.1.1`, `latest` (und `sha-<commit>`); sie werden bei jedem Git-Tag `v*` automatisch gebaut. Die Container-Starts sind bisher nicht auf echten Hosts getestet.
+
+**Master**
+
+```bash
+docker run -d --name podmanmanager-master -p 8080:8080 \
+  -v pm-data:/data \
+  -e MASTER_SECRET_KEY="<32 Byte, base64: openssl rand -base64 32>" \
+  petrecalinoiu/podmanmanager-master:0.1.1
+```
+
+`MASTER_SECRET_KEY` einmal festlegen und bei jedem Start wieder verwenden – mit einem neuen Schlüssel sind die gespeicherten Agent-Tokens unlesbar. Die Datenbank liegt im Volume `/data`.
+
+**Agent** (empfohlen bleibt die native Installation mit `deployment/agent/install.sh`; als Container braucht der Agent den gemounteten Rootless-Socket und muss mit der UID des Podman-Benutzers laufen, er verweigert Root)
+
+```bash
+podman run --rm petrecalinoiu/podmanmanager-agent:0.1.1 node dist/index.js --generate-token   # Token + Hash
+podman run -d --name pm-agent --user $(id -u) --userns=keep-id -p 9126:9126 \
+  -v $XDG_RUNTIME_DIR/podman/podman.sock:/run/podman/podman.sock \
+  -e AGENT_ID=host-1 -e AGENT_TOKEN_HASH=<hash> \
+  docker.io/petrecalinoiu/podmanmanager-agent:0.1.1
+```
+
+Den Token im Master unter *Hosts* eintragen; Port 9126 nur für die Master-IP freigeben (siehe [Sicherheit](docs/security.md)).
+
 ## Dokumentation
 
 | | |
