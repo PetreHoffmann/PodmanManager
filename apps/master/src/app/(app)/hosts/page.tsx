@@ -13,7 +13,7 @@ export default async function Hosts() {
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Hosts</h1>
-      <div className="card overflow-x-auto p-0">
+      <div className="card hidden overflow-x-auto p-0 md:block">
         <table className="w-full min-w-[900px]">
           <thead className="border-b border-slate-800">
             <tr>
@@ -45,6 +45,22 @@ export default async function Hosts() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="space-y-3 md:hidden">
+        {hosts.length === 0 && <p className="card text-sm text-slate-400">No agents registered.</p>}
+        {hosts.map(({ agent: a, result }) => (
+          <div key={a.id} className="card space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="font-medium">{a.agent_id}</div>
+              <StatusBadge status={a.enabled ? a.status : "disabled"} />
+            </div>
+            <div className="font-mono text-xs text-slate-400">{a.hostname} · {a.address}:{a.port}</div>
+            <div className="text-xs text-slate-500">Heartbeat: {fmt(a.last_heartbeat)} · Podman {a.podman_version ?? "—"} · {result.ok ? result.data.length : "n/a"} containers</div>
+            {a.enabled && a.last_error && a.status !== "online" && <div className="break-all text-xs text-slate-500">{a.last_error}</div>}
+            <HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} />
+          </div>
+        ))}
       </div>
 
       <section className="card max-w-xl">

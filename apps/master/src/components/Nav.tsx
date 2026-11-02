@@ -14,8 +14,8 @@ export default function Nav() {
   const path = usePathname();
   return (
     <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-4 py-2">
-        <span className="mr-4 font-semibold text-sky-400">PodmanManager</span>
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-1 px-4 py-2">
+        <span className="mr-4 w-full font-semibold text-sky-400 sm:w-auto">PodmanManager</span>
         {ITEMS.map((i) => {
           const active = i.href === "/" ? path === "/" : path.startsWith(i.href);
           return (

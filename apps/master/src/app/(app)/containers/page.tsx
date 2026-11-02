@@ -44,7 +44,7 @@ export default async function Containers({ searchParams }: { searchParams: SP })
         </p>
       ))}
 
-      <div className="card overflow-x-auto p-0">
+      <div className="card hidden overflow-x-auto p-0 md:block">
         <table className="w-full min-w-[1000px]">
           <thead className="border-b border-slate-800">
             <tr>{["Name", "ID", "Host", "Image", "Status", "Created", "Started", "Actions"].map((h) => <th key={h} className="th">{h}</th>)}</tr>
@@ -65,6 +65,21 @@ export default async function Containers({ searchParams }: { searchParams: SP })
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="space-y-3 md:hidden">
+        {rows.length === 0 && <p className="card text-sm text-slate-400">No containers found.</p>}
+        {rows.map(({ agent, c }) => (
+          <div key={`${agent.id}-${c.id}`} className="card space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <Link className="break-all font-medium text-sky-400" href={`/containers/${agent.id}/${c.id}`}>{c.name || c.id.slice(0, 12)}</Link>
+              <StatusBadge status={c.state} />
+            </div>
+            <div className="break-all text-xs text-slate-400">{c.image}</div>
+            <div className="text-xs text-slate-500">{agent.agent_id} · {c.id.slice(0, 12)}</div>
+            <div className="text-xs text-slate-500">Started: {fmt(c.startedAt)}</div>
+            <ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} />
+          </div>
+        ))}
       </div>
     </div>
   );
