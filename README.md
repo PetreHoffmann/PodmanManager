@@ -38,7 +38,7 @@ Die Screenshots zeigen Testdaten (nachgebaute Podman-Sockets). Die Oberfläche g
 
 ## Schnellstart
 
-Voraussetzungen: Linux, Node.js ≥ 22.13, auf Agent-Hosts rootless Podman + systemd.
+Voraussetzungen: Linux, Node.js ≥ 24, auf Agent-Hosts rootless Podman + systemd.
 
 ```bash
 # 1. Agent auf jedem Podman-Host (als normaler Benutzer, nicht root)

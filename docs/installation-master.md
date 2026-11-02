@@ -1,6 +1,6 @@
 # Master installieren
 
-Voraussetzungen: Linux, Node.js ≥ 22.13 (wegen `node:sqlite`; beim Start erscheint eine harmlose Warnung „SQLite is an experimental feature"), npm, root für systemd.
+Voraussetzungen: Linux, Node.js ≥ 24 (wegen `node:sqlite`; beim Start erscheint eine harmlose Warnung „SQLite is an experimental feature"), npm, root für systemd.
 
 ## Build
 ```bash

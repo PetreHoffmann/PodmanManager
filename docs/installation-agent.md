@@ -1,6 +1,6 @@
 # Agent installieren
 
-Auf **jedem** Podman-Host, als **normaler Benutzer** (nie root, kein sudo). Voraussetzungen: Node.js ≥ 22, rootless Podman, systemd (User-Instanz).
+Auf **jedem** Podman-Host, als **normaler Benutzer** (nie root, kein sudo). Voraussetzungen: Node.js ≥ 24, rootless Podman, systemd (User-Instanz).
 
 ## Automatisch
 ```bash

@@ -25,7 +25,7 @@
 | Zugriff verweigert nach Stop/Restart | Aktion ist nur bei erreichbarem, aktiviertem Host möglich. |
 | Port 8080 belegt | `MASTER_PORT` ändern. |
 | Admin-Passwort vergessen | `sudo -u podmanmanager node -e "const {DatabaseSync}=require('node:sqlite');const d=new DatabaseSync('/var/lib/podmanmanager/master.db');d.exec('DELETE FROM admin; DELETE FROM sessions')"` – danach sofort `/setup` aufrufen. |
-| Warnung „SQLite is an experimental feature" | Harmlos (Node 22). |
+| Warnung „SQLite is an experimental feature" | Harmlos (Node 24). |
 | Logs | `journalctl -u podmanmanager-master -f` |
 
 ## Diagnose

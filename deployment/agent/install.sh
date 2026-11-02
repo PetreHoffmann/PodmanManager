@@ -12,8 +12,8 @@ CONF_DIR="$HOME/.config/podmanmanager"
 ENV_FILE="$CONF_DIR/agent.env"
 UNIT_DIR="$HOME/.config/systemd/user"
 
-command -v node >/dev/null || { echo "Node.js >= 22 required" >&2; exit 1; }
-[ "$(node -p 'process.versions.node.split(".")[0]')" -ge 22 ] || { echo "Node.js >= 22 required" >&2; exit 1; }
+command -v node >/dev/null || { echo "Node.js >= 24 required" >&2; exit 1; }
+[ "$(node -p 'process.versions.node.split(".")[0]')" -ge 24 ] || { echo "Node.js >= 24 required" >&2; exit 1; }
 command -v podman >/dev/null || { echo "podman not found (rootless Podman required)" >&2; exit 1; }
 [[ "$AGENT_ID" =~ ^[A-Za-z0-9._-]{1,64}$ ]] || { echo "Invalid agent id" >&2; exit 1; }
 
