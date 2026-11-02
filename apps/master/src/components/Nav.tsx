@@ -2,16 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { Key } from "@/lib/i18n";
+import { useT } from "./I18nProvider";
+import LangSelect from "./LangSelect";
 
-const ITEMS = [
-  { href: "/", label: "Dashboard" },
-  { href: "/hosts", label: "Hosts" },
-  { href: "/containers", label: "Containers" },
-  { href: "/settings", label: "Settings" },
+const ITEMS: { href: string; key: Key }[] = [
+  { href: "/", key: "nav.dashboard" },
+  { href: "/hosts", key: "nav.hosts" },
+  { href: "/containers", key: "nav.containers" },
+  { href: "/settings", key: "nav.settings" },
 ];
 
 export default function Nav() {
   const path = usePathname();
+  const t = useT();
   return (
     <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-1 px-4 py-2">
@@ -20,10 +24,11 @@ export default function Nav() {
           const active = i.href === "/" ? path === "/" : path.startsWith(i.href);
           return (
             <Link key={i.href} href={i.href} className={`rounded-md px-3 py-1.5 text-sm transition ${active ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white"}`}>
-              {i.label}
+              {t(i.key)}
             </Link>
           );
         })}
+        <LangSelect className="ml-auto" />
       </div>
     </nav>
   );

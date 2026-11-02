@@ -1,7 +1,10 @@
 import Link from "next/link";
 import ContainerActions from "@/components/ContainerActions";
-import { StatusBadge, fmt } from "@/components/ui";
+import { StatusBadge } from "@/components/StatusBadge";
+import { fmt } from "@/components/ui";
 import { fetchAllContainers } from "@/lib/agents";
+import { errText } from "@/lib/i18n";
+import { getT } from "@/lib/lang";
 import { requireAuth } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +13,7 @@ type SP = Promise<{ host?: string; status?: string; q?: string }>;
 
 export default async function Containers({ searchParams }: { searchParams: SP }) {
   await requireAuth();
+  const t = await getT();
   const { host = "", status = "", q = "" } = await searchParams;
   const hosts = await fetchAllContainers();
 
@@ -23,34 +27,34 @@ export default async function Containers({ searchParams }: { searchParams: SP })
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Containers</h1>
+      <h1 className="text-xl font-semibold">{t("cont.title")}</h1>
       <form className="flex flex-wrap gap-2" method="get">
         <select name="host" defaultValue={host} className="input w-auto">
-          <option value="">All hosts</option>
+          <option value="">{t("cont.allHosts")}</option>
           {hosts.map((h) => <option key={h.agent.id} value={h.agent.id}>{h.agent.hostname}</option>)}
         </select>
         <select name="status" defaultValue={status} className="input w-auto">
-          <option value="">Any status</option>
-          <option value="running">Running</option>
-          <option value="stopped">Not running</option>
+          <option value="">{t("cont.anyStatus")}</option>
+          <option value="running">{t("cont.running")}</option>
+          <option value="stopped">{t("cont.notRunning")}</option>
         </select>
-        <input name="q" defaultValue={q} placeholder="Container name" className="input w-48" />
-        <button className="btn">Filter</button>
+        <input name="q" defaultValue={q} placeholder={t("cont.namePh")} className="input w-48" />
+        <button className="btn">{t("cont.filter")}</button>
       </form>
 
       {failed.map((h) => (
         <p key={h.agent.id} className="card border-red-900 text-sm text-red-300">
-          {h.agent.hostname}: containers unavailable — {h.result.ok ? "" : h.result.message}
+          {t("cont.unavailable", { host: h.agent.hostname, msg: h.result.ok ? "" : errText(t, h.result.code, h.result.message) })}
         </p>
       ))}
 
       <div className="card hidden overflow-x-auto p-0 md:block">
         <table className="w-full min-w-[1000px]">
           <thead className="border-b border-slate-800">
-            <tr>{["Name", "ID", "Host", "Image", "Status", "Created", "Started", "Actions"].map((h) => <th key={h} className="th">{h}</th>)}</tr>
+            <tr>{(["cont.name", "cont.id", "cont.host", "cont.image", "cont.status", "cont.created", "cont.started", "cont.actions"] as const).map((k) => <th key={k} className="th">{t(k)}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
-            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>No containers found.</td></tr>}
+            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>{t("cont.none")}</td></tr>}
             {rows.map(({ agent, c }) => (
               <tr key={`${agent.id}-${c.id}`} className="transition hover:bg-slate-900">
                 <td className="td font-medium"><Link className="text-sky-400 hover:underline" href={`/containers/${agent.id}/${c.id}`}>{c.name || c.id.slice(0, 12)}</Link></td>
@@ -67,7 +71,7 @@ export default async function Containers({ searchParams }: { searchParams: SP })
         </table>
       </div>
       <div className="space-y-3 md:hidden">
-        {rows.length === 0 && <p className="card text-sm text-slate-400">No containers found.</p>}
+        {rows.length === 0 && <p className="card text-sm text-slate-400">{t("cont.none")}</p>}
         {rows.map(({ agent, c }) => (
           <div key={`${agent.id}-${c.id}`} className="card space-y-2">
             <div className="flex items-start justify-between gap-2">
@@ -76,7 +80,7 @@ export default async function Containers({ searchParams }: { searchParams: SP })
             </div>
             <div className="break-all text-xs text-slate-400">{c.image}</div>
             <div className="text-xs text-slate-500">{agent.agent_id} · {c.id.slice(0, 12)}</div>
-            <div className="text-xs text-slate-500">Started: {fmt(c.startedAt)}</div>
+            <div className="text-xs text-slate-500">{t("cont.started")}: {fmt(c.startedAt)}</div>
             <ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} />
           </div>
         ))}

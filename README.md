@@ -10,6 +10,8 @@ Funktionsumfang bewusst begrenzt: Container **anzeigen, starten, stoppen, neusta
 Browser ── HTTP :8080 ── Master ── HTTP :9126 (Bearer-Token) ── Agent ── Unix-Socket ── Podman (rootless)
 ```
 
+Die Oberfläche ist in Englisch, Deutsch, Rumänisch und Spanisch verfügbar (Flaggen-Auswahl oben rechts; Standard aus `Accept-Language`, danach per Cookie gemerkt). Die automatische Browser-Übersetzung ist per `translate="no"` und `<meta name="google" content="notranslate">` unterbunden.
+
 Kein Docker, kein Compose, kein HTTPS/TLS, kein Root. **Nur in einem abgeschotteten Netz betreiben** (siehe [Sicherheit](docs/security.md)).
 
 ## Schnellstart

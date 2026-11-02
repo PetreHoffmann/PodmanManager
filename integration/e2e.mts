@@ -77,7 +77,7 @@ try {
     await page.waitForURL("**/setup");
     await page.fill('input[name="password"]', PW);
     await page.fill('input[name="confirm"]', PW);
-    await page.click("form button");
+    await page.click("button.btn-primary");
     await page.waitForURL(MASTER + "/");
   });
 
@@ -120,11 +120,11 @@ try {
     await page.waitForSelector("text=Stop “host-a-web”?");
     assert.equal(h1.state.get(id("a")), "running", "must not stop before confirmation");
     await page.click("button:has-text('Confirm')");
-    await page.waitForSelector("text=stop succeeded");
+    await page.waitForSelector("text=Stop succeeded");
     assert.equal(h1.state.get(id("a")), "exited");
     await page.waitForSelector("tbody tr:has-text('host-a-web') >> text=exited");
     await page.click("button:has-text('Start')");
-    await page.waitForSelector("text=start succeeded");
+    await page.waitForSelector("text=Start succeeded");
     assert.equal(h1.state.get(id("a")), "running");
   });
 

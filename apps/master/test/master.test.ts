@@ -81,7 +81,7 @@ describe("master with real agent over HTTP", () => {
   it("rejects wrong token and unreachable address on register", async () => {
     const bad = await registerAgent(`http://127.0.0.1:${port}`, "wrong-token-0123456789", db);
     assert.equal(bad.ok, false);
-    assert.match((bad as { error: string }).error, /Authentication failed/);
+    assert.equal((bad as { error: string }).error, "err.authFailed");
     const none = await registerAgent("http://127.0.0.1:1", TOKEN, db);
     assert.equal(none.ok, false);
     assert.equal(listAgents(db).length, 0);

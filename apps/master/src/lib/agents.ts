@@ -42,21 +42,25 @@ export function targetFor(id: number, db: DatabaseSync = getDb()): AgentTarget |
   return { address: r.address, port: r.port, token: decryptSecret(r.token_enc) };
 }
 
-export type Result<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
+export type Result<T = undefined> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; params?: Record<string, string> };
 
 export async function registerAgent(urlInput: string, token: string, db: DatabaseSync = getDb()): Promise<Result<number>> {
   const addr = parseAgentUrl(urlInput);
-  if (!addr) return { ok: false, error: "Invalid address. Expected http://host:port" };
-  if (!validToken(token)) return { ok: false, error: "Invalid token format" };
+  if (!addr) return { ok: false, error: "err.invalidAddress" };
+  if (!validToken(token)) return { ok: false, error: "err.invalidToken" };
   const dup = db.prepare("SELECT id FROM agents WHERE address = ? AND port = ?").get(addr.address, addr.port);
-  if (dup) return { ok: false, error: "Agent already registered" };
+  if (dup) return { ok: false, error: "err.alreadyRegistered" };
 
   const h = await agentHealth({ ...addr, token });
   if (!h.ok) {
-    return { ok: false, error: h.code === "UNAUTHORIZED" ? "Authentication failed: token rejected by agent" : `Connection test failed: ${h.message}` };
+    return h.code === "UNAUTHORIZED"
+      ? { ok: false, error: "err.authFailed" }
+      : { ok: false, error: "err.connFailed", params: { code: h.code, msg: h.message } };
   }
   const dupId = db.prepare("SELECT id FROM agents WHERE agent_id = ?").get(h.data.agentId);
-  if (dupId) return { ok: false, error: `Agent ID "${h.data.agentId}" already registered` };
+  if (dupId) return { ok: false, error: "err.agentIdTaken", params: { id: h.data.agentId } };
 
   const now = new Date().toISOString();
   const r = db
@@ -112,13 +116,13 @@ export async function fetchAllContainers(db: DatabaseSync = getDb()): Promise<Ho
   const agents = listAgents(db);
   return Promise.all(
     agents.map(async (agent): Promise<HostContainers> => {
-      if (!agent.enabled) return { agent, result: { ok: false, code: "SKIPPED", message: "Agent disabled", unreachable: true } };
+      if (!agent.enabled) return { agent, result: { ok: false, code: "SKIPPED", message: "", unreachable: true } };
       try {
         const t = targetFor(agent.id, db);
-        if (!t) return { agent, result: { ok: false, code: "SKIPPED", message: "Agent missing", unreachable: true } };
+        if (!t) return { agent, result: { ok: false, code: "SKIPPED", message: "", unreachable: true } };
         return { agent, result: await agentList(t) };
       } catch {
-        return { agent, result: { ok: false, code: "SKIPPED", message: "Cannot read agent credentials", unreachable: true } };
+        return { agent, result: { ok: false, code: "SKIPPED", message: "", unreachable: true } };
       }
     }),
   );
