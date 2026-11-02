@@ -50,3 +50,9 @@ npm run build -w apps/master && node --import tsx integration/e2e.mts   # E2E (b
 ```
 
 Die Integrationstests gegen einen echten Podman-Socket (`apps/agent/test/integration.test.ts`) laufen nur, wenn ein rootless Socket vorhanden ist, und werden sonst übersprungen. Der E2E-Test verwendet nachgebaute Podman-Sockets.
+
+## Lizenz
+
+Apache License 2.0 – siehe [LICENSE](LICENSE) und [NOTICE](NOTICE). Kostenlose Nutzung, auch kommerziell. Bei Weitergabe müssen der Urheberhinweis und die `NOTICE`-Datei erhalten bleiben, und geänderte Dateien müssen einen auffälligen Hinweis auf die Änderung tragen.
+
+Copyright 2026 Petre Hoffmann

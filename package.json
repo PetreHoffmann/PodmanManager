@@ -1,6 +1,13 @@
 {
   "name": "podmanmanager",
   "private": true,
-  "workspaces": ["apps/agent", "apps/master"],
-  "engines": { "node": ">=22" }
+  "license": "Apache-2.0",
+  "author": "Petre Hoffmann",
+  "workspaces": [
+    "apps/agent",
+    "apps/master"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
 }

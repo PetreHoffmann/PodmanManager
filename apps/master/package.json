@@ -2,7 +2,11 @@
   "name": "@podmanmanager/master",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": ">=22.13" },
+  "license": "Apache-2.0",
+  "author": "Petre Hoffmann",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 8080",
     "build": "next build",
