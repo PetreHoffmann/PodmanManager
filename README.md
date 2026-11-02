@@ -14,6 +14,28 @@ Die Oberfläche ist in Englisch, Deutsch, Rumänisch und Spanisch verfügbar (Fl
 
 Kein Docker, kein Compose, kein HTTPS/TLS, kein Root. **Nur in einem abgeschotteten Netz betreiben** (siehe [Sicherheit](docs/security.md)).
 
+## Screenshots
+
+**Desktop**
+
+| Dashboard | Hosts |
+|---|---|
+| ![Dashboard](docs/screenshots/desktop-dashboard.png) | ![Hosts](docs/screenshots/desktop-hosts.png) |
+| **Container** | **Stop mit Bestätigung** |
+| ![Containers](docs/screenshots/desktop-containers.png) | ![Stop-Bestätigung](docs/screenshots/desktop-stop-confirmation.png) |
+| **Container-Details** | **Host nicht erreichbar** (wird separat ausgewiesen) |
+| ![Details](docs/screenshots/desktop-container-detail.png) | ![Dashboard mit Offline-Host](docs/screenshots/desktop-dashboard-host-offline.png) |
+
+**Smartphone** (Kartenansicht statt Tabellen)
+
+<p>
+  <img src="docs/screenshots/mobile-dashboard.png" alt="Dashboard mobil" width="260">
+  <img src="docs/screenshots/mobile-hosts.png" alt="Hosts mobil" width="260">
+  <img src="docs/screenshots/mobile-containers.png" alt="Container mobil" width="260">
+</p>
+
+Die Screenshots zeigen Testdaten (nachgebaute Podman-Sockets). Die Oberfläche gibt es in Englisch, Deutsch, Rumänisch und Spanisch (Flaggen oben rechts).
+
 ## Schnellstart
 
 Voraussetzungen: Linux, Node.js ≥ 22.13, auf Agent-Hosts rootless Podman + systemd.
