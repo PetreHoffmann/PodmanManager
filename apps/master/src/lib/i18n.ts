@@ -120,6 +120,19 @@ const en = {
   "set.accessAll": "Access: all agents",
   "set.accessGroups": "Access: agents of the groups {groups}",
   "scope.note": "You only see the agents of your groups: {groups}.",
+  "nav.help": "Help",
+  "nav.about": "About",
+  "about.version": "Version",
+  "about.close": "Close",
+  "about.createdBy": "Created by {author}",
+  "about.copyright": "© {year} {author}. Licensed under the Apache License 2.0.",
+  "about.checking": "Checking for updates…",
+  "about.upToDate": "You are running the latest version ({latest}).",
+  "about.updateAvailable": "Update available: version {latest}",
+  "about.updateHint": "Pull the new image and restart the container.",
+  "about.unavailable": "Update check unavailable (Docker Hub not reachable).",
+  "about.disabled": "Update check is disabled.",
+  "about.devBuild": "Development build. Latest release: {latest}",
 } as const;
 
 export type Key = keyof typeof en;
@@ -241,6 +254,19 @@ const de: Dict = {
   "set.accessAll": "Zugriff: alle Agents",
   "set.accessGroups": "Zugriff: Agents der Gruppen {groups}",
   "scope.note": "Sie sehen nur die Agents Ihrer Gruppen: {groups}.",
+  "nav.help": "Hilfe",
+  "nav.about": "Über",
+  "about.version": "Version",
+  "about.close": "Schließen",
+  "about.createdBy": "Erstellt von {author}",
+  "about.copyright": "© {year} {author}. Lizenziert unter der Apache License 2.0.",
+  "about.checking": "Suche nach Updates …",
+  "about.upToDate": "Sie verwenden die neueste Version ({latest}).",
+  "about.updateAvailable": "Update verfügbar: Version {latest}",
+  "about.updateHint": "Neues Image laden und den Container neu starten.",
+  "about.unavailable": "Update-Prüfung nicht möglich (Docker Hub nicht erreichbar).",
+  "about.disabled": "Die Update-Prüfung ist deaktiviert.",
+  "about.devBuild": "Entwicklungsversion. Neueste Version: {latest}",
 };
 
 const ro: Dict = {
@@ -359,6 +385,19 @@ const ro: Dict = {
   "set.accessAll": "Acces: toți agenții",
   "set.accessGroups": "Acces: agenții grupurilor {groups}",
   "scope.note": "Vedeți doar agenții grupurilor dvs.: {groups}.",
+  "nav.help": "Ajutor",
+  "nav.about": "Despre",
+  "about.version": "Versiune",
+  "about.close": "Închide",
+  "about.createdBy": "Creat de {author}",
+  "about.copyright": "© {year} {author}. Licențiat sub Apache License 2.0.",
+  "about.checking": "Se caută actualizări…",
+  "about.upToDate": "Folosiți cea mai recentă versiune ({latest}).",
+  "about.updateAvailable": "Actualizare disponibilă: versiunea {latest}",
+  "about.updateHint": "Descărcați noua imagine și reporniți containerul.",
+  "about.unavailable": "Verificarea actualizărilor nu este posibilă (Docker Hub inaccesibil).",
+  "about.disabled": "Verificarea actualizărilor este dezactivată.",
+  "about.devBuild": "Versiune de dezvoltare. Ultima versiune: {latest}",
 };
 
 const es: Dict = {
@@ -477,6 +516,19 @@ const es: Dict = {
   "set.accessAll": "Acceso: todos los agentes",
   "set.accessGroups": "Acceso: agentes de los grupos {groups}",
   "scope.note": "Solo ves los agentes de tus grupos: {groups}.",
+  "nav.help": "Ayuda",
+  "nav.about": "Acerca de",
+  "about.version": "Versión",
+  "about.close": "Cerrar",
+  "about.createdBy": "Creado por {author}",
+  "about.copyright": "© {year} {author}. Licenciado bajo la Apache License 2.0.",
+  "about.checking": "Buscando actualizaciones…",
+  "about.upToDate": "Estás usando la última versión ({latest}).",
+  "about.updateAvailable": "Actualización disponible: versión {latest}",
+  "about.updateHint": "Descarga la nueva imagen y reinicia el contenedor.",
+  "about.unavailable": "No se puede comprobar si hay actualizaciones (Docker Hub no accesible).",
+  "about.disabled": "La comprobación de actualizaciones está desactivada.",
+  "about.devBuild": "Versión de desarrollo. Última versión: {latest}",
 };
 
 export const dicts: Record<Lang, Dict> = { en, de, ro, es };

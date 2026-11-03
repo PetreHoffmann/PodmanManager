@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Key } from "@/lib/i18n";
 import { useT } from "./I18nProvider";
+import AboutDialog from "./AboutDialog";
 import LangSelect from "./LangSelect";
+import { REPO_URL } from "@/lib/brand";
 
 const ITEMS: { href: string; key: Key }[] = [
   { href: "/", key: "nav.dashboard" },
@@ -13,7 +15,7 @@ const ITEMS: { href: string; key: Key }[] = [
   { href: "/settings", key: "nav.settings" },
 ];
 
-export default function Nav() {
+export default function Nav({ version }: { version: string }) {
   const path = usePathname();
   const t = useT();
   return (
@@ -28,7 +30,13 @@ export default function Nav() {
             </Link>
           );
         })}
-        <LangSelect className="ml-auto" />
+        <div className="ml-auto flex items-center gap-1">
+          <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="rounded-md px-3 py-1.5 text-sm text-slate-400 transition hover:text-white">
+            {t("nav.help")}
+          </a>
+          <AboutDialog version={version} />
+          <LangSelect className="ml-2" />
+        </div>
       </div>
     </nav>
   );

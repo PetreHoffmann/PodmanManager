@@ -12,9 +12,10 @@ ENV NEXT_OUTPUT=standalone NEXT_TELEMETRY_DISABLED=1
 RUN MASTER_SECRET_KEY=build-only npm run build -w apps/master
 
 FROM node:24-slim
+ARG APP_VERSION=
 LABEL org.opencontainers.image.licenses="Apache-2.0" org.opencontainers.image.authors="Petre Hoffmann" org.opencontainers.image.source="https://github.com/PetreHoffmann/PodmanManager"
 COPY LICENSE NOTICE /licenses/
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=8080 DATABASE_URL=file:/data/master.db
+ENV APP_VERSION=$APP_VERSION NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=8080 DATABASE_URL=file:/data/master.db
 WORKDIR /app
 COPY --from=build /app/apps/master/.next/standalone ./
 COPY --from=build /app/apps/master/.next/static ./apps/master/.next/static

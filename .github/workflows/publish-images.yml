@@ -49,6 +49,8 @@ jobs:
           context: .
           file: deployment/Dockerfile.${{ matrix.app }}
           push: true
+          build-args: |
+            APP_VERSION=${{ startsWith(github.ref, 'refs/tags/v') && substring(github.ref_name, 1) || '' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.app }}
