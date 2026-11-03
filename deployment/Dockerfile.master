@@ -1,5 +1,6 @@
 # Build from repo root: docker build -f deployment/Dockerfile.master -t podmanmanager-master .
 FROM node:24-slim AS build
+RUN npm install -g npm@latest
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/master/package.json apps/master/

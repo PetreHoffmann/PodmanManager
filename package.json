@@ -8,6 +8,16 @@
     "apps/master"
   ],
   "engines": {
-    "node": ">=24"
+    "node": ">=24",
+    "npm": ">=11"
+  },
+  "devDependencies": {
+    "postcss": "^8.5.32"
+  },
+  "overrides": {
+    "postcss": "$postcss"
+  },
+  "allowScripts": {
+    "esbuild": false
   }
 }
