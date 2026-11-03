@@ -8,6 +8,8 @@ import { checkAgent, getAgent, registerAgent, removeAgent, setEnabled, targetFor
 import { LANG_COOKIE, errText, isLang, lastErrText, statusLabel, type Key } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
 import { loadLdapConfig, parseLdapInput, saveLdapConfig } from "@/lib/ldap-config";
+import { checkForUpdate, type UpdateInfo } from "@/lib/update-check";
+import { getVersion } from "@/lib/version";
 import { LdapError, authenticateLdap, testLdap, type MappedGroup } from "@/lib/ldap";
 import { allowedAgentIds, deleteGroup, listGroups, mayAccessAgent, saveGroup } from "@/lib/groups";
 import {
@@ -224,4 +226,9 @@ export async function groupAction(_: FormState, fd: FormData): Promise<FormState
   revalidatePath("/settings");
   revalidatePath("/hosts");
   return { ok: true, message: t("msg.groupSaved") };
+}
+
+export async function checkUpdateAction(): Promise<UpdateInfo> {
+  await requireAuth();
+  return checkForUpdate(getVersion());
 }

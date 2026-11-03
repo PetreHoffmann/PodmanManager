@@ -22,6 +22,9 @@ Vorlage: `deployment/master/master.env.example`.
 | `HEARTBEAT_INTERVAL` | `30` | Sekunden (5–3600) |
 | `AGENT_TIMEOUT` | `5` | Sekunden (1–60) |
 | `HEARTBEAT_FAILURES` | `3` | Fehlschläge bis `offline` |
+| `UPDATE_CHECK` | `on` | `off` schaltet die Update-Prüfung im *About*-Dialog ab (siehe unten) |
+| `UPDATE_CHECK_REPO` | `petrecalinoiu/podmanmanager-master` | Docker-Hub-Repository, in dem nach neueren Versionen gesucht wird (nur für eigene Forks nötig) |
+| `APP_VERSION` | aus dem Image | wird beim Image-Build aus dem Git-Tag gesetzt; ohne Angabe gilt die Version aus `package.json` |
 
 **`MASTER_SECRET_KEY` sichern.** Geht er verloren, sind die gespeicherten Agent-Tokens unlesbar und Agents müssen neu registriert werden. Er darf nicht ins Git.
 
@@ -40,6 +43,11 @@ Der Dienst benötigt keinen Podman-Zugriff. Die Datenbank (`/var/lib/podmanmanag
 
 ## Manueller Start
 `deployment/master/start.sh [env-datei]` (oder Variablen setzen). Ändere den Port über `MASTER_PORT`.
+
+## Hilfe und About
+In der Navigationsleiste öffnet **Help** das Git-Repository in einem neuen Tab. **About** zeigt einen Dialog mit Name, Version, Ersteller, Copyright (Apache-2.0) und ob auf Docker Hub eine neuere Version verfügbar ist.
+
+Die Update-Prüfung fragt beim Öffnen des Dialogs (nur angemeldet) über die Docker-Hub-API (`hub.docker.com`) die Tags des Repositories ab und vergleicht die höchste Version `x.y.z` mit der laufenden; das Ergebnis wird 6 Stunden zwischengespeichert (Fehler 5 Minuten). Der **Master muss dafür ausgehend `hub.docker.com:443` erreichen** – in abgeschotteten Netzen zeigt der Dialog „Update check unavailable“; mit `UPDATE_CHECK=off` findet gar keine Anfrage statt. Es werden keine Daten über die Installation übertragen.
 
 ## Erster Start
 `http://<master>:8080` öffnen → Passwort für das lokale Konto **`admin`** anlegen (mind. 10 Zeichen). Anmeldung danach mit Benutzername `admin`. **Direkt nach dem Start setzen:** solange kein Passwort existiert, kann es jeder mit Netzwerkzugriff anlegen. Danach unter **Hosts** die Agents hinzufügen (Adresse `http://<ip>:9126` + Token des Agents).
