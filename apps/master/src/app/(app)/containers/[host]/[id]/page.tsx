@@ -6,18 +6,20 @@ import { agentInspect } from "@/lib/agent-client";
 import { getAgent, targetFor } from "@/lib/agents";
 import { errText } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
+import { allowedAgentIds, mayAccessAgent } from "@/lib/groups";
 import { requireAuth } from "@/lib/session";
 import { CONTAINER_ID_RE } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 
 export default async function Detail({ params }: { params: Promise<{ host: string; id: string }> }) {
-  await requireAuth();
+  const session = await requireAuth();
   const t = await getT();
   const { host, id } = await params;
   const agent = /^\d+$/.test(host) ? getAgent(Number(host)) : null;
+  const visible = agent !== null && mayAccessAgent(allowedAgentIds(session), agent.id);
   const back = <Link href="/containers" className="text-sm text-sky-400 hover:underline">{t("detail.back")}</Link>;
-  if (!agent || !CONTAINER_ID_RE.test(id)) return <div className="space-y-3">{back}<p className="card">{t("detail.notFound")}</p></div>;
+  if (!agent || !visible || !CONTAINER_ID_RE.test(id)) return <div className="space-y-3">{back}<p className="card">{t("detail.notFound")}</p></div>;
   if (!agent.enabled) return <div className="space-y-3">{back}<p className="card text-amber-300">{t("detail.disabled", { host: agent.hostname })}</p></div>;
   const target = targetFor(agent.id);
   const r = target ? await agentInspect(target, id) : null;

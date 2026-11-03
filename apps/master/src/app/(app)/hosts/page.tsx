@@ -6,17 +6,20 @@ import { addAgentAction } from "@/app/actions";
 import { fetchAllContainers } from "@/lib/agents";
 import { lastErrText } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
+import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { requireAuth } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function Hosts() {
-  await requireAuth();
+  const session = await requireAuth();
   const t = await getT();
-  const hosts = await fetchAllContainers();
+  const canManage = session.access === "all";
+  const hosts = await fetchAllContainers(undefined, allowedAgentIds(session));
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">{t("hosts.title")}</h1>
+      {!canManage && <p className="text-xs text-slate-400">{t("scope.note", { groups: groupNames(session).join(", ") || "—" })}</p>}
       <div className="card hidden overflow-x-auto p-0 md:block">
         <table className="w-full min-w-[900px]">
           <thead className="border-b border-slate-800">
@@ -24,12 +27,12 @@ export default async function Hosts() {
               {(["hosts.hostname", "hosts.agentId", "hosts.address", "hosts.status", "hosts.heartbeat", "hosts.podman", "hosts.containers"] as const).map((k) => (
                 <th key={k} className="th">{t(k)}</th>
               ))}
-              <th className="th" />
+              {canManage && <th className="th" />}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
             {hosts.length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={8}>{t("hosts.none")}</td></tr>
+              <tr><td className="td text-slate-400" colSpan={canManage ? 8 : 7}>{t("hosts.none")}</td></tr>
             )}
             {hosts.map(({ agent: a, result }) => (
               <tr key={a.id} className="transition hover:bg-slate-900">
@@ -45,7 +48,7 @@ export default async function Hosts() {
                 <td className="td text-xs">{fmt(a.last_heartbeat)}</td>
                 <td className="td text-xs">{a.podman_version ?? "—"}</td>
                 <td className="td">{result.ok ? result.data.length : t("common.na")}</td>
-                <td className="td"><HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} /></td>
+                {canManage && <td className="td"><HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} /></td>}
               </tr>
             ))}
           </tbody>
@@ -63,11 +66,12 @@ export default async function Hosts() {
             <div className="font-mono text-xs text-slate-400">{a.hostname} · {a.address}:{a.port}</div>
             <div className="text-xs text-slate-500">{t("hosts.cardMeta", { hb: fmt(a.last_heartbeat), pv: a.podman_version ?? "—", n: result.ok ? result.data.length : t("common.na") })}</div>
             {a.enabled && a.last_error && a.status !== "online" && <div className="break-all text-xs text-slate-500">{lastErrText(t, a.last_error)}</div>}
-            <HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} />
+            {canManage && <HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} />}
           </div>
         ))}
       </div>
 
+      {canManage && (
       <section className="card max-w-xl">
         <h2 className="mb-3 font-medium">{t("hosts.add")}</h2>
         <ActionForm action={addAgentAction} className="space-y-3">
@@ -80,6 +84,7 @@ export default async function Hosts() {
           <button className="btn btn-primary" type="submit">{t("hosts.register")}</button>
         </ActionForm>
       </section>
+      )}
     </div>
   );
 }

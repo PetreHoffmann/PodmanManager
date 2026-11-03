@@ -5,6 +5,7 @@ import { fmt } from "@/components/ui";
 import { fetchAllContainers } from "@/lib/agents";
 import { errText } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
+import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { requireAuth } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -12,10 +13,10 @@ export const dynamic = "force-dynamic";
 type SP = Promise<{ host?: string; status?: string; q?: string }>;
 
 export default async function Containers({ searchParams }: { searchParams: SP }) {
-  await requireAuth();
+  const session = await requireAuth();
   const t = await getT();
   const { host = "", status = "", q = "" } = await searchParams;
-  const hosts = await fetchAllContainers();
+  const hosts = await fetchAllContainers(undefined, allowedAgentIds(session));
 
   const rows = hosts
     .flatMap((h) => (h.result.ok ? h.result.data.map((c) => ({ agent: h.agent, c })) : []))
@@ -28,6 +29,7 @@ export default async function Containers({ searchParams }: { searchParams: SP })
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">{t("cont.title")}</h1>
+      {session.access === "groups" && <p className="text-xs text-slate-400">{t("scope.note", { groups: groupNames(session).join(", ") || "—" })}</p>}
       <form className="flex flex-wrap gap-2" method="get">
         <select name="host" defaultValue={host} className="input w-auto">
           <option value="">{t("cont.allHosts")}</option>

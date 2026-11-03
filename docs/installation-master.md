@@ -45,9 +45,14 @@ Der Dienst benötigt keinen Podman-Zugriff. Die Datenbank (`/var/lib/podmanmanag
 `http://<master>:8080` öffnen → Passwort für das lokale Konto **`admin`** anlegen (mind. 10 Zeichen). Anmeldung danach mit Benutzername `admin`. **Direkt nach dem Start setzen:** solange kein Passwort existiert, kann es jeder mit Netzwerkzugriff anlegen. Danach unter **Hosts** die Agents hinzufügen (Adresse `http://<ip>:9126` + Token des Agents).
 
 ## LDAP / Active Directory (optional)
-Unter **Settings → LDAP / Active Directory login** (nur als lokaler `admin` sichtbar) können Mitglieder einer AD-Gruppe zur Anmeldung berechtigt werden. Berechtigte Benutzer haben dieselben Rechte wie `admin`, **außer** Passwort- und LDAP-Einstellungen zu ändern. Das lokale Konto `admin` bleibt als Notzugang immer aktiv (ein AD-Benutzer namens `admin` kann sich deshalb nicht per LDAP anmelden).
+Unter **Settings → LDAP / Active Directory login** (nur als lokaler `admin` sichtbar) können AD-Benutzer zur Anmeldung berechtigt werden. Es gibt zwei Arten von Zugriff:
 
-| Feld | Beispiel |
+- **Administratoren-Gruppe** (optional, ein AD-Gruppen-DN): Mitglieder sehen und verwalten **alle** Agents und dürfen Hosts hinzufügen/entfernen/aktivieren/testen – aber **keine** Passwort-, LDAP- oder Gruppen-Einstellungen ändern.
+- **Agent-Gruppen** (siehe unten): Mitglieder einer zugeordneten AD-Gruppe sehen und bedienen **nur** die Agents ihrer Gruppen.
+
+Das lokale Konto `admin` bleibt als Notzugang immer aktiv (ein AD-Benutzer namens `admin` kann sich deshalb nicht per LDAP anmelden).
+
+| Feld | Beispiel | | Beispiel |
 |---|---|
 | Server URL | `ldaps://dc.example.com:636` (empfohlen) oder `ldap://dc.example.com` + *StartTLS* |
 | CA-Zertifikat (PEM) | Nur nötig, wenn das Zertifikat des Domain Controllers nicht von einer öffentlich/systemweit vertrauten CA stammt (interne CA). Mehrere Zertifikate hintereinander sind erlaubt. |
@@ -55,18 +60,32 @@ Unter **Settings → LDAP / Active Directory login** (nur als lokaler `admin` si
 | Passwort Dienstkonto | wird mit `MASTER_SECRET_KEY` verschlüsselt gespeichert; leer lassen = bisheriges behalten |
 | Suchbasis | `DC=example,DC=com` (oder eine OU) |
 | Benutzerfilter | Standard: `(&(objectClass=user)(objectCategory=person)(\|(sAMAccountName={username})(userPrincipalName={username})))` – Anmeldung mit `jdoe` oder `jdoe@example.com`; `{username}` wird ersetzt |
-| Erforderliche Gruppe (DN) | `CN=PodmanManager,OU=Groups,DC=example,DC=com` |
+| Administratoren-Gruppe (DN, optional) | `CN=PodmanManager-Admins,OU=Groups,DC=example,DC=com` – leer lassen, wenn es keinen LDAP-Vollzugriff geben soll |
 
-Ablauf der Anmeldung: Dienstkonto bindet → Benutzer per Filter suchen (genau 1 Treffer) → Gruppenmitgliedschaft prüfen (**inkl. verschachtelter Gruppen**, AD-Regel `1.2.840.113556.1.4.1941`) → Passwort per Bind als Benutzer prüfen. Leere Passwörter werden abgewiesen.
+Ablauf der Anmeldung: Dienstkonto bindet → Benutzer per Filter suchen (genau 1 Treffer) → Gruppenmitgliedschaft prüfen (**inkl. verschachtelter Gruppen**, AD-Regel `1.2.840.113556.1.4.1941`): erst die Administratoren-Gruppe, sonst alle zugeordneten Agent-Gruppen → ohne Treffer wird die Anmeldung abgelehnt (ohne das Passwort zu prüfen) → Passwort per Bind als Benutzer prüfen. Leere Passwörter werden abgewiesen.
 
-**Vor dem Aktivieren** mit *Test connection* prüfen (optional mit Testbenutzer): Dienstkonto-Bind, Gruppe vorhanden, Benutzer gefunden und Mitglied. Der Test prüft kein Benutzerpasswort. Speichern ändert nichts an bestehenden Sitzungen.
+**Vor dem Aktivieren** mit *Test connection* prüfen (optional mit Testbenutzer): Dienstkonto-Bind, Administratoren-Gruppe und alle zugeordneten Gruppen vorhanden, Benutzer gefunden und **welchen Zugriff er hätte** („alle Agents“ oder die Namen seiner Agent-Gruppen). Der Test prüft kein Benutzerpasswort. Speichern ändert nichts an bestehenden Sitzungen.
 
 Hinweise:
 - Die **primäre Gruppe** (meist „Domain Users") steht nicht in `memberOf`; als Gruppe daher eine normale Sicherheitsgruppe wählen.
-- Gruppenänderungen wirken bei der **nächsten Anmeldung**; bereits angemeldete Benutzer behalten ihre Sitzung bis zu 8 Stunden.
+- Änderungen der **AD-Mitgliedschaft** wirken bei der **nächsten Anmeldung**; bereits angemeldete Benutzer behalten ihre Sitzung bis zu 8 Stunden. Änderungen an der **Zuordnung Agent ↔ Gruppe** (und das Löschen einer Gruppe) gelten dagegen **sofort**, auch für laufende Sitzungen.
 - Deaktivierte oder gesperrte AD-Konten werden vom Verzeichnis abgewiesen.
 - Ohne `ldaps://`/StartTLS gehen Passwörter unverschlüsselt über das Netz (die Oberfläche warnt).
 - Ist das Verzeichnis nicht erreichbar, erscheint „Directory login is currently unavailable"; die lokale Anmeldung bleibt möglich.
+
+### Agent-Gruppen
+Unter **Settings → Agent groups** (nur lokaler `admin`):
+
+1. Gruppe anlegen: Name (z. B. „Team A“) und **AD-Gruppen-DN** (z. B. `CN=Team-A,OU=Groups,DC=example,DC=com`).
+2. Die Agents ankreuzen, die diese Gruppe verwalten darf. Ein Agent darf in **mehreren** Gruppen sein; ein Benutzer in mehreren Gruppen erhält die **Vereinigung** ihrer Agents.
+3. Mit *Test connection* und einem Testbenutzer prüfen, welchen Zugriff er bekäme.
+
+Was Gruppenmitglieder (ohne Administratoren-Gruppe) sehen und dürfen:
+- Dashboard, Hosts und Container **nur für ihre Agents** (Zahlen und Listen enthalten keine anderen Hosts).
+- Container der eigenen Agents ansehen, starten, stoppen, neustarten. Container anderer Agents sind weder per Liste noch per direkter URL erreichbar.
+- **Keine** Host-Verwaltung (hinzufügen, entfernen, aktivieren/deaktivieren, testen) und keine Einstellungen.
+
+Ein Benutzer, der weder in der Administratoren-Gruppe noch in einer zugeordneten Gruppe ist, kann sich nicht anmelden. Eine Gruppe ohne Agents gewährt Anmeldung, aber keine Hosts.
 
 ## Firewall
 Port 8080 nur für berechtigte Netze freigeben, nie ins Internet (siehe [Sicherheit](security.md)).

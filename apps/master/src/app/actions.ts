@@ -8,9 +8,10 @@ import { checkAgent, getAgent, registerAgent, removeAgent, setEnabled, targetFor
 import { LANG_COOKIE, errText, isLang, lastErrText, statusLabel, type Key } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
 import { loadLdapConfig, parseLdapInput, saveLdapConfig } from "@/lib/ldap-config";
-import { LdapError, authenticateLdap, testLdap } from "@/lib/ldap";
+import { LdapError, authenticateLdap, testLdap, type MappedGroup } from "@/lib/ldap";
+import { allowedAgentIds, deleteGroup, listGroups, mayAccessAgent, saveGroup } from "@/lib/groups";
 import {
-  LOCAL_ADMIN, adminExists, checkAdminPassword, endSession, loginBlocked, recordLoginFailure,
+  LOCAL_ADMIN, LOCAL_SESSION, adminExists, checkAdminPassword, endSession, loginBlocked, recordLoginFailure,
   requireAuth, setAdminPassword, startSession,
 } from "@/lib/session";
 import { isAction, CONTAINER_ID_RE } from "@/lib/validate";
@@ -19,6 +20,8 @@ export type FormState = { ok: boolean; message: string } | null;
 
 const s = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? (fd.get(k) as string) : "");
 const MIN_PW = 10;
+
+const mappedGroups = (): MappedGroup[] => listGroups().map((g) => ({ id: g.id, name: g.name, dn: g.ad_group_dn }));
 
 export async function setLangAction(fd: FormData): Promise<void> {
   const l = s(fd, "lang");
@@ -33,7 +36,7 @@ export async function setupAction(_: FormState, fd: FormData): Promise<FormState
   if (pw.length < MIN_PW) return { ok: false, message: t("msg.pwShort", { n: MIN_PW }) };
   if (pw !== s(fd, "confirm")) return { ok: false, message: t("msg.pwMismatch") };
   await setAdminPassword(pw);
-  await startSession({ username: LOCAL_ADMIN, kind: "local" });
+  await startSession(LOCAL_SESSION);
   redirect("/");
 }
 
@@ -46,15 +49,15 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
 
   if (username.toLowerCase() === LOCAL_ADMIN) {
     if (await checkAdminPassword(password)) {
-      await startSession({ username: LOCAL_ADMIN, kind: "local" });
+      await startSession(LOCAL_SESSION);
       redirect("/");
     }
   } else {
     const cfg = loadLdapConfig();
     if (cfg?.enabled) {
-      const r = await authenticateLdap(cfg, username, password);
+      const r = await authenticateLdap(cfg, username, password, mappedGroups());
       if (r.ok) {
-        await startSession({ username: r.username, kind: "ldap" });
+        await startSession({ username: r.username, kind: "ldap", access: r.admin ? "all" : "groups", groupIds: r.groupIds });
         redirect("/");
       }
       if (r.reason === "unavailable") return { ok: false, message: `${t("msg.ldapUnavailable")} (${errText(t, r.code)})` };
@@ -79,13 +82,14 @@ export async function changePasswordAction(_: FormState, fd: FormData): Promise<
   if (pw.length < MIN_PW) return { ok: false, message: t("msg.pwShort", { n: MIN_PW }) };
   if (pw !== s(fd, "confirm")) return { ok: false, message: t("msg.pwMismatch") };
   await setAdminPassword(pw);
-  await startSession({ username: LOCAL_ADMIN, kind: "local" });
+  await startSession(LOCAL_SESSION);
   return { ok: true, message: t("msg.pwChanged") };
 }
 
 export async function addAgentAction(_: FormState, fd: FormData): Promise<FormState> {
-  await requireAuth();
+  const session = await requireAuth();
   const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const r = await registerAgent(s(fd, "url"), s(fd, "token").trim());
   if (!r.ok) {
     const p = r.params ?? {};
@@ -102,8 +106,9 @@ function idOf(fd: FormData): number | null {
 }
 
 export async function removeAgentAction(_: FormState, fd: FormData): Promise<FormState> {
-  await requireAuth();
+  const session = await requireAuth();
   const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const id = idOf(fd);
   if (!id) return { ok: false, message: t("msg.invalidAgent") };
   removeAgent(id);
@@ -112,8 +117,9 @@ export async function removeAgentAction(_: FormState, fd: FormData): Promise<For
 }
 
 export async function toggleAgentAction(_: FormState, fd: FormData): Promise<FormState> {
-  await requireAuth();
+  const session = await requireAuth();
   const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const id = idOf(fd);
   if (!id || !getAgent(id)) return { ok: false, message: t("msg.invalidAgent") };
   setEnabled(id, s(fd, "enable") === "1");
@@ -122,8 +128,9 @@ export async function toggleAgentAction(_: FormState, fd: FormData): Promise<For
 }
 
 export async function testAgentAction(_: FormState, fd: FormData): Promise<FormState> {
-  await requireAuth();
+  const session = await requireAuth();
   const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const id = idOf(fd);
   const a = id ? getAgent(id) : null;
   if (!id || !a) return { ok: false, message: t("msg.invalidAgent") };
@@ -140,12 +147,12 @@ export async function testAgentAction(_: FormState, fd: FormData): Promise<FormS
 }
 
 export async function containerOpAction(agentId: number, containerId: string, action: string): Promise<{ ok: boolean; message: string }> {
-  await requireAuth();
+  const session = await requireAuth();
   const t = await getT();
   if (!isAction(action)) return { ok: false, message: t("msg.opNotAllowed") };
   if (!CONTAINER_ID_RE.test(containerId)) return { ok: false, message: t("msg.invalidId") };
   const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
-  if (!a) return { ok: false, message: t("msg.unknownHost") };
+  if (!a || !mayAccessAgent(allowedAgentIds(session), a.id)) return { ok: false, message: t("msg.unknownHost") };
   if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
   const tg = targetFor(agentId);
   if (!tg) return { ok: false, message: t("msg.noCreds") };
@@ -179,9 +186,9 @@ export async function ldapAction(_: FormState, fd: FormData): Promise<FormState>
 
   if (s(fd, "intent") === "test") {
     try {
-      const steps = await testLdap({ ...cfg, enabled: true }, s(fd, "testUser").trim());
+      const steps = await testLdap({ ...cfg, enabled: true }, s(fd, "testUser").trim(), mappedGroups(), t("groups.accessAll"));
       const user = s(fd, "testUser").trim();
-      const text = steps.map((st) => `${st.ok ? "✓" : "✗"} ${t(`msg.ldapTest${st.key[0]!.toUpperCase()}${st.key.slice(1)}` as Key, { user })}`);
+      const text = steps.map((st) => `${st.ok ? "✓" : "✗"} ${t(`msg.ldapTest${st.key[0]!.toUpperCase()}${st.key.slice(1)}` as Key, { user, name: st.name ?? "", access: st.name ?? "" })}`);
       return { ok: steps.every((st) => st.ok), message: text.join("\n") };
     } catch (e) {
       const code = e instanceof LdapError ? e.code : "LDAP_SEARCH";
@@ -193,4 +200,28 @@ export async function ldapAction(_: FormState, fd: FormData): Promise<FormState>
   revalidatePath("/settings");
   const insecure = cfg.url.startsWith("ldap://") && !cfg.startTls;
   return { ok: true, message: insecure ? `${t("msg.ldapSaved")}. ${t("ldap.insecure")}` : t("msg.ldapSaved") };
+}
+
+export async function groupAction(_: FormState, fd: FormData): Promise<FormState> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+
+  const idRaw = s(fd, "id");
+  const id = idRaw === "" ? undefined : Number(idRaw);
+  if (id !== undefined && (!Number.isInteger(id) || id < 1)) return { ok: false, message: t("err.groupNotFound") };
+
+  if (s(fd, "intent") === "delete") {
+    if (id === undefined) return { ok: false, message: t("err.groupNotFound") };
+    deleteGroup(id);
+    revalidatePath("/settings");
+    return { ok: true, message: t("msg.groupDeleted") };
+  }
+
+  const agentIds = fd.getAll("agents").map((v) => Number(v)).filter((n) => Number.isInteger(n) && n > 0);
+  const r = saveGroup({ id, name: s(fd, "name"), adGroupDn: s(fd, "adGroupDn"), agentIds });
+  if (!r.ok) return { ok: false, message: t(r.error as Key) };
+  revalidatePath("/settings");
+  revalidatePath("/hosts");
+  return { ok: true, message: t("msg.groupSaved") };
 }

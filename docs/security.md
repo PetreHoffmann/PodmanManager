@@ -31,6 +31,8 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Passwort des Dienstkontos AES-256-GCM-verschlüsselt (wie die Agent-Tokens). Dienstkonto mit minimalen Leserechten verwenden.
 - TLS-Zertifikate werden immer geprüft (optional eigene CA hinterlegen); es gibt keine Option, die Prüfung abzuschalten. Klartext-`ldap://` ist möglich, wird aber in den Einstellungen mit Warnung angezeigt.
 - Fehlermeldungen bei der Anmeldung sind einheitlich („Invalid username or password"), damit Benutzer/Gruppen nicht erkundet werden können. Drosselung: 5 Fehlversuche pro Anmeldename und Minute, global 60.
+- **Zugriffsbereiche:** Jede Sitzung hat `access = all` (lokaler `admin`, LDAP-Administratoren-Gruppe) oder `access = groups` (nur die Agents der zugeordneten Gruppen). Der Bereich wird serverseitig bei **jeder** Seite und in der Container-Aktion geprüft (Dashboard, Hosts, Container, Detailseite; fremde Container liefern „nicht gefunden“). Host-Verwaltung ist nur mit `access = all`, Gruppen-/LDAP-/Passwort-Einstellungen nur für den lokalen `admin` möglich.
+- Gruppen-IDs stehen in der Sitzung; welche Agents dazugehören, wird bei jedem Zugriff aus der Datenbank gelesen (Änderungen und Löschen wirken sofort). Unbekannte oder fehlende Zugriffswerte erweitern nie die Rechte.
 - Zusätzliche Laufzeit-Abhängigkeit: `ldapts` (reines TypeScript, nur im Master).
 
 ## Restrisiken
@@ -38,7 +40,8 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Wer den Agent-Token kennt, kann Container dieses Benutzers starten/stoppen/neustarten (nur das).
 - Wer `MASTER_SECRET_KEY` und die DB hat, kann alle Agent-Tokens entschlüsseln.
 - Die Drosselung pro Anmeldename kann genutzt werden, um das Konto einer bestimmten Person kurz zu sperren (DoS auf den Login); der lokale `admin` ist davon getrennt nicht ausgenommen.
-- Wird ein Benutzer aus der AD-Gruppe entfernt, bleibt seine bestehende Sitzung bis zu 8 Stunden gültig.
+- Wird ein Benutzer aus einer AD-Gruppe entfernt, bleibt seine bestehende Sitzung (mit den damals ermittelten Gruppen) bis zu 8 Stunden gültig.
+- Die Trennung der Agents ist eine Zugriffskontrolle in der Anwendung, keine Netzwerktrennung: Alle Agent-Tokens liegen im Master (verschlüsselt); wer den Master oder seine Datenbank samt `MASTER_SECRET_KEY` kompromittiert, erreicht alle Agents.
 
 ## Firewall
 Agent-Host (nur Master-IP `192.168.1.10`):

@@ -29,6 +29,8 @@
 | LDAP-Test: „TLS error (certificate not trusted?)" | Zertifikat des DC nicht vertraut → CA-Zertifikat (PEM) im Feld eintragen; Hostname in der URL muss zum Zertifikat passen (kein IP-Adresse, falls nur DNS-Name im Zertifikat). |
 | „Service account bind failed" | Dienstkonto-DN/UPN oder Passwort falsch, Konto gesperrt/abgelaufen. |
 | LDAP-Benutzer wird abgewiesen („Invalid username or password") | Mit *Test connection* + Testbenutzer prüfen: Benutzer gefunden? Mitglied der Gruppe (nicht nur primäre Gruppe)? Filter/Suchbasis passend? Passwort korrekt, Konto aktiv? |
+| AD-Benutzer meldet sich an, sieht aber keine Hosts | Die AD-Gruppe ist keiner Agent-Gruppe mit Agents zugeordnet oder die Gruppe enthält keine Agents. Mit *Test connection* + Testbenutzer prüfen („Access: …“); Zuordnung unter *Settings → Agent groups*. |
+| Benutzer sollte Zugriff haben, hat aber keinen | Die AD-Mitgliedschaft wird bei der Anmeldung geprüft: einmal abmelden und neu anmelden. Verschachtelte Gruppen zählen, die primäre Gruppe („Domain Users“) nicht. |
 | „Directory login is currently unavailable" | Verzeichnis nicht erreichbar oder Dienstkonto defekt; Anmeldung als lokaler `admin` bleibt möglich. |
 | Warnung „SQLite is an experimental feature" | Harmlos (Node 24). |
 | Logs | `journalctl -u podmanmanager-master -f` |

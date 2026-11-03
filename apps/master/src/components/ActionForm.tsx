@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useTransition } from "react";
 import type { FormState } from "@/app/actions";
 
 /**
@@ -9,18 +9,25 @@ import type { FormState } from "@/app/actions";
  * (e.g. after a failed login or an LDAP connection test).
  */
 export default function ActionForm({
-  action, children, className, inline,
+  action, children, className, inline, resetOnSuccess,
 }: {
   action: (s: FormState, fd: FormData) => Promise<FormState>;
   children: React.ReactNode;
   className?: string;
   inline?: boolean;
+  /** Clears the fields after a successful submit (e.g. a "new item" form). */
+  resetOnSuccess?: boolean;
 }) {
   const [state, run, actionPending] = useActionState(action, null);
   const [transitionPending, startTransition] = useTransition();
   const pending = actionPending || transitionPending;
+  const ref = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (resetOnSuccess && state?.ok) ref.current?.reset();
+  }, [state, resetOnSuccess]);
   return (
     <form
+      ref={ref}
       className={className}
       aria-busy={pending}
       onSubmit={(e) => {

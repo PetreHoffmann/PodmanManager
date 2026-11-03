@@ -2,15 +2,20 @@ import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import { after, before, describe, it } from "node:test";
 import ldap from "ldapjs";
-import { DEFAULT_FILTER, authenticateLdap, escapeFilterValue, testLdap, type LdapConfig } from "../src/lib/ldap";
+import { DEFAULT_FILTER, authenticateLdap, escapeFilterValue, testLdap, type LdapConfig, type MappedGroup } from "../src/lib/ldap";
 import { parseLdapInput } from "../src/lib/ldap-config";
 
 const BASE = "DC=ex,DC=com";
 const GROUP = "CN=Grp Podman,OU=Groups,DC=ex,DC=com";
-const users: Record<string, { dn: string; pw: string; member: boolean }> = {
-  alice: { dn: "CN=Alice,OU=Users,DC=ex,DC=com", pw: "alicepw", member: true },
-  bob: { dn: "CN=Bob,OU=Users,DC=ex,DC=com", pw: "bobpw", member: false },
+const TEAM_A = "CN=Team A,OU=Groups,DC=ex,DC=com";
+const TEAM_B = "CN=Team B,OU=Groups,DC=ex,DC=com";
+const users: Record<string, { dn: string; pw: string; groups: string[] }> = {
+  alice: { dn: "CN=Alice,OU=Users,DC=ex,DC=com", pw: "alicepw", groups: [GROUP] },
+  bob: { dn: "CN=Bob,OU=Users,DC=ex,DC=com", pw: "bobpw", groups: [] },
+  carol: { dn: "CN=Carol,OU=Users,DC=ex,DC=com", pw: "carolpw", groups: [TEAM_A] },
+  dave: { dn: "CN=Dave,OU=Users,DC=ex,DC=com", pw: "davepw", groups: [TEAM_A, TEAM_B] },
 };
+const KNOWN_GROUPS = [GROUP, TEAM_A, TEAM_B].map((g) => g.toLowerCase());
 const SVC = { dn: "CN=svc,DC=ex,DC=com", pw: "svcpw" };
 
 describe("ldap against a protocol-level fake directory", () => {
@@ -34,11 +39,12 @@ describe("ldap against a protocol-level fake directory", () => {
       const base = req.dn.toString();
       const filter = req.filter.toString();
       searches.push({ base, filter });
-      if (base.toLowerCase() === GROUP.toLowerCase()) {
-        res.send({ dn: GROUP, attributes: { objectClass: "group" } });
+      if (KNOWN_GROUPS.includes(base.toLowerCase())) {
+        res.send({ dn: base, attributes: { objectClass: "group" } });
       } else if (filter.includes("1.2.840.113556.1.4.1941")) {
         const u = Object.values(users).find((x) => x.dn.toLowerCase() === base.toLowerCase());
-        if (u?.member && filter.includes("Grp Podman")) res.send({ dn: u.dn, attributes: {} });
+        const wanted = /:=(.*)\)$/.exec(filter)?.[1]?.toLowerCase();
+        if (u && wanted && u.groups.some((g) => g.toLowerCase() === wanted)) res.send({ dn: u.dn, attributes: {} });
       } else {
         const m = /sAMAccountName=([A-Za-z0-9]+)\)/.exec(filter);
         const u = m ? users[m[1]!.toLowerCase()] : undefined;
@@ -55,7 +61,7 @@ describe("ldap against a protocol-level fake directory", () => {
 
   it("accepts a member with the right password", async () => {
     const r = await authenticateLdap(cfg, "alice", "alicepw");
-    assert.deepEqual(r, { ok: true, username: "alice", dn: users.alice!.dn });
+    assert.deepEqual(r, { ok: true, username: "alice", dn: users.alice!.dn, admin: true, groupIds: [] });
   });
 
   it("rejects a wrong password", async () => {
@@ -101,8 +107,46 @@ describe("ldap against a protocol-level fake directory", () => {
     assert.deepEqual(await authenticateLdap({ ...cfg, enabled: false }, "alice", "alicepw"), { ok: false, reason: "disabled" });
   });
 
+  const mapped: MappedGroup[] = [{ id: 1, name: "Team A", dn: TEAM_A }, { id: 2, name: "Team B", dn: TEAM_B }];
+
+  it("gives members of a mapped group scoped access (union of groups)", async () => {
+    assert.deepEqual(await authenticateLdap(cfg, "carol", "carolpw", mapped), { ok: true, username: "carol", dn: users.carol!.dn, admin: false, groupIds: [1] });
+    assert.deepEqual(await authenticateLdap(cfg, "dave", "davepw", mapped), { ok: true, username: "dave", dn: users.dave!.dn, admin: false, groupIds: [1, 2] });
+  });
+
+  it("administrators group wins over mappings", async () => {
+    const r = await authenticateLdap(cfg, "alice", "alicepw", mapped);
+    assert.deepEqual(r, { ok: true, username: "alice", dn: users.alice!.dn, admin: true, groupIds: [] });
+  });
+
+  it("without administrators group only mapped groups grant access", async () => {
+    const noAdmin = { ...cfg, groupDn: "" };
+    assert.equal((await authenticateLdap(noAdmin, "carol", "carolpw", mapped)).ok, true);
+    assert.deepEqual(await authenticateLdap(noAdmin, "alice", "alicepw", mapped), { ok: false, reason: "not_member" });
+    assert.deepEqual(await authenticateLdap(noAdmin, "bob", "bobpw", mapped), { ok: false, reason: "not_member" });
+    assert.deepEqual(await authenticateLdap(noAdmin, "carol", "carolpw", []), { ok: false, reason: "not_member" });
+  });
+
+  it("does not verify the password of a user without any matching group", async () => {
+    binds.length = 0;
+    await authenticateLdap(cfg, "bob", "bobpw", mapped);
+    assert.ok(!binds.includes(users.bob!.dn));
+  });
+
+  it("diagnoses mapped groups and the access of a test user", async () => {
+    const steps = await testLdap(cfg, "dave", mapped, "all agents");
+    assert.deepEqual(steps, [
+      { key: "conn", ok: true }, { key: "group", ok: true },
+      { key: "mapOk", ok: true, name: "Team A" }, { key: "mapOk", ok: true, name: "Team B" },
+      { key: "userOk", ok: true, name: "Team A, Team B" },
+    ]);
+    assert.deepEqual((await testLdap(cfg, "alice", mapped, "all agents")).at(-1), { key: "userOk", ok: true, name: "all agents" });
+    const missing = await testLdap(cfg, "", [{ id: 9, name: "Gone", dn: "CN=Gone,DC=ex,DC=com" }]);
+    assert.deepEqual(missing.at(-1), { key: "mapMissing", ok: false, name: "Gone" });
+  });
+
   it("diagnoses configuration without a password", async () => {
-    assert.deepEqual(await testLdap(cfg, "alice"), [{ key: "conn", ok: true }, { key: "group", ok: true }, { key: "userOk", ok: true }]);
+    assert.deepEqual(await testLdap(cfg, "alice"), [{ key: "conn", ok: true }, { key: "group", ok: true }, { key: "userOk", ok: true, name: "*" }]);
     assert.deepEqual((await testLdap(cfg, "bob")).at(-1), { key: "userNoMember", ok: false });
     assert.deepEqual((await testLdap(cfg, "zed")).at(-1), { key: "userNone", ok: false });
     assert.deepEqual((await testLdap({ ...cfg, groupDn: "CN=Missing,DC=ex,DC=com" }, "")).at(-1), { key: "groupMissing", ok: false });
@@ -124,7 +168,8 @@ describe("ldap helpers", () => {
     assert.equal(parseLdapInput({ ...good, filter: "(uid=bob)" }, null).ok, false);
     assert.equal(parseLdapInput({ ...good, filter: "uid={username}" }, null).ok, false);
     assert.equal(parseLdapInput({ ...good, caCert: "not a cert" }, null).ok, false);
-    assert.equal(parseLdapInput({ ...good, groupDn: "" }, null).ok, false);
+    assert.equal(parseLdapInput({ ...good, groupDn: "" }, null).ok, true, "administrators group is optional");
+    assert.equal(parseLdapInput({ ...good, groupDn: "a\0b" }, null).ok, false);
     assert.equal(parseLdapInput({ ...good, bindPassword: "" }, null).ok, false);
   });
   it("keeps the stored password when the field is left empty", () => {
