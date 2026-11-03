@@ -1,14 +1,15 @@
 import { fetchAllContainers } from "@/lib/agents";
 import { getT } from "@/lib/lang";
+import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { requireAuth } from "@/lib/session";
 import { Stat } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  await requireAuth();
+  const session = await requireAuth();
   const t = await getT();
-  const hosts = await fetchAllContainers();
+  const hosts = await fetchAllContainers(undefined, allowedAgentIds(session));
   const total = hosts.length;
   const reachable = hosts.filter((h) => h.agent.enabled && (h.agent.status === "online" || h.agent.status === "degraded")).length;
   const unreachable = hosts.filter((h) => h.agent.enabled && h.agent.status === "offline").length;
@@ -21,6 +22,7 @@ export default async function Dashboard() {
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">{t("dash.title")}</h1>
+      {session.access === "groups" && <p className="text-xs text-slate-400">{t("scope.note", { groups: groupNames(session).join(", ") || "—" })}</p>}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label={t("dash.hosts")} value={total} />
         <Stat label={t("dash.reachable")} value={reachable} tone="ok" />

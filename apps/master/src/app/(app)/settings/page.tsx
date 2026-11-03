@@ -4,6 +4,9 @@ import { getConfig } from "@/lib/config";
 import { DEFAULT_FILTER } from "@/lib/ldap";
 import { EMPTY_LDAP, loadLdapConfig } from "@/lib/ldap-config";
 import { getT } from "@/lib/lang";
+import GroupEditor from "@/components/GroupEditor";
+import { listAgents } from "@/lib/agents";
+import { groupNames, listGroups } from "@/lib/groups";
 import { requireAuth } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -14,12 +17,17 @@ export default async function Settings() {
   const c = getConfig();
   const local = session.kind === "local";
   const l = (local ? loadLdapConfig() : null) ?? EMPTY_LDAP;
+  const agentOptions = local ? listAgents().map((a) => ({ id: a.id, label: `${a.agent_id} (${a.hostname})` })) : [];
+  const groups = local ? listGroups() : [];
   const insecure = l.enabled && l.url.startsWith("ldap://") && !l.startTls;
 
   return (
     <div className="max-w-2xl space-y-6">
       <h1 className="text-xl font-semibold">{t("set.title")}</h1>
       <p className="text-sm text-slate-400">{t("set.signedIn", { name: session.username })}</p>
+      <p className="text-xs text-slate-500">
+        {session.access === "all" ? t("set.accessAll") : t("set.accessGroups", { groups: groupNames(session).join(", ") || "—" })}
+      </p>
 
       <section className="card">
         <h2 className="mb-2 font-medium">{t("set.monitoring")}</h2>
@@ -74,7 +82,7 @@ export default async function Settings() {
                 <span className="text-xs text-slate-500">{t("ldap.filterHint")}</span>
               </label>
               <label className="block text-sm">{t("ldap.groupDn")}
-                <input name="groupDn" defaultValue={l.groupDn} placeholder="CN=PodmanManager,OU=Groups,DC=example,DC=com" required className="input mt-1" />
+                <input name="groupDn" defaultValue={l.groupDn} placeholder="CN=PodmanManager-Admins,OU=Groups,DC=example,DC=com" className="input mt-1" />
               </label>
               <label className="block text-sm">{t("ldap.testUser")}
                 <input name="testUser" autoComplete="off" maxLength={256} className="input mt-1" />
@@ -84,6 +92,18 @@ export default async function Settings() {
                 <button name="intent" value="test" className="btn">{t("ldap.test")}</button>
               </div>
             </ActionForm>
+          </section>
+
+          <section className="card">
+            <h2 className="mb-1 font-medium">{t("groups.title")}</h2>
+            <p className="mb-3 text-xs text-slate-400">{t("groups.intro")}</p>
+            <div className="space-y-3">
+              {groups.length === 0 && <p className="text-xs text-slate-500">{t("groups.none")}</p>}
+              {groups.map((g) => (
+                <GroupEditor key={g.id} group={{ id: g.id, name: g.name, adGroupDn: g.ad_group_dn, agentIds: g.agentIds }} agents={agentOptions} />
+              ))}
+              <GroupEditor key="new" group={{ name: "", adGroupDn: "", agentIds: [] }} agents={agentOptions} />
+            </div>
           </section>
         </>
       ) : (

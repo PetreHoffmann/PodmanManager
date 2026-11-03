@@ -52,8 +52,8 @@ export function parseLdapInput(
   if (!bounded(bindDn)) return { ok: false, error: "err.ldapField", params: { field: "bind" } };
   const baseDn = input.baseDn.trim();
   if (!bounded(baseDn)) return { ok: false, error: "err.ldapField", params: { field: "base DN" } };
-  const groupDn = input.groupDn.trim();
-  if (!bounded(groupDn)) return { ok: false, error: "err.ldapField", params: { field: "group DN" } };
+  const groupDn = input.groupDn.trim(); // optional: administrators group
+  if (groupDn && !bounded(groupDn)) return { ok: false, error: "err.ldapField", params: { field: "group DN" } };
   const filter = input.filter.trim() || DEFAULT_FILTER;
   if (!filter.includes("{username}") || !filter.startsWith("(") || !filter.endsWith(")") || filter.length > 1024 || filter.includes("\0")) {
     return { ok: false, error: "err.ldapFilter" };

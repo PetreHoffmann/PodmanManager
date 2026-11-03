@@ -112,8 +112,8 @@ export interface HostContainers {
 }
 
 /** Live container query for all enabled agents, in parallel; never throws. */
-export async function fetchAllContainers(db: DatabaseSync = getDb()): Promise<HostContainers[]> {
-  const agents = listAgents(db);
+export async function fetchAllContainers(db: DatabaseSync = getDb(), allowed: ReadonlySet<number> | null = null): Promise<HostContainers[]> {
+  const agents = listAgents(db).filter((a) => allowed === null || allowed.has(a.id));
   return Promise.all(
     agents.map(async (agent): Promise<HostContainers> => {
       if (!agent.enabled) return { agent, result: { ok: false, code: "SKIPPED", message: "", unreachable: true } };

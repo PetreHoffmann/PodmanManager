@@ -116,12 +116,12 @@ export async function findUser(c: LdapClientLike, cfg: LdapConfig, username: str
   }
 }
 
-/** Direct or nested membership of userDn in cfg.groupDn. */
-export async function isMember(c: LdapClientLike, cfg: LdapConfig, userDn: string): Promise<boolean> {
+/** Direct or nested membership of userDn in groupDn. */
+export async function isMember(c: LdapClientLike, userDn: string, groupDn: string): Promise<boolean> {
   try {
     const { searchEntries } = await c.search(userDn, {
       scope: "base",
-      filter: `(memberOf:${CHAIN_OID}:=${escapeFilterValue(cfg.groupDn)})`,
+      filter: `(memberOf:${CHAIN_OID}:=${escapeFilterValue(groupDn)})`,
       attributes: ["dn"],
       sizeLimit: 1,
     });
@@ -131,8 +131,15 @@ export async function isMember(c: LdapClientLike, cfg: LdapConfig, userDn: strin
   }
 }
 
+/** An agent group mapped to an AD group. */
+export interface MappedGroup {
+  id: number;
+  name: string;
+  dn: string;
+}
+
 export type LdapAuthResult =
-  | { ok: true; username: string; dn: string }
+  | { ok: true; username: string; dn: string; admin: boolean; groupIds: number[] }
   | { ok: false; reason: "invalid" | "not_member" | "disabled" }
   | { ok: false; reason: "unavailable"; code: LdapErrorCode };
 
@@ -140,6 +147,7 @@ export async function authenticateLdap(
   cfg: LdapConfig,
   username: string,
   password: string,
+  mapped: MappedGroup[] = [],
   factory: ClientFactory = defaultFactory,
 ): Promise<LdapAuthResult> {
   if (!cfg.enabled) return { ok: false, reason: "disabled" };
@@ -149,12 +157,19 @@ export async function authenticateLdap(
   }
 
   let user: LdapEntry | null;
+  let admin = false;
+  const groupIds: number[] = [];
   const svc = await serviceBind(cfg, factory).catch((e: LdapError) => e);
   if (svc instanceof LdapError) return { ok: false, reason: "unavailable", code: svc.code };
   try {
     user = await findUser(svc, cfg, username);
     if (!user) return { ok: false, reason: "invalid" };
-    if (!(await isMember(svc, cfg, user.dn))) return { ok: false, reason: "not_member" };
+    // Administrators group first (full access); otherwise collect the mapped agent groups.
+    admin = cfg.groupDn ? await isMember(svc, user.dn, cfg.groupDn) : false;
+    if (!admin) {
+      for (const g of mapped) if (await isMember(svc, user.dn, g.dn)) groupIds.push(g.id);
+    }
+    if (!admin && groupIds.length === 0) return { ok: false, reason: "not_member" };
   } catch (e) {
     return { ok: false, reason: "unavailable", code: (e as LdapError).code ?? "LDAP_SEARCH" };
   } finally {
@@ -172,31 +187,54 @@ export async function authenticateLdap(
     await uc?.unbind().catch(() => {});
   }
   const sam = user["sAMAccountName"];
-  return { ok: true, username: typeof sam === "string" && sam ? sam : username, dn: user.dn };
+  return { ok: true, username: typeof sam === "string" && sam ? sam : username, dn: user.dn, admin, groupIds: admin ? [] : groupIds };
 }
 
 export interface LdapTestStep {
-  key: "conn" | "group" | "groupMissing" | "userOk" | "userNoMember" | "userNone";
+  key: "conn" | "group" | "groupMissing" | "mapOk" | "mapMissing" | "userOk" | "userNoMember" | "userNone";
   ok: boolean;
+  /** group name (map*) or access description (userOk) */
+  name?: string;
 }
 
-/** Diagnoses a configuration without verifying any user password. Throws LdapError on connection problems. */
-export async function testLdap(cfg: LdapConfig, testUser: string, factory: ClientFactory = defaultFactory): Promise<LdapTestStep[]> {
+async function groupExists(c: LdapClientLike, dn: string): Promise<boolean> {
+  try {
+    const g = await c.search(dn, { scope: "base", filter: "(objectClass=*)", attributes: ["dn"], sizeLimit: 1 });
+    return g.searchEntries.length > 0;
+  } catch (e) {
+    if ((e as { code?: unknown })?.code === 32) return false;
+    throw mapError(e, "LDAP_SEARCH");
+  }
+}
+
+/**
+ * Diagnoses a configuration without verifying any user password. Throws LdapError on connection problems.
+ * `accessAll` is the text used for administrators-group members.
+ */
+export async function testLdap(
+  cfg: LdapConfig,
+  testUser: string,
+  mapped: MappedGroup[] = [],
+  accessAll = "*",
+  factory: ClientFactory = defaultFactory,
+): Promise<LdapTestStep[]> {
   const steps: LdapTestStep[] = [];
   const c = await serviceBind(cfg, factory);
   try {
     steps.push({ key: "conn", ok: true });
-    try {
-      const g = await c.search(cfg.groupDn, { scope: "base", filter: "(objectClass=*)", attributes: ["dn"], sizeLimit: 1 });
-      steps.push(g.searchEntries.length ? { key: "group", ok: true } : { key: "groupMissing", ok: false });
-    } catch (e) {
-      if ((e as { code?: unknown })?.code === 32) steps.push({ key: "groupMissing", ok: false });
-      else throw mapError(e, "LDAP_SEARCH");
-    }
+    if (cfg.groupDn) steps.push((await groupExists(c, cfg.groupDn)) ? { key: "group", ok: true } : { key: "groupMissing", ok: false });
+    for (const g of mapped) steps.push((await groupExists(c, g.dn)) ? { key: "mapOk", ok: true, name: g.name } : { key: "mapMissing", ok: false, name: g.name });
     if (testUser) {
       const u = await findUser(c, cfg, testUser);
-      if (!u) steps.push({ key: "userNone", ok: false });
-      else steps.push((await isMember(c, cfg, u.dn)) ? { key: "userOk", ok: true } : { key: "userNoMember", ok: false });
+      if (!u) {
+        steps.push({ key: "userNone", ok: false });
+      } else if (cfg.groupDn && (await isMember(c, u.dn, cfg.groupDn))) {
+        steps.push({ key: "userOk", ok: true, name: accessAll });
+      } else {
+        const names: string[] = [];
+        for (const g of mapped) if (await isMember(c, u.dn, g.dn)) names.push(g.name);
+        steps.push(names.length ? { key: "userOk", ok: true, name: names.join(", ") } : { key: "userNoMember", ok: false });
+      }
     }
   } finally {
     await c.unbind().catch(() => {});

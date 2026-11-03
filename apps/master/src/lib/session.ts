@@ -3,15 +3,15 @@ import { redirect } from "next/navigation";
 import type { DatabaseSync } from "node:sqlite";
 import { getDb } from "../database/db";
 import { hashPassword, randomToken, sha256, verifyPassword } from "./crypto";
+import type { SessionInfo } from "./session-types";
+
+export type { SessionInfo } from "./session-types";
 
 export const COOKIE = "pm_session";
 const TTL_MS = 8 * 3600 * 1000;
 export const LOCAL_ADMIN = "admin";
+export const LOCAL_SESSION: SessionInfo = { username: "admin", kind: "local", access: "all", groupIds: [] };
 
-export interface SessionInfo {
-  username: string;
-  kind: "local" | "ldap";
-}
 
 export const adminExists = (db: DatabaseSync = getDb()) => !!db.prepare("SELECT 1 FROM admin WHERE id = 1").get();
 
@@ -28,17 +28,29 @@ export async function checkAdminPassword(pw: string, db: DatabaseSync = getDb())
 export function createSession(info: SessionInfo, db: DatabaseSync = getDb()): string {
   const token = randomToken();
   db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
-  db.prepare("INSERT INTO sessions (token_hash, expires_at, username, kind) VALUES (?, ?, ?, ?)").run(sha256(token), Date.now() + TTL_MS, info.username, info.kind);
+  db.prepare("INSERT INTO sessions (token_hash, expires_at, username, kind, access, group_ids) VALUES (?, ?, ?, ?, ?, ?)").run(
+    sha256(token), Date.now() + TTL_MS, info.username, info.kind, info.access, JSON.stringify(info.groupIds),
+  );
   return token;
 }
 
 export function getSession(token: string | undefined, db: DatabaseSync = getDb()): SessionInfo | null {
   if (!token) return null;
-  const r = db.prepare("SELECT expires_at, username, kind FROM sessions WHERE token_hash = ?").get(sha256(token)) as
-    | { expires_at: number; username: string | null; kind: string | null }
+  const r = db.prepare("SELECT expires_at, username, kind, access, group_ids FROM sessions WHERE token_hash = ?").get(sha256(token)) as
+    | { expires_at: number; username: string | null; kind: string | null; access: string | null; group_ids: string | null }
     | undefined;
   if (!r || r.expires_at <= Date.now() || !r.username) return null;
-  return { username: r.username, kind: r.kind === "ldap" ? "ldap" : "local" };
+  let groupIds: number[] = [];
+  try {
+    const g = JSON.parse(r.group_ids ?? "[]");
+    if (Array.isArray(g)) groupIds = g.filter((x): x is number => Number.isInteger(x));
+  } catch {
+    /* ignore */
+  }
+  const kind = r.kind === "ldap" ? "ldap" : "local";
+  // Unknown or missing access values never widen permissions: only local sessions default to "all".
+  const access = r.access === "all" || (r.access === null && kind === "local") ? "all" : "groups";
+  return { username: r.username, kind, access, groupIds };
 }
 
 export async function startSession(info: SessionInfo): Promise<void> {
