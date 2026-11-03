@@ -27,7 +27,13 @@ CREATE TABLE IF NOT EXISTS admin (
 );
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,
-  expires_at INTEGER NOT NULL
+  expires_at INTEGER NOT NULL,
+  username TEXT,
+  kind TEXT
+);
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
 );
 `;
 
@@ -36,6 +42,11 @@ export function openDb(path: string): DatabaseSync {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA);
+  // Migration: sessions of older versions lack identity columns; force a fresh login.
+  const cols = (db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("username")) {
+    db.exec("DELETE FROM sessions; ALTER TABLE sessions ADD COLUMN username TEXT; ALTER TABLE sessions ADD COLUMN kind TEXT;");
+  }
   return db;
 }
 

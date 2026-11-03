@@ -42,7 +42,31 @@ Der Dienst benötigt keinen Podman-Zugriff. Die Datenbank (`/var/lib/podmanmanag
 `deployment/master/start.sh [env-datei]` (oder Variablen setzen). Ändere den Port über `MASTER_PORT`.
 
 ## Erster Start
-`http://<master>:8080` öffnen → Admin-Passwort anlegen (mind. 10 Zeichen). **Direkt nach dem Start setzen:** solange kein Passwort existiert, kann es jeder mit Netzwerkzugriff anlegen. Danach unter **Hosts** die Agents hinzufügen (Adresse `http://<ip>:9126` + Token des Agents).
+`http://<master>:8080` öffnen → Passwort für das lokale Konto **`admin`** anlegen (mind. 10 Zeichen). Anmeldung danach mit Benutzername `admin`. **Direkt nach dem Start setzen:** solange kein Passwort existiert, kann es jeder mit Netzwerkzugriff anlegen. Danach unter **Hosts** die Agents hinzufügen (Adresse `http://<ip>:9126` + Token des Agents).
+
+## LDAP / Active Directory (optional)
+Unter **Settings → LDAP / Active Directory login** (nur als lokaler `admin` sichtbar) können Mitglieder einer AD-Gruppe zur Anmeldung berechtigt werden. Berechtigte Benutzer haben dieselben Rechte wie `admin`, **außer** Passwort- und LDAP-Einstellungen zu ändern. Das lokale Konto `admin` bleibt als Notzugang immer aktiv (ein AD-Benutzer namens `admin` kann sich deshalb nicht per LDAP anmelden).
+
+| Feld | Beispiel |
+|---|---|
+| Server URL | `ldaps://dc.example.com:636` (empfohlen) oder `ldap://dc.example.com` + *StartTLS* |
+| CA-Zertifikat (PEM) | Nur nötig, wenn das Zertifikat des Domain Controllers nicht von einer öffentlich/systemweit vertrauten CA stammt (interne CA). Mehrere Zertifikate hintereinander sind erlaubt. |
+| Dienstkonto | `CN=svc-podman,OU=Service,DC=example,DC=com` oder `svc-podman@example.com` – ein normales Domänenkonto mit Leserechten genügt |
+| Passwort Dienstkonto | wird mit `MASTER_SECRET_KEY` verschlüsselt gespeichert; leer lassen = bisheriges behalten |
+| Suchbasis | `DC=example,DC=com` (oder eine OU) |
+| Benutzerfilter | Standard: `(&(objectClass=user)(objectCategory=person)(\|(sAMAccountName={username})(userPrincipalName={username})))` – Anmeldung mit `jdoe` oder `jdoe@example.com`; `{username}` wird ersetzt |
+| Erforderliche Gruppe (DN) | `CN=PodmanManager,OU=Groups,DC=example,DC=com` |
+
+Ablauf der Anmeldung: Dienstkonto bindet → Benutzer per Filter suchen (genau 1 Treffer) → Gruppenmitgliedschaft prüfen (**inkl. verschachtelter Gruppen**, AD-Regel `1.2.840.113556.1.4.1941`) → Passwort per Bind als Benutzer prüfen. Leere Passwörter werden abgewiesen.
+
+**Vor dem Aktivieren** mit *Test connection* prüfen (optional mit Testbenutzer): Dienstkonto-Bind, Gruppe vorhanden, Benutzer gefunden und Mitglied. Der Test prüft kein Benutzerpasswort. Speichern ändert nichts an bestehenden Sitzungen.
+
+Hinweise:
+- Die **primäre Gruppe** (meist „Domain Users") steht nicht in `memberOf`; als Gruppe daher eine normale Sicherheitsgruppe wählen.
+- Gruppenänderungen wirken bei der **nächsten Anmeldung**; bereits angemeldete Benutzer behalten ihre Sitzung bis zu 8 Stunden.
+- Deaktivierte oder gesperrte AD-Konten werden vom Verzeichnis abgewiesen.
+- Ohne `ldaps://`/StartTLS gehen Passwörter unverschlüsselt über das Netz (die Oberfläche warnt).
+- Ist das Verzeichnis nicht erreichbar, erscheint „Directory login is currently unavailable"; die lokale Anmeldung bleibt möglich.
 
 ## Firewall
 Port 8080 nur für berechtigte Netze freigeben, nie ins Internet (siehe [Sicherheit](security.md)).
