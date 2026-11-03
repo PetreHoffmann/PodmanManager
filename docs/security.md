@@ -24,11 +24,21 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Header: `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`. Das Cookie hat mangels HTTPS kein `Secure`-Flag.
 - Setup-Fenster: Bis zum Anlegen des Admin-Passworts kann jeder mit Zugriff es setzen.
 
+**LDAP / Active Directory (optional)**
+- Konfiguration und Passwortänderung nur durch das lokale `admin`-Konto; LDAP-Benutzer sehen diese Bereiche nicht (serverseitig geprüft).
+- Anmeldename wird als LDAP-Filterwert **nach RFC 4515 escaped** (kein Filter-Injection); eindeutig 1 Treffer erforderlich; leere Passwörter werden nie an den Server gesendet (sonst anonymer Bind = „Erfolg").
+- Gruppenprüfung serverseitig im Verzeichnis (inkl. verschachtelter Gruppen); Passwortprüfung per Bind als Benutzer; die Passwörter der Benutzer werden nicht gespeichert.
+- Passwort des Dienstkontos AES-256-GCM-verschlüsselt (wie die Agent-Tokens). Dienstkonto mit minimalen Leserechten verwenden.
+- TLS-Zertifikate werden immer geprüft (optional eigene CA hinterlegen); es gibt keine Option, die Prüfung abzuschalten. Klartext-`ldap://` ist möglich, wird aber in den Einstellungen mit Warnung angezeigt.
+- Fehlermeldungen bei der Anmeldung sind einheitlich („Invalid username or password"), damit Benutzer/Gruppen nicht erkundet werden können. Drosselung: 5 Fehlversuche pro Anmeldename und Minute, global 60.
+- Zusätzliche Laufzeit-Abhängigkeit: `ldapts` (reines TypeScript, nur im Master).
+
 ## Restrisiken
 - Aktiver Angreifer im Netz kann Token/Cookie abgreifen oder Traffic manipulieren (kein TLS).
 - Wer den Agent-Token kennt, kann Container dieses Benutzers starten/stoppen/neustarten (nur das).
 - Wer `MASTER_SECRET_KEY` und die DB hat, kann alle Agent-Tokens entschlüsseln.
-- Sperrung nach Fehlversuchen im Master ist global (kann für DoS auf den Login missbraucht werden).
+- Die Drosselung pro Anmeldename kann genutzt werden, um das Konto einer bestimmten Person kurz zu sperren (DoS auf den Login); der lokale `admin` ist davon getrennt nicht ausgenommen.
+- Wird ein Benutzer aus der AD-Gruppe entfernt, bleibt seine bestehende Sitzung bis zu 8 Stunden gültig.
 
 ## Firewall
 Agent-Host (nur Master-IP `192.168.1.10`):

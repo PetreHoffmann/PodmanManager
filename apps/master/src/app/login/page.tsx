@@ -17,7 +17,8 @@ export default async function Page() {
         <LangSelect />
       </div>
       <ActionForm action={loginAction} className="card space-y-3">
-        <input name="password" type="password" required autoFocus placeholder={t("auth.password")} autoComplete="current-password" className="input" />
+        <input name="username" required autoFocus placeholder={t("auth.username")} autoComplete="username" maxLength={256} className="input" />
+        <input name="password" type="password" required placeholder={t("auth.password")} autoComplete="current-password" className="input" />
         
         <button className="btn btn-primary w-full justify-center">{t("auth.signIn")}</button>
       </ActionForm>

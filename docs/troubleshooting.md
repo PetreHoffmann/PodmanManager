@@ -25,6 +25,11 @@
 | Zugriff verweigert nach Stop/Restart | Aktion ist nur bei erreichbarem, aktiviertem Host möglich. |
 | Port 8080 belegt | `MASTER_PORT` ändern. |
 | Admin-Passwort vergessen | `sudo -u podmanmanager node -e "const {DatabaseSync}=require('node:sqlite');const d=new DatabaseSync('/var/lib/podmanmanager/master.db');d.exec('DELETE FROM admin; DELETE FROM sessions')"` – danach sofort `/setup` aufrufen. |
+| LDAP-Test: „Cannot connect to the LDAP server" | Host/Port/Firewall prüfen (389 bzw. 636 vom Master aus: `nc -vz dc.example.com 636`), DNS auflösbar? |
+| LDAP-Test: „TLS error (certificate not trusted?)" | Zertifikat des DC nicht vertraut → CA-Zertifikat (PEM) im Feld eintragen; Hostname in der URL muss zum Zertifikat passen (kein IP-Adresse, falls nur DNS-Name im Zertifikat). |
+| „Service account bind failed" | Dienstkonto-DN/UPN oder Passwort falsch, Konto gesperrt/abgelaufen. |
+| LDAP-Benutzer wird abgewiesen („Invalid username or password") | Mit *Test connection* + Testbenutzer prüfen: Benutzer gefunden? Mitglied der Gruppe (nicht nur primäre Gruppe)? Filter/Suchbasis passend? Passwort korrekt, Konto aktiv? |
+| „Directory login is currently unavailable" | Verzeichnis nicht erreichbar oder Dienstkonto defekt; Anmeldung als lokaler `admin` bleibt möglich. |
 | Warnung „SQLite is an experimental feature" | Harmlos (Node 24). |
 | Logs | `journalctl -u podmanmanager-master -f` |
 

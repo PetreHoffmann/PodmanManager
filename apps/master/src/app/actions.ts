@@ -7,8 +7,10 @@ import { agentAction } from "@/lib/agent-client";
 import { checkAgent, getAgent, registerAgent, removeAgent, setEnabled, targetFor } from "@/lib/agents";
 import { LANG_COOKIE, errText, isLang, lastErrText, statusLabel, type Key } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
+import { loadLdapConfig, parseLdapInput, saveLdapConfig } from "@/lib/ldap-config";
+import { LdapError, authenticateLdap, testLdap } from "@/lib/ldap";
 import {
-  adminExists, checkAdminPassword, endSession, loginBlocked, recordLoginFailure,
+  LOCAL_ADMIN, adminExists, checkAdminPassword, endSession, loginBlocked, recordLoginFailure,
   requireAuth, setAdminPassword, startSession,
 } from "@/lib/session";
 import { isAction, CONTAINER_ID_RE } from "@/lib/validate";
@@ -31,20 +33,36 @@ export async function setupAction(_: FormState, fd: FormData): Promise<FormState
   if (pw.length < MIN_PW) return { ok: false, message: t("msg.pwShort", { n: MIN_PW }) };
   if (pw !== s(fd, "confirm")) return { ok: false, message: t("msg.pwMismatch") };
   await setAdminPassword(pw);
-  await startSession();
+  await startSession({ username: LOCAL_ADMIN, kind: "local" });
   redirect("/");
 }
 
 export async function loginAction(_: FormState, fd: FormData): Promise<FormState> {
   if (!adminExists()) redirect("/setup");
   const t = await getT();
-  if (loginBlocked()) return { ok: false, message: t("msg.tooMany") };
-  if (!(await checkAdminPassword(s(fd, "password")))) {
-    recordLoginFailure();
-    return { ok: false, message: t("msg.pwInvalid") };
+  const username = s(fd, "username").trim();
+  const password = s(fd, "password");
+  if (loginBlocked(username)) return { ok: false, message: t("msg.tooMany") };
+
+  if (username.toLowerCase() === LOCAL_ADMIN) {
+    if (await checkAdminPassword(password)) {
+      await startSession({ username: LOCAL_ADMIN, kind: "local" });
+      redirect("/");
+    }
+  } else {
+    const cfg = loadLdapConfig();
+    if (cfg?.enabled) {
+      const r = await authenticateLdap(cfg, username, password);
+      if (r.ok) {
+        await startSession({ username: r.username, kind: "ldap" });
+        redirect("/");
+      }
+      if (r.reason === "unavailable") return { ok: false, message: `${t("msg.ldapUnavailable")} (${errText(t, r.code)})` };
+      console.warn(`ldap login denied: ${r.reason}`);
+    }
   }
-  await startSession();
-  redirect("/");
+  recordLoginFailure(username);
+  return { ok: false, message: t("msg.pwInvalid") };
 }
 
 export async function logoutAction(): Promise<void> {
@@ -53,14 +71,15 @@ export async function logoutAction(): Promise<void> {
 }
 
 export async function changePasswordAction(_: FormState, fd: FormData): Promise<FormState> {
-  await requireAuth();
+  const session = await requireAuth();
   const t = await getT();
+  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
   if (!(await checkAdminPassword(s(fd, "current")))) return { ok: false, message: t("msg.curWrong") };
   const pw = s(fd, "password");
   if (pw.length < MIN_PW) return { ok: false, message: t("msg.pwShort", { n: MIN_PW }) };
   if (pw !== s(fd, "confirm")) return { ok: false, message: t("msg.pwMismatch") };
   await setAdminPassword(pw);
-  await startSession();
+  await startSession({ username: LOCAL_ADMIN, kind: "local" });
   return { ok: true, message: t("msg.pwChanged") };
 }
 
@@ -140,4 +159,38 @@ export async function containerOpAction(agentId: number, containerId: string, ac
     return { ok: true, message: r.data.changed ? t("msg.opOk", { action: verb, state: label }) : t("msg.opNoChange", { state: label }) };
   }
   return { ok: false, message: t("msg.opFailed", { action: verb, msg: errText(t, r.code, r.message), code: r.code }) };
+}
+
+export async function ldapAction(_: FormState, fd: FormData): Promise<FormState> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+
+  const existing = loadLdapConfig();
+  const parsed = parseLdapInput(
+    {
+      enabled: s(fd, "enabled") === "on", url: s(fd, "url"), startTls: s(fd, "startTls") === "on", caCert: s(fd, "caCert"),
+      bindDn: s(fd, "bindDn"), bindPassword: s(fd, "bindPassword"), baseDn: s(fd, "baseDn"), filter: s(fd, "filter"), groupDn: s(fd, "groupDn"),
+    },
+    existing,
+  );
+  if (!parsed.ok) return { ok: false, message: t(parsed.error as Key, parsed.params) };
+  const cfg = parsed.config;
+
+  if (s(fd, "intent") === "test") {
+    try {
+      const steps = await testLdap({ ...cfg, enabled: true }, s(fd, "testUser").trim());
+      const user = s(fd, "testUser").trim();
+      const text = steps.map((st) => `${st.ok ? "✓" : "✗"} ${t(`msg.ldapTest${st.key[0]!.toUpperCase()}${st.key.slice(1)}` as Key, { user })}`);
+      return { ok: steps.every((st) => st.ok), message: text.join("\n") };
+    } catch (e) {
+      const code = e instanceof LdapError ? e.code : "LDAP_SEARCH";
+      return { ok: false, message: t("msg.ldapTestFail", { msg: errText(t, code) }) };
+    }
+  }
+
+  saveLdapConfig(cfg);
+  revalidatePath("/settings");
+  const insecure = cfg.url.startsWith("ldap://") && !cfg.startTls;
+  return { ok: true, message: insecure ? `${t("msg.ldapSaved")}. ${t("ldap.insecure")}` : t("msg.ldapSaved") };
 }
