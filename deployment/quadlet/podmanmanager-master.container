@@ -18,6 +18,8 @@ Volume=podmanmanager-data.volume:/data
 Secret=podmanmanager-key,type=env,target=MASTER_SECRET_KEY
 Environment=HEARTBEAT_INTERVAL=30
 Environment=AGENT_TIMEOUT=5
+# Hinter einem Reverse-Proxy, der den Host nicht durchreicht (sonst "Invalid Server Actions request"):
+# Environment=ALLOWED_ORIGINS=master.example.com
 # Update-Pruefung im About-Dialog abschalten (abgeschottete Netze):
 # Environment=UPDATE_CHECK=off
 # Automatische Updates (braucht :latest statt festem Tag, dazu podman-auto-update.timer):

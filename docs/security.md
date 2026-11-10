@@ -35,6 +35,9 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Gruppen-IDs stehen in der Sitzung; welche Agents dazugehören, wird bei jedem Zugriff aus der Datenbank gelesen (Änderungen und Löschen wirken sofort). Unbekannte oder fehlende Zugriffswerte erweitern nie die Rechte.
 - Zusätzliche Laufzeit-Abhängigkeit: `ldapts` (reines TypeScript, nur im Master).
 
+**Reverse-Proxy / `ALLOWED_ORIGINS`**
+- Der CSRF-Schutz für Formular-Aktionen (Origin muss zum Host passen) bleibt immer aktiv. `ALLOWED_ORIGINS` nimmt ausschließlich die dort gelisteten Hosts davon aus (Laufzeit-Variable, kein Wildcard-Standard, nur `*.domain` auf ausdrücklichen Wunsch). Zusätzlich hat das Session-Cookie `SameSite=Strict`. Der Master selbst spricht weiter nur HTTP; TLS endet am Proxy. Das Cookie trägt kein `Secure`-Flag.
+
 **Update-Prüfung (About-Dialog)**
 - Einzige ausgehende Verbindung des Masters ins Internet: `GET https://hub.docker.com/v2/repositories/<repo>/tags/` (nur lesend, 5 s Timeout, keine Redirects, nur nach Anmeldung und beim Öffnen des Dialogs, Cache 6 h). Es werden weder Hostnamen noch Agents noch Benutzer übertragen. Abschaltbar mit `UPDATE_CHECK=off`. Das Repository wird gegen ein festes Muster geprüft (kein frei wählbarer Pfad/Host).
 
