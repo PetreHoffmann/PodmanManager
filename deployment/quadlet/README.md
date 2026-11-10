@@ -80,6 +80,33 @@ Zeigt `podman network ls` nur `podman`, ist das Netzwerk nie angelegt worden: di
 `podman exec podmanmanager-master node -e "fetch('http://<agent>:9126/api/v1/health').then(r=>console.log(r.status)).catch(e=>console.log(e.cause.code))"` (`401` = Verbindung steht).
 Das Netzwerk-Beispiel ist auf einem Host mit Master und Agent bestätigt.
 
+## Master hinter einem Firmen-Proxy mit TLS-Inspektion
+
+Der Update-Check im About-Dialog des Masters (und nur er) nutzt `https_proxy`, das Podman vom Host in den Container weiterreicht. Entschlüsselt der Proxy HTTPS (z. B. Cisco WSA), zeigt der Dialog unter der Meldung `SELF_SIGNED_CERT_IN_CHAIN` (oder `UNABLE_TO_VERIFY_LEAF_SIGNATURE`): der Container kennt die Firmen-CA nicht. So gibst du sie ihm:
+
+1. CA-Datei auf dem Host finden (dem Host wird sie schon vertraut) und in dein Verzeichnis kopieren:
+   ```bash
+   ls /etc/pki/ca-trust/source/anchors/       # RHEL, Rocky, Fedora
+   ls /usr/local/share/ca-certificates/       # Debian, Ubuntu
+   mkdir -p ~/.config/podmanmanager
+   cp /etc/pki/ca-trust/source/anchors/<DATEI>.crt ~/.config/podmanmanager/corp-ca.pem
+   head -1 ~/.config/podmanmanager/corp-ca.pem     # muss -----BEGIN CERTIFICATE----- sein
+   ```
+   Liegt die Datei im DER-Format vor: `openssl x509 -inform der -in <DATEI>.crt -out ~/.config/podmanmanager/corp-ca.pem`.
+   Liegt dort nichts, lässt sich die Kette vom Proxy auslesen (sie muss die Wurzel enthalten):
+   ```bash
+   openssl s_client -connect auth.docker.io:443 -proxy <proxy-host>:<port> -showcerts </dev/null 2>/dev/null \
+     | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' > ~/.config/podmanmanager/corp-ca.pem
+   ```
+2. Im Master-Quadlet die beiden Zeilen unter `[Container]` aktivieren (in `podmanmanager-master.container` stehen sie auskommentiert):
+   ```ini
+   Volume=%h/.config/podmanmanager/corp-ca.pem:/etc/corp-ca.pem:ro,Z
+   Environment=NODE_EXTRA_CA_CERTS=/etc/corp-ca.pem
+   ```
+3. `systemctl --user daemon-reload && systemctl --user restart podmanmanager-master`, danach den About-Dialog öffnen.
+
+`NODE_EXTRA_CA_CERTS` **ergänzt** die normalen Zertifikate. Die CA gilt für alle ausgehenden TLS-Verbindungen des Masters (auch LDAPS ohne eigene CA). Nur eine CA eintragen, der du vertraust: sie erlaubt dem Proxy, den HTTPS-Verkehr des Masters zu lesen. Kontrolle der Proxy-Variablen: `podman exec podmanmanager-master printenv | grep -i proxy`. Die Schritte sind nicht auf jedem System getestet; das Symptom (`SELF_SIGNED_CERT_IN_CHAIN` hinter einem WSA-Proxy) wurde auf einem echten Host bestätigt.
+
 ## Beide: Start ohne Login
 
 ```bash

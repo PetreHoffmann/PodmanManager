@@ -20,6 +20,9 @@ Environment=HEARTBEAT_INTERVAL=30
 Environment=AGENT_TIMEOUT=5
 # Hinter einem Reverse-Proxy, der den Host nicht durchreicht (sonst "Invalid Server Actions request"):
 # Environment=ALLOWED_ORIGINS=master.example.com
+# Proxy mit TLS-Inspektion (About-Dialog zeigt SELF_SIGNED_CERT_IN_CHAIN): Firmen-CA einbinden, siehe README.md
+# Volume=%h/.config/podmanmanager/corp-ca.pem:/etc/corp-ca.pem:ro,Z
+# Environment=NODE_EXTRA_CA_CERTS=/etc/corp-ca.pem
 # Update-Pruefung im About-Dialog abschalten (abgeschottete Netze):
 # Environment=UPDATE_CHECK=off
 # Automatische Updates (braucht :latest statt festem Tag, dazu podman-auto-update.timer):
