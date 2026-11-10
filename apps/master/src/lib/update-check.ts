@@ -1,6 +1,8 @@
+import { failCode, makeProxyAwareFetch } from "./proxy-fetch";
+
 export type UpdateInfo =
   | { state: "disabled" }
-  | { state: "unavailable" }
+  | { state: "unavailable"; detail?: string }
   | { state: "ok"; current: string; latest: string; newer: boolean; devBuild: boolean };
 
 export const DEFAULT_REPO = "petrecalinoiu/podmanmanager-master";
@@ -35,7 +37,7 @@ export function updateRepo(env: Record<string, string | undefined> = process.env
 }
 
 type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
-const cache = new Map<string, { at: number; latest: string | null }>();
+const cache = new Map<string, { at: number; latest: string | null; detail?: string }>();
 
 const reqInit = (extra: Record<string, string> = {}): RequestInit => ({
   headers: { Accept: "application/json", ...extra },
@@ -47,20 +49,20 @@ const reqInit = (extra: Record<string, string> = {}): RequestInit => ({
 /** Registry API (the hosts `podman pull docker.io/...` uses): anonymous pull token, then the tag list. */
 async function tagsViaRegistry(repo: string, fetchFn: FetchFn): Promise<string[]> {
   const t = await fetchFn(`https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull`, reqInit());
-  if (!t.ok) throw new Error("token");
+  if (!t.ok) throw new Error(`HTTP_${t.status}`);
   const token = ((await t.json()) as { token?: unknown }).token;
-  if (typeof token !== "string" || token.length === 0 || token.length > 8192) throw new Error("token");
+  if (typeof token !== "string" || token.length === 0 || token.length > 8192) throw new Error("BAD_TOKEN");
   const r = await fetchFn(`https://registry-1.docker.io/v2/${repo}/tags/list?n=1000`, reqInit({ Authorization: `Bearer ${token}` }));
-  if (!r.ok) throw new Error("tags");
+  if (!r.ok) throw new Error(`HTTP_${r.status}`);
   const tags = ((await r.json()) as { tags?: unknown }).tags;
-  if (!Array.isArray(tags)) throw new Error("tags");
+  if (!Array.isArray(tags)) throw new Error("BAD_LIST");
   return tags.filter((x): x is string => typeof x === "string");
 }
 
 /** Docker Hub web API (hub.docker.com). */
 async function tagsViaHub(repo: string, fetchFn: FetchFn): Promise<string[]> {
   const res = await fetchFn(`https://hub.docker.com/v2/repositories/${repo}/tags/?page_size=100`, reqInit());
-  if (!res.ok) throw new Error("hub");
+  if (!res.ok) throw new Error(`HTTP_${res.status}`);
   const body = (await res.json()) as { results?: { name?: unknown }[] };
   return (body.results ?? []).map((r) => (typeof r.name === "string" ? r.name : ""));
 }
@@ -77,20 +79,24 @@ export async function checkForUpdate(
   if (!(opts.enabled ?? updateCheckEnabled())) return { state: "disabled" };
   const repo = opts.repo ?? updateRepo();
   const now = opts.now ?? Date.now();
-  const fetchFn = opts.fetchFn ?? fetch;
+  const fetchFn = opts.fetchFn ?? makeProxyAwareFetch();
   const hit = cache.get(repo);
   let latest: string | null;
   if (hit && now - hit.at < (hit.latest ? OK_TTL_MS : FAIL_TTL_MS)) {
     latest = hit.latest;
   } else {
+    let detail: string | undefined;
     try {
       latest = latestStable(await Promise.any([tagsViaRegistry(repo, fetchFn), tagsViaHub(repo, fetchFn)]));
-    } catch {
+      if (!latest) detail = "no release tags";
+    } catch (e) {
       latest = null;
+      const errs = e instanceof AggregateError ? e.errors : [e];
+      detail = ["registry", "hub"].slice(0, errs.length).map((n, i) => `${n}: ${failCode(errs[i])}`).join(", ");
     }
-    cache.set(repo, { at: now, latest });
+    cache.set(repo, { at: now, latest, detail });
   }
-  if (!latest) return { state: "unavailable" };
+  if (!latest) return { state: "unavailable", detail: cache.get(repo)?.detail };
   const devBuild = parseSemver(current) === null;
   return { state: "ok", current, latest, newer: !devBuild && compareSemver(latest, current) > 0, devBuild };
 }

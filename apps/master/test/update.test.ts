@@ -67,11 +67,12 @@ describe("update check", () => {
   });
 
   it("degrades to unavailable on network errors, HTTP errors and empty results", async () => {
-    assert.deepEqual(await checkForUpdate("0.3.0", { fetchFn: async () => { throw new Error("offline"); }, enabled: true }), { state: "unavailable" });
+    const refused = Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
+    assert.deepEqual(await checkForUpdate("0.3.0", { fetchFn: async () => { throw refused; }, enabled: true }), { state: "unavailable", detail: "registry: ECONNREFUSED, hub: ECONNREFUSED" });
     clearUpdateCache();
-    assert.deepEqual(await checkForUpdate("0.3.0", { fetchFn: async () => new Response("no", { status: 404 }), enabled: true }), { state: "unavailable" });
+    assert.deepEqual(await checkForUpdate("0.3.0", { fetchFn: async () => new Response("no", { status: 404 }), enabled: true }), { state: "unavailable", detail: "registry: HTTP_404, hub: HTTP_404" });
     clearUpdateCache();
-    assert.deepEqual(await checkForUpdate("0.3.0", { fetchFn: tags("latest"), enabled: true }), { state: "unavailable" });
+    assert.deepEqual(await checkForUpdate("0.3.0", { fetchFn: tags("latest"), enabled: true }), { state: "unavailable", detail: "no release tags" });
   });
 
   it("does nothing when disabled", async () => {
@@ -94,13 +95,17 @@ describe("update check", () => {
   });
 
   it("is unavailable when both are blocked, the token is rejected or the tag list is malformed", async () => {
-    assert.deepEqual(await checkForUpdate("0.3.0", { fetchFn: fake(["0.3.4"], {}), enabled: true }), { state: "unavailable" });
+    const detailOf = (r: unknown) => (r as { state: string; detail?: string });
+    let r = detailOf(await checkForUpdate("0.3.0", { fetchFn: fake(["0.3.4"], {}), enabled: true }));
+    assert.equal(r.state, "unavailable");
     clearUpdateCache();
     const badToken = async (u: string) => (URLS.token.test(u) ? new Response("{}", { status: 200 }) : Promise.reject(new TypeError("blocked")));
-    assert.deepEqual(await checkForUpdate("0.3.0", { fetchFn: badToken, enabled: true }), { state: "unavailable" });
+    r = detailOf(await checkForUpdate("0.3.0", { fetchFn: badToken, enabled: true }));
+    assert.deepEqual(r, { state: "unavailable", detail: "registry: BAD_TOKEN, hub: ERROR" });
     clearUpdateCache();
     const badList = async (u: string) => (URLS.token.test(u) ? new Response(JSON.stringify({ token: "t" })) : URLS.tags.test(u) ? new Response(JSON.stringify({ tags: "nope" })) : Promise.reject(new TypeError("blocked")));
-    assert.deepEqual(await checkForUpdate("0.3.0", { fetchFn: badList, enabled: true }), { state: "unavailable" });
+    r = detailOf(await checkForUpdate("0.3.0", { fetchFn: badList, enabled: true }));
+    assert.deepEqual(r, { state: "unavailable", detail: "registry: BAD_LIST, hub: ERROR" });
   });
 
   it("caches results (6 h) and retries failures sooner (5 min)", async () => {
