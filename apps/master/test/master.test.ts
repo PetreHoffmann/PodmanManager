@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
 import { createAgentServer } from "../../agent/src/api/server.js";
+import { realisticPodman } from "../../agent/test/helpers.js";
 import { hashToken } from "../../agent/src/auth/auth.js";
 import { PodmanClient } from "../../agent/src/podman/client.js";
 import { PodmanService } from "../../agent/src/podman/service.js";
@@ -52,7 +53,7 @@ describe("master with real agent over HTTP", () => {
   before(async () => {
     dir = mkdtempSync(join(tmpdir(), "pm-m-"));
     sock = join(dir, "p.sock");
-    podmanSrv = createServer((req, res) => {
+    podmanSrv = createServer(realisticPodman((req, res) => {
       const u = req.url ?? "";
       const send = (s: number, b?: unknown) => { res.writeHead(s, { "Content-Type": "application/json" }); res.end(b === undefined ? undefined : JSON.stringify(b)); };
       if (u === "/libpod/_ping") return send(200, "OK");
@@ -61,7 +62,7 @@ describe("master with real agent over HTTP", () => {
       if (u === `/libpod/containers/${ID}/json`) return send(200, { Id: ID, Name: "web", ImageName: "nginx", Created: "2025-01-01T00:00:00Z", State: { Status: running ? "running" : "exited" } });
       if (u === `/libpod/containers/${ID}/stop?timeout=10`) { running = false; return send(204); }
       send(404, { message: "nope" });
-    });
+    }));
     await new Promise<void>((r) => podmanSrv.listen(sock, r));
     const svc = new PodmanService(new PodmanClient(sock, 2000), 10);
     agentSrv = createAgentServer(
@@ -122,14 +123,20 @@ describe("master with real agent over HTTP", () => {
   it("marks agent offline after N failures and recovers", async () => {
     const t = targetFor(id, db)!;
     assert.equal((await checkAgent(id, db))!.status, "online");
-    db.prepare("UPDATE agents SET port = 1 WHERE id = ?").run(id);
+    const closedPort = await new Promise<number>((r) => { const l = createServer(); l.listen(0, "127.0.0.1", () => { const p = (l.address() as AddressInfo).port; l.close(() => r(p)); }); });
+    db.prepare("UPDATE agents SET port = ? WHERE id = ?").run(closedPort, id);
     assert.equal((await checkAgent(id, db))!.status, "online");
     const off = (await checkAgent(id, db))!;
     assert.equal(off.status, "offline");
     assert.equal(off.fail_count, 2);
     assert.ok(off.last_error);
-    const list = await agentList({ ...t, port: 1 });
+    // fetch refuses some well-known ports (e.g. 1), so use a really closed ephemeral port
+    const closed = await new Promise<number>((r) => { const l = createServer(); l.listen(0, "127.0.0.1", () => { const p = (l.address() as AddressInfo).port; l.close(() => r(p)); }); });
+    const list = await agentList({ ...t, port: closed });
     assert.equal(list.ok, false);
+    assert.deepEqual(list.ok ? null : [list.code, list.message], ["UNREACHABLE", "ECONNREFUSED"]);
+    const dns = await agentList({ ...t, address: "no-such-host.invalid" });
+    assert.deepEqual(dns.ok ? null : [dns.code, dns.message], ["UNREACHABLE", "ENOTFOUND"]);
     db.prepare("UPDATE agents SET port = ? WHERE id = ?").run(port, id);
     const back = (await checkAgent(id, db))!;
     assert.equal(back.status, "online");

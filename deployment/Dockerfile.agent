@@ -11,12 +11,13 @@ COPY shared shared
 RUN npm run build -w apps/agent
 
 FROM node:24-slim
+ARG APP_VERSION=
 LABEL org.opencontainers.image.licenses="Apache-2.0" org.opencontainers.image.authors="Petre Hoffmann" org.opencontainers.image.source="https://github.com/PetreHoffmann/PodmanManager"
 COPY LICENSE NOTICE /licenses/
 WORKDIR /app
 COPY --from=build /app/apps/agent/dist ./dist
 RUN echo '{"type":"module"}' > package.json
-ENV AGENT_HOST=0.0.0.0 AGENT_PORT=9126 PODMAN_SOCKET=/run/podman/podman.sock
+ENV APP_VERSION=$APP_VERSION AGENT_HOST=0.0.0.0 AGENT_PORT=9126 PODMAN_SOCKET=/run/podman/podman.sock
 # Never root. Run with --user <uid of the Podman user> so the mounted socket is accessible.
 USER 1000
 EXPOSE 9126

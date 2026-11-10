@@ -21,6 +21,7 @@ export class PodmanError extends Error {
 export interface PodmanResponse {
   status: number;
   body: Buffer;
+  headers: Record<string, string | string[] | undefined>;
 }
 
 const MAX_BODY = 32 * 1024 * 1024;
@@ -71,7 +72,7 @@ export class PodmanClient {
             chunks.push(c);
           });
           res.on("end", () =>
-            resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks) }),
+            resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks), headers: res.headers }),
           );
           res.on("error", (e) => reject(mapError(e)));
         },

@@ -35,10 +35,12 @@ async function call<T>(t: AgentTarget, method: "GET" | "POST", path: string, tim
     return { ok: false, code: "BAD_RESPONSE", message: `Unexpected response (HTTP ${res.status})`, unreachable: true };
   } catch (e) {
     const timeout = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
+    // Low-level cause (ECONNREFUSED, ENOTFOUND, EHOSTUNREACH, ...) helps to tell DNS, firewall and port problems apart.
+    const cause = (e as { cause?: { code?: unknown } })?.cause?.code;
     return {
       ok: false,
       code: timeout ? "TIMEOUT" : "UNREACHABLE",
-      message: timeout ? "Agent did not respond in time" : "Agent not reachable",
+      message: timeout ? "Agent did not respond in time" : typeof cause === "string" && /^[A-Z0-9_]{3,40}$/.test(cause) ? cause : "Agent not reachable",
       unreachable: true,
     };
   }

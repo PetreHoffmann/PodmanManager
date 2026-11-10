@@ -76,23 +76,41 @@ export interface PodmanVersion {
   apiVersion: string | null;
 }
 
+/** Used when a Podman does not announce its libpod API version. */
+export const FALLBACK_API_VERSION = "4.0.0";
+
 export class PodmanService {
+  /**
+   * Podman serves most libpod routes only with a version prefix (/v4.9.3/libpod/...);
+   * unversioned paths answer 404. The prefix is taken from the ping header Libpod-Api-Version.
+   */
+  private base: string | null = null;
+
   constructor(
     private readonly client: PodmanClient,
     private readonly stopTimeoutSec: number,
   ) {}
 
-  /** Socket exists, API answers _ping. Throws PodmanError otherwise. */
+  /** Socket exists, API answers _ping (unversioned by design). Learns the libpod API version. */
   async ping(): Promise<void> {
     await this.client.checkSocket();
     const res = await this.client.call("GET", "/libpod/_ping");
     if (res.status !== 200) {
       throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     }
+    const h = res.headers["libpod-api-version"];
+    const v = Array.isArray(h) ? h[0] : h;
+    this.base = `/v${typeof v === "string" && /^\d+\.\d+\.\d+$/.test(v) ? v : FALLBACK_API_VERSION}`;
+  }
+
+  /** "/v<libpod api version>/libpod" */
+  private async libpod(): Promise<string> {
+    if (this.base === null) await this.ping();
+    return `${this.base ?? `/v${FALLBACK_API_VERSION}`}/libpod`;
   }
 
   async version(): Promise<PodmanVersion> {
-    const res = await this.client.call("GET", "/libpod/version");
+    const res = await this.client.call("GET", `${await this.libpod()}/version`);
     if (res.status !== 200) {
       throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     }
@@ -104,7 +122,7 @@ export class PodmanService {
 
   async list(): Promise<ContainerInfo[]> {
     await this.client.checkSocket();
-    const res = await this.client.call("GET", "/libpod/containers/json?all=true");
+    const res = await this.client.call("GET", `${await this.libpod()}/containers/json?all=true`);
     if (res.status !== 200) {
       throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     }
@@ -115,7 +133,7 @@ export class PodmanService {
   async inspect(id: string): Promise<ContainerInfo> {
     this.assertId(id);
     await this.client.checkSocket();
-    const res = await this.client.call("GET", `/libpod/containers/${id}/json`);
+    const res = await this.client.call("GET", `${await this.libpod()}/containers/${id}/json`);
     if (res.status === 404) throw new PodmanError("CONTAINER_NOT_FOUND", "Container not found", 404);
     if (res.status !== 200) {
       throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
@@ -127,12 +145,13 @@ export class PodmanService {
     this.assertId(id);
     await this.client.checkSocket();
     const t = this.stopTimeoutSec;
+    const lp = await this.libpod();
     const path =
       action === "start"
-        ? `/libpod/containers/${id}/start`
+        ? `${lp}/containers/${id}/start`
         : action === "stop"
-          ? `/libpod/containers/${id}/stop?timeout=${t}`
-          : `/libpod/containers/${id}/restart?t=${t}`;
+          ? `${lp}/containers/${id}/stop?timeout=${t}`
+          : `${lp}/containers/${id}/restart?t=${t}`;
     const res = await this.client.call("POST", path);
     if (res.status === 404) throw new PodmanError("CONTAINER_NOT_FOUND", "Container not found", 404);
     if (res.status !== 204 && res.status !== 304) {

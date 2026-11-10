@@ -38,6 +38,9 @@ describe("i18n", () => {
     const t = makeT("de");
     assert.equal(errText(t, "SOCKET_MISSING"), "Podman-Socket nicht gefunden");
     assert.equal(errText(t, "PODMAN_API_ERROR", "boom"), "Podman-API-Fehler: boom");
+    assert.equal(errText(t, "UNREACHABLE", "ECONNREFUSED"), "Agent nicht erreichbar (ECONNREFUSED)");
+    assert.equal(errText(t, "UNREACHABLE", "Agent not reachable"), "Agent nicht erreichbar");
+    assert.equal(lastErrText(t, "UNREACHABLE: ENOTFOUND"), "Agent nicht erreichbar (ENOTFOUND)");
     assert.equal(errText(t, "WEIRD", "raw msg"), "raw msg");
     assert.equal(lastErrText(t, "TIMEOUT: Agent did not respond in time"), "Agent hat nicht rechtzeitig geantwortet");
     assert.equal(statusLabel(t, "running"), "läuft");

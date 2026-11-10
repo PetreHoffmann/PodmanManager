@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import { createAgentServer } from "../apps/agent/src/api/server.js";
+import { realisticPodman } from "../apps/agent/test/helpers.js";
 import { hashToken } from "../apps/agent/src/auth/auth.js";
 import { PodmanClient } from "../apps/agent/src/podman/client.js";
 import { PodmanService } from "../apps/agent/src/podman/service.js";
@@ -27,7 +28,7 @@ async function startHost(name: string, ids: [string, string], port = 0, reuse?: 
   const names: Record<string, string> = { [ids[0]]: `${name}-web`, [ids[1]]: `${name}-db` };
   const send = (res: import("node:http").ServerResponse, s: number, b?: unknown) => { res.writeHead(s, { "Content-Type": "application/json" }); res.end(b === undefined ? undefined : JSON.stringify(b)); };
   const item = (id: string) => ({ Id: id, Names: [names[id]], Image: "docker.io/library/nginx", State: state.get(id), Created: "2025-01-01T00:00:00Z", StartedAt: 0 });
-  const podman = reuse?.podman ?? createServer((req, res) => {
+  const podman = reuse?.podman ?? createServer(realisticPodman((req, res) => {
     const u = req.url ?? "";
     let m: RegExpExecArray | null;
     if (u === "/libpod/_ping") return send(res, 200, "OK");
@@ -36,7 +37,7 @@ async function startHost(name: string, ids: [string, string], port = 0, reuse?: 
     if ((m = /^\/libpod\/containers\/([a-f0-9]+)\/json$/.exec(u)) && state.has(m[1]!)) return send(res, 200, { Id: m[1], Name: names[m[1]!], ImageName: "nginx", Created: "2025-01-01T00:00:00Z", State: { Status: state.get(m[1]!) } });
     if ((m = /^\/libpod\/containers\/([a-f0-9]+)\/(start|stop|restart)/.exec(u)) && state.has(m[1]!)) { state.set(m[1]!, m[2] === "stop" ? "exited" : "running"); return send(res, 204); }
     send(res, 404, { message: "no such container" });
-  });
+  }));
   if (!reuse) await new Promise<void>((r) => podman.listen(sock, r));
   const token = reuse?.token ?? randomBytes(24).toString("base64url");
   const agent = createAgentServer(
