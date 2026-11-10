@@ -33,7 +33,9 @@ Der Agent nutzt ausschließlich diese festen Endpunkte (kein Pass-through). `<ba
 
 **Versionierung:** Podman beantwortet die libpod-Routen außer `_ping` nur **mit** Versionspräfix; ohne Präfix kommt `404`. Der Agent liest deshalb bei jedem Ping (jede Health-Prüfung) die Version aus dem Header `Libpod-Api-Version` und verwendet sie für alle Aufrufe. Fehlt der Header, gilt `v4.0.0`.
 
-**Geprüft** gegen den Podman-Quellcode und gegen ein echtes **Podman 4.9.3** (Socket, `_ping`, Version, Container auflisten/ansehen, Start/Stop/Restart inkl. 304-Fall und unbekannter ID, mit einem echten Container). Dieser Test lief gegen einen Root-Socket; ein Rootless-Socket spricht dieselbe API. Ältere/neuere Podman-Versionen (z. B. 5.x) sind nicht gesondert getestet.
+**Geprüft:**
+- gegen den Podman-Quellcode und gegen ein echtes **Podman 4.9.3** (Root-Socket in der Entwicklungsumgebung): `_ping`, Version, Container auflisten/ansehen, Start/Stop/Restart inkl. 304-Fall und unbekannter ID, mit einem echten Container;
+- auf einem echten Host mit **Rootless-Podman 5.8.2** (Agent als Quadlet-Container): `/api/v1/health` meldet `socketStatus: ok`, `apiStatus: ok` und die Podman-Version. Container-Routen und Start/Stop/Restart sind auf 5.x nicht einzeln bestätigt.
 
 ## Bewusst nicht enthalten
 Container erstellen/löschen, Images, Volumes, Netzwerke, Pods, Logs, Exec/Terminal, Statistiken, Compose.

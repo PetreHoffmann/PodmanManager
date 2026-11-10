@@ -22,6 +22,7 @@
 | Host `offline` | Agent läuft? Firewall (9126 für Master-IP)? `curl -H "Authorization: Bearer …" http://<ip>:9126/api/v1/health` vom Master aus. Die letzte Fehlermeldung steht in der Hostliste. |
 | Host `degraded` | Agent ok, Podman-Problem auf dem Host (siehe oben). |
 | „Agent not reachable (ECONNREFUSED)“ | Der Master erreicht die Adresse, aber dort lauscht nichts: falscher Port, Agent läuft nicht, oder der Port ist nur an `127.0.0.1` veröffentlicht (`PublishPort=`). |
+| „Agent not reachable (EAI_AGAIN)“ | Die Namensauflösung bekommt keine Antwort. Bei Quadlets mit Adresse `http://podmanmanager-agent:9126`: das gemeinsame Netzwerk fehlt oder ist nicht aktiv (`podman network ls` muss `systemd-podmanmanager` zeigen), siehe `deployment/quadlet/README.md`. Sonst: DNS des Masters prüfen. |
 | „Agent not reachable (ENOTFOUND)“ | Der Hostname ist vom Master aus nicht auflösbar (bei einem Master im Container: DNS im Container). IP-Adresse verwenden. |
 | „Agent not reachable (EHOSTUNREACH / ETIMEDOUT)“ | Firewall oder Routing: Port 9126 auf dem Agent-Host für die Master-IP freigeben (`firewall-cmd`/`ufw`). Test vom Master aus: `podman exec podmanmanager-master node -e "fetch('http://<agent>:9126/api/v1/health').then(r=>console.log(r.status)).catch(e=>console.log(e.cause))"` (Status 401 heißt: Verbindung steht, Token fehlt). |
 | Agent nicht hinzufügbar | Adresse muss `http://host:port` sein; Token korrekt; Host darf nicht schon registriert sein (Adresse oder Agent-ID). |
