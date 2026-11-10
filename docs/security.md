@@ -40,6 +40,9 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Der Agent selbst filtert nicht; die Grenze ist der Master. Wer das Host-System verwaltet (Container umbenennen, Agent-API mit dem Token direkt ansprechen), ist von dieser Funktion nicht eingeschränkt.
 - Abgleich nur über den Namen: Wird ein Container umbenannt, ändert sich seine Sichtbarkeit.
 
+**Container-Images**
+- Basis: `node:24-trixie-slim` (Debian 13), Laufzeit-Stage als Benutzer `node`/UID 1000 (Agent: nie root). Die Images installieren beim Build das aktuelle Debian-Security-Paket für `zlib1g` (CVE-2026-85091); auf Debian 12 (bookworm) gibt es dafür keinen Fix, deshalb wurde auf trixie gewechselt. Die Images enthalten keine Geheimnisse (Schlüssel und Tokens kommen zur Laufzeit).
+
 **Reverse-Proxy / `ALLOWED_ORIGINS`**
 - Der CSRF-Schutz für Formular-Aktionen (Origin muss zum Host passen) bleibt immer aktiv. `ALLOWED_ORIGINS` nimmt ausschließlich die dort gelisteten Hosts davon aus (Laufzeit-Variable, kein Wildcard-Standard, nur `*.domain` auf ausdrücklichen Wunsch). Zusätzlich hat das Session-Cookie `SameSite=Strict`. Der Master selbst spricht weiter nur HTTP; TLS endet am Proxy. Das Cookie trägt kein `Secure`-Flag.
 
