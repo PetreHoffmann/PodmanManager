@@ -1,6 +1,6 @@
 # Quadlets (Podman + systemd)
 
-Beispiele, um Master und Agent als **rootless Quadlet** zu betreiben. **Bestätigt:** Die Agent-Unit startet auf einem echten Host mit Rootless-Podman 5.8.2 und meldet über `/api/v1/health` `socketStatus`/`apiStatus` ok. **Ebenfalls bestätigt:** Im gemeinsamen Netzwerk (`podmanmanager.network`) löst der Master-Container den Namen `podmanmanager-agent` auf. **Nicht bestätigt:** `NoNewPrivileges`/`DropCapability=ALL` in allen Umgebungen sowie der Pfad Master → Agent über das Netzwerk bis zur Containerliste. Bei Problemen zuerst `podman-system-generator --user --dryrun` und `journalctl --user -u <unit>` prüfen.
+Beispiele, um Master und Agent als **rootless Quadlet** zu betreiben. **Bestätigt** auf einem echten Host mit Rootless-Podman 5.8.2: Agent- und Master-Unit starten, im gemeinsamen Netzwerk (`podmanmanager.network`) löst der Master `podmanmanager-agent` auf, die Registrierung (`http://podmanmanager-agent:9126`) gelingt, der Host ist online, und Containerliste sowie Start/Stop/Restart über den Master funktionieren. **Nicht bestätigt:** `NoNewPrivileges`/`DropCapability=ALL` in allen Umgebungen sowie Setups mit Master und Agent auf verschiedenen Hosts. Bei Problemen zuerst `podman-system-generator --user --dryrun` und `journalctl --user -u <unit>` prüfen.
 
 | Datei | Zweck |
 |---|---|
@@ -78,7 +78,7 @@ Zeigt `podman network ls` nur `podman`, ist das Netzwerk nie angelegt worden: di
 
 `PublishPort` am Agent ist dann nur für Master auf **anderen** Hosts nötig. Alternative ohne Netzwerk: im Master `http://host.containers.internal:9126` eintragen (der Agent-Port muss dazu auf einer erreichbaren Adresse veröffentlicht sein). Diagnose: `podman port podmanmanager-agent`, `ss -ltnp | grep 9126` und vom Master aus
 `podman exec podmanmanager-master node -e "fetch('http://<agent>:9126/api/v1/health').then(r=>console.log(r.status)).catch(e=>console.log(e.cause.code))"` (`401` = Verbindung steht).
-Das Netzwerk-Beispiel ist **ungetestet**.
+Das Netzwerk-Beispiel ist auf einem Host mit Master und Agent bestätigt.
 
 ## Beide: Start ohne Login
 

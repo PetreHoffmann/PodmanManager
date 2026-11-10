@@ -61,6 +61,8 @@ Unter **Settings → LDAP / Active Directory login** (nur als lokaler `admin` si
 - **Administratoren-Gruppe** (optional, ein AD-Gruppen-DN): Mitglieder sehen und verwalten **alle** Agents und dürfen Hosts hinzufügen/entfernen/aktivieren/testen – aber **keine** Passwort-, LDAP- oder Gruppen-Einstellungen ändern.
 - **Agent-Gruppen** (siehe unten): Mitglieder einer zugeordneten AD-Gruppe sehen und bedienen **nur** die Agents ihrer Gruppen.
 
+**Bestätigt:** Die LDAP-Anmeldung funktioniert mit einem echten Active Directory (vom Betreiber getestet). Für Besonderheiten Ihres Verzeichnisses (verschachtelte Gruppen, interne CA, StartTLS) zuerst *Test connection* nutzen.
+
 Das lokale Konto `admin` bleibt als Notzugang immer aktiv (ein AD-Benutzer namens `admin` kann sich deshalb nicht per LDAP anmelden).
 
 | Feld | Beispiel | | Beispiel |

@@ -35,7 +35,7 @@ Der Agent nutzt ausschließlich diese festen Endpunkte (kein Pass-through). `<ba
 
 **Geprüft:**
 - gegen den Podman-Quellcode und gegen ein echtes **Podman 4.9.3** (Root-Socket in der Entwicklungsumgebung): `_ping`, Version, Container auflisten/ansehen, Start/Stop/Restart inkl. 304-Fall und unbekannter ID, mit einem echten Container;
-- auf einem echten Host mit **Rootless-Podman 5.8.2** (Agent als Quadlet-Container): `/api/v1/health` meldet `socketStatus: ok`, `apiStatus: ok` und die Podman-Version. Container-Routen und Start/Stop/Restart sind auf 5.x nicht einzeln bestätigt.
+- auf einem echten Host mit **Rootless-Podman 5.8.2** (Agent und Master als Quadlet-Container im gemeinsamen Netzwerk): Registrierung im Master, `/api/v1/health` (`socketStatus: ok`, `apiStatus: ok`, Podman-Version), Containerliste und Start/Stop/Restart über die Master-Oberfläche funktionieren. Andere 5.x-Versionen sind nicht gesondert getestet.
 
 ## Bewusst nicht enthalten
 Container erstellen/löschen, Images, Volumes, Netzwerke, Pods, Logs, Exec/Terminal, Statistiken, Compose.
