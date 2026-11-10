@@ -5,6 +5,7 @@
 |---|---|
 | Health: `socketStatus: missing` | Socket fehlt. `systemctl --user enable --now podman.socket`; Pfad: `ls $XDG_RUNTIME_DIR/podman/podman.sock`. Ggf. `PODMAN_SOCKET` in `agent.env` setzen. |
 | `unreachable` | Socket gehört einem anderen Benutzer/Rechte. Agent muss unter demselben Benutzer wie Podman laufen. |
+| `apiStatus: error`, „Podman returned HTTP 404“ | Agent-Version ≤ 0.3.0 nutzt unversionierte libpod-Pfade, die Podman ablehnt → auf eine neuere Agent-Version aktualisieren (Image/Build ≥ der Version mit dem Fix). |
 | `apiStatus: error` | Podman antwortet fehlerhaft. `podman info`, `journalctl --user -u podman.socket`, Podman-Version prüfen. |
 | Agent startet nicht: „Refusing to run as root" | Als normaler Benutzer starten. |
 | „PODMAN_SOCKET not set and XDG_RUNTIME_DIR unavailable" | Außerhalb einer Benutzersitzung gestartet. Als User-Service laufen lassen oder `PODMAN_SOCKET` absolut setzen. |
@@ -20,6 +21,9 @@
 | „MASTER_SECRET_KEY must be 32 bytes" | Schlüssel setzen: `openssl rand -base64 32`. |
 | Host `offline` | Agent läuft? Firewall (9126 für Master-IP)? `curl -H "Authorization: Bearer …" http://<ip>:9126/api/v1/health` vom Master aus. Die letzte Fehlermeldung steht in der Hostliste. |
 | Host `degraded` | Agent ok, Podman-Problem auf dem Host (siehe oben). |
+| „Agent not reachable (ECONNREFUSED)“ | Der Master erreicht die Adresse, aber dort lauscht nichts: falscher Port, Agent läuft nicht, oder der Port ist nur an `127.0.0.1` veröffentlicht (`PublishPort=`). |
+| „Agent not reachable (ENOTFOUND)“ | Der Hostname ist vom Master aus nicht auflösbar (bei einem Master im Container: DNS im Container). IP-Adresse verwenden. |
+| „Agent not reachable (EHOSTUNREACH / ETIMEDOUT)“ | Firewall oder Routing: Port 9126 auf dem Agent-Host für die Master-IP freigeben (`firewall-cmd`/`ufw`). Test vom Master aus: `podman exec podmanmanager-master node -e "fetch('http://<agent>:9126/api/v1/health').then(r=>console.log(r.status)).catch(e=>console.log(e.cause))"` (Status 401 heißt: Verbindung steht, Token fehlt). |
 | Agent nicht hinzufügbar | Adresse muss `http://host:port` sein; Token korrekt; Host darf nicht schon registriert sein (Adresse oder Agent-ID). |
 | Nach Schlüsselverlust: Fehler „Cannot read agent credentials" | Hosts entfernen und neu registrieren. |
 | Zugriff verweigert nach Stop/Restart | Aktion ist nur bei erreichbarem, aktiviertem Host möglich. |

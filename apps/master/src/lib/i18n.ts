@@ -561,7 +561,12 @@ export function statusLabel(t: T, s: string): string {
 
 export function errText(t: T, code: string, message = ""): string {
   const k = `errc.${code}` as Key;
-  if (k in en) return code === "PODMAN_API_ERROR" && message ? `${t(k)}: ${message}` : t(k);
+  if (k in en) {
+    if (code === "PODMAN_API_ERROR" && message) return `${t(k)}: ${message}`;
+    // UNREACHABLE carries the low-level cause code (ECONNREFUSED, ENOTFOUND, ...)
+    if (code === "UNREACHABLE" && /^[A-Z0-9_]{3,40}$/.test(message)) return `${t(k)} (${message})`;
+    return t(k);
+  }
   return message || code;
 }
 
