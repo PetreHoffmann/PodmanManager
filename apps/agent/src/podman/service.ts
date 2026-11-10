@@ -1,4 +1,4 @@
-import type { ContainerAction, ContainerInfo, LogLine, PodInfo } from "../../../../shared/types/index.js";
+import type { ContainerAction, ContainerInfo, LogLine, PodInfo, PodLogs } from "../../../../shared/types/index.js";
 import { PodmanClient, PodmanError, TOO_LARGE_MESSAGE, type PodmanResponse } from "./client.js";
 import { parseLogStream } from "./logs.js";
 
@@ -97,6 +97,24 @@ export function mapInspect(raw: unknown): ContainerInfo {
     podId: str(o.Pod) || null,
     podName: str(o.PodName) || null,
   };
+}
+
+export const MAX_POD_LOG_CONTAINERS = 50;
+
+/** Merges per-container log lines by time (stable; lines without timestamp stay behind their predecessor). */
+export function mergeLogs(sources: { name: string; lines: LogLine[] }[], tail: number): LogLine[] {
+  const all: { t: number; order: number; line: LogLine }[] = [];
+  let order = 0;
+  for (const src of sources) {
+    let last = 0;
+    for (const l of src.lines) {
+      const t = l.ts ? Date.parse(l.ts) : NaN;
+      if (!Number.isNaN(t)) last = t;
+      all.push({ t: last, order: order++, line: { ...l, container: src.name } });
+    }
+  }
+  all.sort((a, b) => a.t - b.t || a.order - b.order);
+  return all.slice(-tail).map((x) => x.line);
 }
 
 export interface PodmanVersion {
@@ -219,6 +237,28 @@ export class PodmanService {
     const p = (await this.listPods()).find((x) => x.id === id || (id.length < 64 && x.id.startsWith(id)));
     if (!p) throw new PodmanError("POD_NOT_FOUND", "Pod not found", 404);
     return p;
+  }
+
+  /**
+   * Logs of all (non-infra) containers of a pod, merged by timestamp; podman has no pod-logs API route
+   * (`podman pod logs` merges on the client). Containers whose logs cannot be read are reported in `skipped`.
+   */
+  async podLogs(id: string, tail: number): Promise<PodLogs> {
+    const pod = await this.pod(id);
+    const members = pod.containers.filter((c) => !c.infra).slice(0, MAX_POD_LOG_CONTAINERS);
+    const results = await Promise.all(
+      members.map(async (c) => {
+        try {
+          return { c, lines: await this.logs(c.id, tail), err: null as PodmanError | null };
+        } catch (e) {
+          if (e instanceof PodmanError && e.code !== "SOCKET_MISSING" && e.code !== "SOCKET_UNREACHABLE" && e.code !== "PODMAN_TIMEOUT") return { c, lines: [] as LogLine[], err: e };
+          throw e;
+        }
+      }),
+    );
+    const failed = results.filter((r) => r.err);
+    if (members.length > 0 && failed.length === members.length) throw failed[0]!.err!;
+    return { tail, lines: mergeLogs(results.map((r) => ({ name: r.c.name || r.c.id.slice(0, 12), lines: r.lines })), tail), skipped: failed.map((r) => r.c.name || r.c.id.slice(0, 12)) };
   }
 
   async podAct(id: string, action: ContainerAction): Promise<{ changed: boolean; pod: PodInfo }> {

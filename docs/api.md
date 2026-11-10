@@ -21,6 +21,7 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 | GET | `/containers/:id/logs?tail=<n>` | letzte `n` Log-Zeilen (1–500, Standard 150), nur lesend |
 | GET | `/pods` | alle Pods mit ihren Containern |
 | GET | `/pods/:id` | ein Pod (ID wie bei Containern, auch Kurzform) |
+| GET | `/pods/:id/logs?tail=<n>` | letzte `n` Log-Zeilen aller Container des Pods, nach Zeit gemischt (1–500, Standard 150), nur lesend |
 | POST | `/pods/:id/start` | alle Container des Pods starten |
 | POST | `/pods/:id/stop` | Pod stoppen (Timeout fest 10 s) |
 | POST | `/pods/:id/restart` | Pod neustarten |
@@ -55,6 +56,9 @@ Tokens/Secrets werden vor dem Speichern maskiert (`***`), Steuerzeichen entfernt
 
 ### Pods
 `GET /pods` → `[{"id","name","status","createdAt","containers":[{"id","name","state","infra"}]}]`. `status` ist kleingeschrieben (`running`, `degraded`, `exited`, `stopped`, `created`, `paused`), `infra` markiert den Infra-Container. Aktionen liefern `{action, changed, pod}`; `changed=false` bei Podman-`304` (Zustand schon erreicht). Unbekannter Pod → `404 POD_NOT_FOUND`; Fehler beim Start einzelner Container (`Errs`) kommen als Podman-Fehler (409/502) mit den Meldungen. Container-Einträge enthalten zusätzlich `podId`/`podName`.
+
+### `GET /pods/:id/logs?tail=150`
+Podman hat keine Pod-Logs-Route (`podman pod logs` mischt im Client); der Agent liest deshalb die Logs jedes Containers des Pods (Infra-Container ausgenommen, höchstens 50 Container) mit `tail=n` und mischt sie nach Zeitstempel (stabil; Zeilen ohne Zeitstempel bleiben hinter ihrer Vorgängerzeile). Antwort: `{"ok":true,"data":{"tail":150,"lines":[{"ts","stream","text","container"}],"skipped":["name",…]}}`. `container` ist der Containername; `skipped` listet Container, deren Logs nicht lesbar sind (z. B. Log-Treiber `none`). Sind alle unlesbar, kommt der Podman-Fehler (502). Format und Bereinigung der Zeilen wie bei Container-Logs; `tail` ungültig → 400 `INVALID_PARAM`, unbekannter Pod → 404 `POD_NOT_FOUND`.
 
 ### `GET /containers/:id/logs?tail=150`
 ```json

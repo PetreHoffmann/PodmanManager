@@ -45,7 +45,7 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Quelle sind Ringpuffer im Speicher (max. 500 Zeilen, nichts auf Platte). Vor dem Speichern werden Bearer-Tokens sowie Werte nach `token`/`password`/`secret`/`authorization`/`hash` maskiert, Steuerzeichen entfernt. Anzeige als reiner Text.
 
 **Pods**
-- Pods folgen denselben Regeln wie Container: Gruppenbenutzer sehen und bedienen nur Pods ihrer Agents. Ein Pod, der **mindestens einen versteckten Container** enthält, ist für eingeschränkte Benutzer komplett unsichtbar (Liste, Detail) und gesperrt (Aktion prüft den aktuellen Inhalt beim Agent). Nur start/stop/restart, kein Anlegen oder Löschen.
+- Pods folgen denselben Regeln wie Container: Gruppenbenutzer sehen und bedienen nur Pods ihrer Agents. Ein Pod, der **mindestens einen versteckten Container** enthält, ist für eingeschränkte Benutzer komplett unsichtbar (Liste, Detail) und gesperrt (Aktion prüft den aktuellen Inhalt beim Agent). Nur start/stop/restart, kein Anlegen oder Löschen. Die Pod-Logs (letzte 150 Zeilen aller Container, auf Knopfdruck) folgen denselben Regeln wie Container-Logs: gleicher Zugriff, Pods mit verstecktem Container gesperrt; die Hinweise zu Geheimnissen in Logs gelten ebenso.
 
 **Versteckte Container**
 - Namensmuster (nur lokaler `admin`) gelten für alle Sitzungen mit `access = groups`. Serverseitig durchgesetzt an jeder Stelle, an der Container ausgegeben werden: die Listen werden schon beim Abruf der Agents gefiltert (damit auch Dashboard und Host-Zahlen sie nicht enthalten), die Detailseite prüft den Namen, und jede Aktion fragt beim Agent den **aktuellen** Namen ab und lehnt versteckte Container ab (schützt auch bei veralteten Seiten und selbst gebauten Aufrufen).

@@ -113,6 +113,13 @@ export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: 
           return send(res, 200, { ok: true, data: await podman.pod(pid) });
         }
         const paction = route[2] ?? "";
+        if (route.length === 3 && paction === "logs") {
+          if (method !== "GET") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+          const raw = url.searchParams.get("tail");
+          const tail = raw === null ? DEFAULT_TAIL : /^\d{1,3}$/.test(raw) ? Number(raw) : 0;
+          if (tail < 1 || tail > MAX_TAIL) return fail(res, 400, "INVALID_PARAM", `tail must be 1-${MAX_TAIL}`);
+          return send(res, 200, { ok: true, data: await podman.podLogs(pid, tail) });
+        }
         if (route.length === 3 && ACTIONS.has(paction)) {
           if (method !== "POST") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "POST" });
           const r = await podman.podAct(pid, paction as ContainerAction);

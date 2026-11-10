@@ -1,4 +1,4 @@
-import type { PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
+import type { PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { CONTAINER_ID_RE } from "./validate";
 
@@ -82,4 +82,10 @@ export function agentPod(t: AgentTarget, id: string) {
 export function agentPodAction(t: AgentTarget, id: string, action: ContainerAction) {
   if (!CONTAINER_ID_RE.test(id)) return Promise.resolve<CallResult<PodActionResult>>({ ok: false, code: "INVALID_ID", message: "Invalid pod id", unreachable: false });
   return call<PodActionResult>(t, "POST", `/api/v1/pods/${id}/${action}`, cfg().actionTimeoutSec);
+}
+
+/** Merged last LOG_TAIL log lines of all containers of a pod (read-only). */
+export function agentPodLogs(t: AgentTarget, id: string) {
+  if (!CONTAINER_ID_RE.test(id)) return Promise.resolve<CallResult<PodLogs>>({ ok: false, code: "INVALID_ID", message: "Invalid pod id", unreachable: false });
+  return call<PodLogs>(t, "GET", `/api/v1/pods/${id}/logs?tail=${LOG_TAIL}`, 20);
 }

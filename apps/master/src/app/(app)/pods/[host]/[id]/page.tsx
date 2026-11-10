@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ContainerActions from "@/components/ContainerActions";
+import ContainerLogs from "@/components/ContainerLogs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { fmt } from "@/components/ui";
 import { agentPod } from "@/lib/agent-client";
@@ -63,6 +64,7 @@ export default async function PodDetail({ params }: { params: Promise<{ host: st
           </table>
         </div>
       </section>
+      <ContainerLogs kind="pod" agentId={agent.id} containerId={p.id} />
     </div>
   );
 }

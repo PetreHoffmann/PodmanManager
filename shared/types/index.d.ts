@@ -67,11 +67,21 @@ export interface LogLine {
   ts: string | null;
   stream: "stdout" | "stderr";
   text: string;
+  /** pod logs only: name of the container the line comes from */
+  container?: string;
 }
 
 export interface ContainerLogs {
   tail: number;
   lines: LogLine[];
+}
+
+/** Merged logs of all containers of a pod (newest `tail` lines by timestamp). */
+export interface PodLogs {
+  tail: number;
+  lines: LogLine[];
+  /** containers whose logs could not be read (e.g. log driver "none") */
+  skipped: string[];
 }
 
 export interface AppLogLine {
