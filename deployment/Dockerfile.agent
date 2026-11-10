@@ -1,5 +1,5 @@
 # Build from repo root: docker build -f deployment/Dockerfile.agent -t podmanmanager-agent .
-FROM node:24-slim AS build
+FROM node:24-trixie-slim AS build
 RUN npm install -g npm@latest
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -10,10 +10,14 @@ COPY apps/agent apps/agent
 COPY shared shared
 RUN npm run build -w apps/agent
 
-FROM node:24-slim
+FROM node:24-trixie-slim
 ARG APP_VERSION=
 LABEL org.opencontainers.image.licenses="Apache-2.0" org.opencontainers.image.authors="Petre Hoffmann" org.opencontainers.image.source="https://github.com/PetreHoffmann/PodmanManager"
 COPY LICENSE NOTICE /licenses/
+# Debian security update for zlib1g (CVE-2026-85091, fixed in trixie-security); a no-op once the base image contains it
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends --only-upgrade zlib1g \
+ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/apps/agent/dist ./dist
 RUN echo '{"type":"module"}' > package.json
