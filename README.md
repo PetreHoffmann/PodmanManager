@@ -24,20 +24,23 @@ Kein Docker, kein Compose, kein HTTPS/TLS, kein Root. **Nur in einem abgeschotte
 
 **Desktop**
 
-| Dashboard | Hosts |
+| Dashboard | Hosts mit Agent-Logs |
 |---|---|
 | ![Dashboard](docs/screenshots/desktop-dashboard.png) | ![Hosts](docs/screenshots/desktop-hosts.png) |
-| **Container** | **Stop mit Bestätigung** |
+| **Container** (mit Pod-Spalte) | **Stop mit Bestätigung** |
 | ![Containers](docs/screenshots/desktop-containers.png) | ![Stop-Bestätigung](docs/screenshots/desktop-stop-confirmation.png) |
-| **Container-Details** | **Host nicht erreichbar** (wird separat ausgewiesen) |
+| **Container-Details mit Logs** | **Host nicht erreichbar** (wird separat ausgewiesen) |
 | ![Details](docs/screenshots/desktop-container-detail.png) | ![Dashboard mit Offline-Host](docs/screenshots/desktop-dashboard-host-offline.png) |
+| **Pods** | **Pod-Details mit gemischten Logs** |
+| ![Pods](docs/screenshots/desktop-pods.png) | ![Pod-Details](docs/screenshots/desktop-pod-detail.png) |
 
 **Smartphone** (Kartenansicht statt Tabellen)
 
 <p>
-  <img src="docs/screenshots/mobile-dashboard.png" alt="Dashboard mobil" width="260">
-  <img src="docs/screenshots/mobile-hosts.png" alt="Hosts mobil" width="260">
-  <img src="docs/screenshots/mobile-containers.png" alt="Container mobil" width="260">
+  <img src="docs/screenshots/mobile-dashboard.png" alt="Dashboard mobil" width="200">
+  <img src="docs/screenshots/mobile-hosts.png" alt="Hosts mobil" width="200">
+  <img src="docs/screenshots/mobile-containers.png" alt="Container mobil" width="200">
+  <img src="docs/screenshots/mobile-pods.png" alt="Pods mobil" width="200">
 </p>
 
 Die Screenshots zeigen Testdaten (nachgebaute Podman-Sockets). Die Oberfläche gibt es in Englisch, Deutsch, Rumänisch und Spanisch (Flaggen oben rechts).
