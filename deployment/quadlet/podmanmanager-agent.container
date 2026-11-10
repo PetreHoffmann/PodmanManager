@@ -8,6 +8,8 @@ After=podman.socket network-online.target
 [Container]
 Image=docker.io/petrecalinoiu/podmanmanager-agent:0.3.0
 ContainerName=podmanmanager-agent
+# Der Agent meldet den Hostnamen des Containers; %H = Hostname des Rechners (sonst steht die Container-ID im Master)
+HostName=%H
 # Nur auf der Management-Adresse lauschen (anpassen!); Firewall: Port 9126 nur fuer die Master-IP.
 # Master und Agent auf demselben Host: gemeinsames Netzwerk (podmanmanager.network mit ablegen),
 # der Master erreicht den Agent dann unter http://podmanmanager-agent:9126

@@ -1,6 +1,6 @@
 # Quadlets (Podman + systemd)
 
-Beispiele, um Master und Agent als **rootless Quadlet** zu betreiben. **Ungetestet auf echter Hardware** (in der Entwicklungsumgebung lief kein Podman); bei Problemen zuerst `podman-system-generator --user --dryrun` und `journalctl --user -u <unit>` prüfen.
+Beispiele, um Master und Agent als **rootless Quadlet** zu betreiben. **Bestätigt:** Die Agent-Unit startet auf einem echten Host mit Rootless-Podman 5.8.2 und meldet über `/api/v1/health` `socketStatus`/`apiStatus` ok. **Nicht bestätigt:** die Master-Unit, das gemeinsame Netzwerk sowie `NoNewPrivileges`/`DropCapability=ALL` in allen Umgebungen. Bei Problemen zuerst `podman-system-generator --user --dryrun` und `journalctl --user -u <unit>` prüfen.
 
 | Datei | Zweck |
 |---|---|
@@ -74,6 +74,7 @@ sudo loginctl enable-linger $USER
 - **Aktivierung:** Quadlet-Units lassen sich nicht mit `enable` aktivieren; `[Install]` wirkt automatisch nach `daemon-reload`.
 - **Secrets** liegen standardmäßig im Dateitreiber (Base64, nur durch Dateirechte geschützt). Das hält sie aus Unit-Dateien und `podman inspect` heraus, ist aber keine Verschlüsselung.
 - **Updates:** Mit festem Tag bleibt die Version stabil (der About-Dialog des Masters meldet neue Versionen). `AutoUpdate=registry` braucht `:latest` und `systemctl --user enable --now podman-auto-update.timer`.
+- **Hostname:** `HostName=%H` im Agent-Quadlet sorgt dafür, dass der Master den Rechnernamen statt der Container-ID anzeigt (der Agent meldet den Hostnamen, den er im Container sieht).
 - **Agent sieht sich selbst:** Er verwaltet alle Container des Benutzers, auch den eigenen Agent-Container; ein Stopp über die Oberfläche setzt den Host offline (`Restart=always` startet ihn wieder).
 - **Agent: `NoNewPrivileges`/`DropCapability=ALL`** sind ungetestet; bei Fehlern diese Zeilen zuerst entfernen. **`SecurityLabelDisable=true`** ist nur auf SELinux-Hosts nötig.
 - Die native Installation des Agents (`deployment/agent/install.sh`) bleibt einfacher und robuster, da sie ohne Socket-Mount und UID-Mapping auskommt.
