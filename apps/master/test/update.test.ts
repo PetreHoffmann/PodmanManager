@@ -108,15 +108,15 @@ describe("update check", () => {
     assert.deepEqual(r, { state: "unavailable", detail: "registry: BAD_LIST, hub: ERROR" });
   });
 
-  it("caches results (6 h) and retries failures sooner (5 min)", async () => {
+  it("caches results and failures for 5 min", async () => {
     const ok: string[] = [];
     const f = fake(["0.3.0"], { registry: true, hub: true }, ok);
     await checkForUpdate("0.3.0", { fetchFn: f, enabled: true, now: 0 });
     const afterFirst = ok.length;
-    await checkForUpdate("0.3.0", { fetchFn: f, enabled: true, now: 3600_000 });
+    await checkForUpdate("0.3.0", { fetchFn: f, enabled: true, now: 4 * 60_000 });
     assert.equal(ok.length, afterFirst, "served from cache");
-    await checkForUpdate("0.3.0", { fetchFn: f, enabled: true, now: 7 * 3600_000 });
-    assert.ok(ok.length > afterFirst, "refreshed after 6 h");
+    await checkForUpdate("0.3.0", { fetchFn: f, enabled: true, now: 6 * 60_000 });
+    assert.ok(ok.length > afterFirst, "refreshed after 5 min");
     clearUpdateCache();
     const bad: string[] = [];
     const blocked = fake(["0.3.0"], {}, bad);
