@@ -7,7 +7,7 @@ export type UpdateInfo =
 
 export const DEFAULT_REPO = "petrecalinoiu/podmanmanager-master";
 const REPO_RE = /^[a-z0-9][a-z0-9._-]{0,63}\/[a-z0-9][a-z0-9._-]{0,63}$/;
-const OK_TTL_MS = 6 * 3600_000;
+const OK_TTL_MS = 5 * 60_000;
 const FAIL_TTL_MS = 5 * 60_000;
 
 export function parseSemver(v: string): [number, number, number] | null {
