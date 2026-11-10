@@ -73,7 +73,11 @@ Nur die gelisteten Hosts werden akzeptiert; für alle anderen bleibt der CSRF-Sc
 ## Hilfe und About
 In der Navigationsleiste öffnet **Help** das Git-Repository in einem neuen Tab. **About** zeigt einen Dialog mit Name, Version, Ersteller, Copyright (Apache-2.0) und ob auf Docker Hub eine neuere Version verfügbar ist.
 
-Die Update-Prüfung fragt beim Öffnen des Dialogs (nur angemeldet) über die Docker-Hub-API (`hub.docker.com`) die Tags des Repositories ab und vergleicht die höchste Version `x.y.z` mit der laufenden; das Ergebnis wird 6 Stunden zwischengespeichert (Fehler 5 Minuten). Der **Master muss dafür ausgehend `hub.docker.com:443` erreichen** – in abgeschotteten Netzen zeigt der Dialog „Update check unavailable“; mit `UPDATE_CHECK=off` findet gar keine Anfrage statt. Es werden keine Daten über die Installation übertragen.
+Die Update-Prüfung läuft beim Öffnen des Dialogs (nur angemeldet) und fragt die Tags des Docker-Hub-Repositories auf **zwei Wegen gleichzeitig** ab; der erste Treffer gilt:
+- **Registry-API** (dieselben Hosts wie `podman pull docker.io/…`): `auth.docker.io` (anonymes Pull-Token) und `registry-1.docker.io` (Tag-Liste);
+- **Docker-Hub-Web-API:** `hub.docker.com`.
+
+Es genügt, dass **einer** der beiden Wege erreichbar ist (Port 443). Wenn dein Netz `docker.io`-Pulls erlaubt, aber `hub.docker.com` sperrt, funktioniert der Registry-Weg. Verglichen wird die höchste Version `x.y.z` mit der laufenden; das Ergebnis wird 6 Stunden zwischengespeichert (Fehler 5 Minuten). Sind beide Wege gesperrt, zeigt der Dialog „Update check unavailable“; mit `UPDATE_CHECK=off` findet gar keine Anfrage statt. Es werden keine Daten über die Installation übertragen.
 
 ## Erster Start
 `http://<master>:8080` öffnen → Passwort für das lokale Konto **`admin`** anlegen (mind. 10 Zeichen). Anmeldung danach mit Benutzername `admin`. **Direkt nach dem Start setzen:** solange kein Passwort existiert, kann es jeder mit Netzwerkzugriff anlegen. Danach unter **Hosts** die Agents hinzufügen (Adresse `http://<ip>:9126` + Token des Agents).
