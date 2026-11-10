@@ -7,6 +7,7 @@ export type PodmanErrorCode =
   | "PODMAN_API_ERROR"
   | "PODMAN_TIMEOUT"
   | "CONTAINER_NOT_FOUND"
+  | "POD_NOT_FOUND"
   | "LOGS_TOO_LARGE";
 
 export class PodmanError extends Error {

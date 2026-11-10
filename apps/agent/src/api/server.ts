@@ -3,7 +3,7 @@ import type { ApiResponse, ContainerAction } from "../../../../shared/types/inde
 import type { AgentConfig } from "../config/config.js";
 import { FailureLimiter, verifyToken } from "../auth/auth.js";
 import { PodmanError } from "../podman/client.js";
-import { isValidContainerId, type PodmanService } from "../podman/service.js";
+import { isValidContainerId, isValidPodId, type PodmanService } from "../podman/service.js";
 import { collectHealth } from "../services/health.js";
 import type { LogBuffer } from "../logbuffer.js";
 
@@ -35,6 +35,7 @@ const fail = (res: ServerResponse, status: number, code: string, message: string
 function statusFor(e: PodmanError): number {
   switch (e.code) {
     case "CONTAINER_NOT_FOUND":
+    case "POD_NOT_FOUND":
       return 404;
     case "SOCKET_MISSING":
     case "SOCKET_UNREACHABLE":
@@ -98,6 +99,27 @@ export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: 
         const tail = raw === null ? DEFAULT_TAIL : /^\d{1,3}$/.test(raw) ? Number(raw) : 0;
         if (tail < 1 || tail > MAX_TAIL) return fail(res, 400, "INVALID_PARAM", `tail must be 1-${MAX_TAIL}`);
         return send(res, 200, { ok: true, data: { lines: logs ? logs.tail(tail) : [] } });
+      }
+
+      if (route[0] === "pods") {
+        if (route.length === 1) {
+          if (method !== "GET") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+          return send(res, 200, { ok: true, data: await podman.listPods() });
+        }
+        const pid = route[1] ?? "";
+        if (!isValidPodId(pid)) return fail(res, 400, "INVALID_ID", "Invalid pod id");
+        if (route.length === 2) {
+          if (method !== "GET") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+          return send(res, 200, { ok: true, data: await podman.pod(pid) });
+        }
+        const paction = route[2] ?? "";
+        if (route.length === 3 && ACTIONS.has(paction)) {
+          if (method !== "POST") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "POST" });
+          const r = await podman.podAct(pid, paction as ContainerAction);
+          log.info(`pod ${pid.slice(0, 12)} ${paction} changed=${r.changed}`);
+          return send(res, 200, { ok: true, data: { action: paction, ...r } });
+        }
+        return fail(res, 404, "NOT_FOUND", "Not found");
       }
 
       if (route[0] === "containers") {

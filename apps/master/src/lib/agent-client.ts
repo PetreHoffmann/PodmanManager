@@ -1,4 +1,4 @@
-import type { ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
+import type { PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { CONTAINER_ID_RE } from "./validate";
 
@@ -71,3 +71,15 @@ export function agentLogs(t: AgentTarget, id: string) {
 
 /** The agent's own recent log lines (read-only). */
 export const agentAppLogs = (t: AgentTarget) => call<AppLogs>(t, "GET", `/api/v1/agent/logs?tail=${LOG_TAIL}`, 15);
+
+export const agentPods = (t: AgentTarget) => call<PodInfo[]>(t, "GET", "/api/v1/pods", cfg().agentTimeoutSec);
+
+export function agentPod(t: AgentTarget, id: string) {
+  if (!CONTAINER_ID_RE.test(id)) return Promise.resolve<CallResult<PodInfo>>({ ok: false, code: "INVALID_ID", message: "Invalid pod id", unreachable: false });
+  return call<PodInfo>(t, "GET", `/api/v1/pods/${id}`, cfg().agentTimeoutSec);
+}
+
+export function agentPodAction(t: AgentTarget, id: string, action: ContainerAction) {
+  if (!CONTAINER_ID_RE.test(id)) return Promise.resolve<CallResult<PodActionResult>>({ ok: false, code: "INVALID_ID", message: "Invalid pod id", unreachable: false });
+  return call<PodActionResult>(t, "POST", `/api/v1/pods/${id}/${action}`, cfg().actionTimeoutSec);
+}
