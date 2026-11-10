@@ -20,6 +20,7 @@
 |---|---|
 | „MASTER_SECRET_KEY must be 32 bytes" | Schlüssel setzen: `openssl rand -base64 32`. |
 | Hinter Reverse-Proxy: „Application error“ beim Anmelden/Speichern; Master-Log: `Invalid Server Actions request` | Der Proxy reicht den Host nicht durch (Origin ≠ Host). `Host` und `X-Forwarded-Host` im Proxy setzen oder `ALLOWED_ORIGINS=<öffentlicher Host>` im Master setzen, siehe [Master-Installation](installation-master.md). |
+| About: „Update check unavailable“ | Die Ursache steht im Dialog (z. B. `registry: ECONNREFUSED, hub: ECONNREFUSED`). Hinter einem Firmen-Proxy: `https_proxy` im Container prüfen (`podman exec podmanmanager-master printenv \| grep -i proxy`); Podman reicht die Host-Variablen weiter. Sonst `auth.docker.io` und `registry-1.docker.io` (oder `hub.docker.com`) auf Port 443 freigeben, siehe [Master-Installation](installation-master.md). `UPDATE_CHECK=off` schaltet die Prüfung ab. |
 | Host `offline` | Agent läuft? Firewall (9126 für Master-IP)? `curl -H "Authorization: Bearer …" http://<ip>:9126/api/v1/health` vom Master aus. Die letzte Fehlermeldung steht in der Hostliste. |
 | Host `degraded` | Agent ok, Podman-Problem auf dem Host (siehe oben). |
 | „Agent not reachable (ECONNREFUSED)“ | Der Master erreicht die Adresse, aber dort lauscht nichts: falscher Port, Agent läuft nicht, oder der Port ist nur an `127.0.0.1` veröffentlicht (`PublishPort=`). |
