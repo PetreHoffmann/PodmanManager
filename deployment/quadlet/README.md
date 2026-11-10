@@ -1,6 +1,6 @@
 # Quadlets (Podman + systemd)
 
-Beispiele, um Master und Agent als **rootless Quadlet** zu betreiben. **Bestätigt:** Die Agent-Unit startet auf einem echten Host mit Rootless-Podman 5.8.2 und meldet über `/api/v1/health` `socketStatus`/`apiStatus` ok. **Nicht bestätigt:** die Master-Unit, das gemeinsame Netzwerk sowie `NoNewPrivileges`/`DropCapability=ALL` in allen Umgebungen. Bei Problemen zuerst `podman-system-generator --user --dryrun` und `journalctl --user -u <unit>` prüfen.
+Beispiele, um Master und Agent als **rootless Quadlet** zu betreiben. **Bestätigt:** Die Agent-Unit startet auf einem echten Host mit Rootless-Podman 5.8.2 und meldet über `/api/v1/health` `socketStatus`/`apiStatus` ok. **Ebenfalls bestätigt:** Im gemeinsamen Netzwerk (`podmanmanager.network`) löst der Master-Container den Namen `podmanmanager-agent` auf. **Nicht bestätigt:** `NoNewPrivileges`/`DropCapability=ALL` in allen Umgebungen sowie der Pfad Master → Agent über das Netzwerk bis zur Containerliste. Bei Problemen zuerst `podman-system-generator --user --dryrun` und `journalctl --user -u <unit>` prüfen.
 
 | Datei | Zweck |
 |---|---|
@@ -58,6 +58,23 @@ Läuft der Master als Rootless-Container auf demselben Host wie der Agent, schei
 2. In **beiden** `.container`-Dateien die Zeile `# Network=podmanmanager.network` auskommentieren (also `Network=podmanmanager.network`).
 3. `systemctl --user daemon-reload && systemctl --user restart podmanmanager-agent podmanmanager-master`
 4. Im Master unter *Hosts* `http://podmanmanager-agent:9126` und den Token eintragen.
+
+**Kurzfassung für schon vorhandene Quadlets (ohne Netzwerk-Zeilen):**
+```bash
+cd ~/.config/containers/systemd/
+printf '[Network]\n' > podmanmanager.network
+sed -i '/^\[Container\]/a Network=podmanmanager.network' podmanmanager-master.container podmanmanager-agent.container
+systemctl --user daemon-reload
+systemctl --user restart podmanmanager-agent podmanmanager-master
+```
+
+**Kontrolle** (alle drei müssen stimmen):
+```bash
+grep -n Network ~/.config/containers/systemd/podmanmanager-*.container   # beide: Network=podmanmanager.network (ohne #)
+podman network ls                                                         # zeigt systemd-podmanmanager
+podman exec podmanmanager-master getent hosts podmanmanager-agent         # liefert eine IP, meist 10.89.x.x
+```
+Zeigt `podman network ls` nur `podman`, ist das Netzwerk nie angelegt worden: die Datei `podmanmanager.network` fehlt oder die `Network=`-Zeilen sind nicht aktiv. Ohne gemeinsames Netzwerk endet die Registrierung mit `Agent not reachable (EAI_AGAIN)` (der Name ist nicht auflösbar).
 
 `PublishPort` am Agent ist dann nur für Master auf **anderen** Hosts nötig. Alternative ohne Netzwerk: im Master `http://host.containers.internal:9126` eintragen (der Agent-Port muss dazu auf einer erreichbaren Adresse veröffentlicht sein). Diagnose: `podman port podmanmanager-agent`, `ss -ltnp | grep 9126` und vom Master aus
 `podman exec podmanmanager-master node -e "fetch('http://<agent>:9126/api/v1/health').then(r=>console.log(r.status)).catch(e=>console.log(e.cause.code))"` (`401` = Verbindung steht).
