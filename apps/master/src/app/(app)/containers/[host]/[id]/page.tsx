@@ -7,6 +7,7 @@ import { getAgent, targetFor } from "@/lib/agents";
 import { errText } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
 import { allowedAgentIds, mayAccessAgent } from "@/lib/groups";
+import { hiddenPatternsFor, isHidden } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
 import { CONTAINER_ID_RE } from "@/lib/validate";
 
@@ -27,6 +28,7 @@ export default async function Detail({ params }: { params: Promise<{ host: strin
     return <div className="space-y-3">{back}<p className="card border-red-900 text-red-300">{r ? `${errText(t, r.code, r.message)} (${r.code})` : t("detail.noCreds")}</p></div>;
   }
   const c = r.data;
+  if (isHidden(c.name, hiddenPatternsFor(session))) return <div className="space-y-3">{back}<p className="card">{t("detail.notFound")}</p></div>;
   const rows: [string, React.ReactNode][] = [
     [t("cont.name"), c.name], [t("detail.cid"), <span className="font-mono text-xs break-all" key="i">{c.id}</span>],
     [t("cont.image"), c.image], [t("cont.status"), <StatusBadge key="s" status={c.state} />],

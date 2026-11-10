@@ -6,6 +6,7 @@ import { fetchAllContainers } from "@/lib/agents";
 import { errText } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
 import { allowedAgentIds, groupNames } from "@/lib/groups";
+import { hiddenPatternsFor } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function Containers({ searchParams }: { searchParams: SP })
   const session = await requireAuth();
   const t = await getT();
   const { host = "", status = "", q = "" } = await searchParams;
-  const hosts = await fetchAllContainers(undefined, allowedAgentIds(session));
+  const hosts = await fetchAllContainers(undefined, allowedAgentIds(session), hiddenPatternsFor(session));
 
   const rows = hosts
     .flatMap((h) => (h.result.ok ? h.result.data.map((c) => ({ agent: h.agent, c })) : []))

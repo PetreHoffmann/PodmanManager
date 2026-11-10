@@ -4,6 +4,7 @@ import { getDb } from "../database/db";
 import { agentHealth, agentList, type AgentTarget, type CallResult } from "./agent-client";
 import { getConfig } from "./config";
 import { decryptSecret, encryptSecret } from "./crypto";
+import { isHidden } from "./hidden";
 import { parseAgentUrl, validToken } from "./validate";
 
 export type AgentStatus = "unknown" | "online" | "degraded" | "offline";
@@ -112,7 +113,11 @@ export interface HostContainers {
 }
 
 /** Live container query for all enabled agents, in parallel; never throws. */
-export async function fetchAllContainers(db: DatabaseSync = getDb(), allowed: ReadonlySet<number> | null = null): Promise<HostContainers[]> {
+export async function fetchAllContainers(
+  db: DatabaseSync = getDb(),
+  allowed: ReadonlySet<number> | null = null,
+  hidden: readonly string[] = [],
+): Promise<HostContainers[]> {
   const agents = listAgents(db).filter((a) => allowed === null || allowed.has(a.id));
   return Promise.all(
     agents.map(async (agent): Promise<HostContainers> => {
@@ -120,7 +125,10 @@ export async function fetchAllContainers(db: DatabaseSync = getDb(), allowed: Re
       try {
         const t = targetFor(agent.id, db);
         if (!t) return { agent, result: { ok: false, code: "SKIPPED", message: "", unreachable: true } };
-        return { agent, result: await agentList(t) };
+        const result = await agentList(t);
+        // Hidden containers never leave this function for restricted users (lists, counts, dashboard).
+        if (result.ok && hidden.length > 0) return { agent, result: { ok: true, data: result.data.filter((c) => !isHidden(c.name, hidden)) } };
+        return { agent, result };
       } catch {
         return { agent, result: { ok: false, code: "SKIPPED", message: "", unreachable: true } };
       }

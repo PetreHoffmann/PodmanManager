@@ -14,7 +14,7 @@ Die Oberfläche ist in Englisch, Deutsch, Rumänisch und Spanisch verfügbar (Fl
 
 Die Navigationsleiste hat **Help** (öffnet dieses Repository) und **About** (Version, Ersteller, Copyright und Hinweis, ob auf Docker Hub eine neuere Version vorliegt; abschaltbar mit `UPDATE_CHECK=off`).
 
-Optional: Anmeldung per LDAP/Active Directory. Agents lassen sich in **Gruppen** zusammenfassen und AD-Gruppen zuordnen: Mitglieder sehen und bedienen nur die Agents ihrer Gruppen; eine optionale Administratoren-Gruppe hat Zugriff auf alle (Settings; siehe [Master-Installation](docs/installation-master.md)). Das lokale Konto `admin` bleibt als Notzugang.
+Optional: Anmeldung per LDAP/Active Directory. Agents lassen sich in **Gruppen** zusammenfassen und AD-Gruppen zuordnen: Mitglieder sehen und bedienen nur die Agents ihrer Gruppen (bestimmte Container, z. B. `podmanmanager*`, lassen sich für sie per Namensmuster **verstecken**); eine optionale Administratoren-Gruppe hat Zugriff auf alle (Settings; siehe [Master-Installation](docs/installation-master.md)). Das lokale Konto `admin` bleibt als Notzugang.
 
 Kein Docker, kein Compose, kein HTTPS/TLS, kein Root. **Nur in einem abgeschotteten Netz betreiben** (siehe [Sicherheit](docs/security.md)).
 
