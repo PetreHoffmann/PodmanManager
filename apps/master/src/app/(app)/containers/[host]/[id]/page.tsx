@@ -34,6 +34,7 @@ export default async function Detail({ params }: { params: Promise<{ host: strin
     [t("cont.name"), c.name], [t("detail.cid"), <span className="font-mono text-xs break-all" key="i">{c.id}</span>],
     [t("cont.image"), c.image], [t("cont.status"), <StatusBadge key="s" status={c.state} />],
     [t("cont.host"), `${agent.hostname} (${agent.address}:${agent.port})`],
+    ...(c.podId ? [[t("cont.pod"), <Link key="p" className="text-sky-400 hover:underline" href={`/pods/${agent.id}/${c.podId}`}>{c.podName || c.podId.slice(0, 12)}</Link>] as [string, React.ReactNode]] : []),
     [t("cont.created"), fmt(c.createdAt)], [t("cont.started"), fmt(c.startedAt)],
   ];
   return (

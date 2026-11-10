@@ -1,4 +1,4 @@
-import type { ContainerAction, ContainerInfo, LogLine } from "../../../../shared/types/index.js";
+import type { ContainerAction, ContainerInfo, LogLine, PodInfo } from "../../../../shared/types/index.js";
 import { PodmanClient, PodmanError, TOO_LARGE_MESSAGE, type PodmanResponse } from "./client.js";
 import { parseLogStream } from "./logs.js";
 
@@ -7,6 +7,9 @@ export const CONTAINER_ID_RE = /^[a-f0-9]{12,64}$/;
 export function isValidContainerId(id: string): boolean {
   return CONTAINER_ID_RE.test(id);
 }
+
+/** Pod ids have the same shape as container ids (hex, 12-64). */
+export const isValidPodId = isValidContainerId;
 
 function json(res: PodmanResponse): unknown {
   try {
@@ -19,7 +22,9 @@ function json(res: PodmanResponse): unknown {
 function upstreamMessage(res: PodmanResponse): string {
   try {
     const o = JSON.parse(res.body.toString("utf8")) as { message?: unknown; cause?: unknown };
-    const m = typeof o.message === "string" ? o.message : typeof o.cause === "string" ? o.cause : "";
+    const errs = (o as { Errs?: unknown }).Errs;
+    const e = Array.isArray(errs) ? errs.filter((x) => typeof x === "string").join("; ") : "";
+    const m = typeof o.message === "string" ? o.message : typeof o.cause === "string" ? o.cause : e;
     if (m) return m.slice(0, 300);
   } catch {
     /* fall through */
@@ -55,6 +60,26 @@ export function mapListItem(raw: unknown): ContainerInfo {
     status: str(o.Status) || str(o.State),
     createdAt: isoTime(o.Created) ?? isoTime(o.CreatedAt),
     startedAt: isoTime(o.StartedAt),
+    podId: str(o.Pod) || null,
+    podName: str(o.PodName) || null,
+  };
+}
+
+export function mapPod(raw: unknown): PodInfo {
+  const o = rec(raw);
+  const infraId = str(o.InfraId);
+  const list = Array.isArray(o.Containers) ? o.Containers : [];
+  return {
+    id: str(o.Id),
+    name: str(o.Name),
+    status: str(o.Status).toLowerCase() || "unknown",
+    createdAt: isoTime(o.Created),
+    containers: list.map((c) => {
+      const r = rec(c);
+      const names = Array.isArray(r.Names) ? str(r.Names[0]) : str(r.Names);
+      const id = str(r.Id);
+      return { id, name: names.replace(/^\//, ""), state: str(r.Status).toLowerCase() || "unknown", infra: infraId !== "" && id === infraId };
+    }),
   };
 }
 
@@ -69,6 +94,8 @@ export function mapInspect(raw: unknown): ContainerInfo {
     status: str(st.Status),
     createdAt: isoTime(o.Created),
     startedAt: isoTime(st.StartedAt),
+    podId: str(o.Pod) || null,
+    podName: str(o.PodName) || null,
   };
 }
 
@@ -176,6 +203,40 @@ export class PodmanService {
       throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     }
     return { changed: res.status === 204, container: await this.inspect(id) };
+  }
+
+  async listPods(): Promise<PodInfo[]> {
+    await this.client.checkSocket();
+    const res = await this.client.call("GET", `${await this.libpod()}/pods/json`);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const arr = json(res);
+    return Array.isArray(arr) ? arr.map(mapPod) : [];
+  }
+
+  /** Found by id prefix (12-64 hex chars) in the pod list. */
+  async pod(id: string): Promise<PodInfo> {
+    this.assertId(id);
+    const p = (await this.listPods()).find((x) => x.id === id || (id.length < 64 && x.id.startsWith(id)));
+    if (!p) throw new PodmanError("POD_NOT_FOUND", "Pod not found", 404);
+    return p;
+  }
+
+  async podAct(id: string, action: ContainerAction): Promise<{ changed: boolean; pod: PodInfo }> {
+    const pod = await this.pod(id); // also resolves a short id to the full id
+    const t = this.stopTimeoutSec;
+    const lp = await this.libpod();
+    const path =
+      action === "start"
+        ? `${lp}/pods/${pod.id}/start`
+        : action === "stop"
+          ? `${lp}/pods/${pod.id}/stop?t=${t}`
+          : `${lp}/pods/${pod.id}/restart`;
+    const res = await this.client.call("POST", path);
+    if (res.status === 404) throw new PodmanError("POD_NOT_FOUND", "Pod not found", 404);
+    if (res.status !== 200 && res.status !== 204 && res.status !== 304) {
+      throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    }
+    return { changed: res.status !== 304, pod: await this.pod(pod.id) };
   }
 
   private assertId(id: string): void {

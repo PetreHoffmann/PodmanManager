@@ -50,3 +50,8 @@ export function saveHiddenPatterns(patterns: string[], db: DatabaseSync = getDb(
 export function hiddenPatternsFor(session: SessionInfo, db: DatabaseSync = getDb()): string[] {
   return session.access === "all" ? [] : loadHiddenPatterns(db);
 }
+
+/** A pod is hidden from restricted users as soon as one of its containers matches a hidden pattern. */
+export function isPodHidden(pod: { containers: readonly { name: string }[] }, patterns: readonly string[]): boolean {
+  return patterns.length > 0 && pod.containers.some((c) => isHidden(c.name, patterns));
+}

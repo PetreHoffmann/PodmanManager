@@ -19,6 +19,11 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 | POST | `/containers/:id/stop` | stoppen (Timeout fest 10 s) |
 | POST | `/containers/:id/restart` | neustarten (Timeout fest 10 s) |
 | GET | `/containers/:id/logs?tail=<n>` | letzte `n` Log-Zeilen (1–500, Standard 150), nur lesend |
+| GET | `/pods` | alle Pods mit ihren Containern |
+| GET | `/pods/:id` | ein Pod (ID wie bei Containern, auch Kurzform) |
+| POST | `/pods/:id/start` | alle Container des Pods starten |
+| POST | `/pods/:id/stop` | Pod stoppen (Timeout fest 10 s) |
+| POST | `/pods/:id/restart` | Pod neustarten |
 | GET | `/agent/logs?tail=<n>` | letzte `n` eigene Log-Zeilen des Agents (1–500, Standard 150), nur lesend |
 
 Andere Pfade → `404`, falsche Methode → `405`.
@@ -47,6 +52,9 @@ Antwort: `{ "action": "stop", "changed": true, "container": { … } }`. `changed
 Eigene Logzeilen des Agents aus einem Ringpuffer im Speicher (max. 500 Zeilen, nach Neustart leer). Antwort:
 `{"ok":true,"data":{"lines":[{"ts":"2026-11-10T21:13:11.000Z","level":"info|warn|error","text":"…"}]}}`.
 Tokens/Secrets werden vor dem Speichern maskiert (`***`), Steuerzeichen entfernt, Zeilen auf 1000 Zeichen begrenzt. `tail` ungültig → 400 `INVALID_PARAM`.
+
+### Pods
+`GET /pods` → `[{"id","name","status","createdAt","containers":[{"id","name","state","infra"}]}]`. `status` ist kleingeschrieben (`running`, `degraded`, `exited`, `stopped`, `created`, `paused`), `infra` markiert den Infra-Container. Aktionen liefern `{action, changed, pod}`; `changed=false` bei Podman-`304` (Zustand schon erreicht). Unbekannter Pod → `404 POD_NOT_FOUND`; Fehler beim Start einzelner Container (`Errs`) kommen als Podman-Fehler (409/502) mit den Meldungen. Container-Einträge enthalten zusätzlich `podId`/`podName`.
 
 ### `GET /containers/:id/logs?tail=150`
 ```json

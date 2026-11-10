@@ -30,6 +30,7 @@ Der Agent nutzt ausschließlich diese festen Endpunkte (kein Pass-through). `<ba
 | Start | `POST <base>/containers/{id}/start` (204, 304 = läuft bereits) |
 | Stop | `POST <base>/containers/{id}/stop?timeout=10` (204, 304 = bereits gestoppt) |
 | Restart | `POST <base>/containers/{id}/restart?t=10` (204) |
+| Pods | `GET <base>/pods/json` (Liste mit Containern); Aktionen `POST <base>/pods/{id}/start|stop?t=10|restart` (200; 304 = Zustand schon erreicht) |
 | Logs (lesend) | `GET <base>/containers/{id}/logs?stdout=true&stderr=true&tail=<n>&timestamps=true` (Antwort: Rahmenformat, siehe unten) |
 
 **Logs:** Podman liefert die Logs als gemultiplexten Strom (auch bei Containern mit TTY): Rahmen aus 8-Byte-Kopf (Strom 0/1/2, drei Nullbytes, Länge als Big-Endian-Zahl) und Nutzdaten, jede Zeile mit RFC3339-Zeitstempel. Der Agent liest das aus, trennt stdout/stderr, entfernt ANSI-Steuerzeichen, kürzt Zeilen auf 2000 Zeichen und begrenzt die Antwort auf 4 MB; `tail` ist auf 1–500 begrenzt (Standard 150). Containers mit Log-Treiber `none` liefern einen Podman-Fehler, der unverändert (gekürzt) angezeigt wird. Verifiziert mit Podman 4.9.3.
@@ -41,4 +42,4 @@ Der Agent nutzt ausschließlich diese festen Endpunkte (kein Pass-through). `<ba
 - auf einem echten Host mit **Rootless-Podman 5.8.2** (Agent und Master als Quadlet-Container im gemeinsamen Netzwerk): Registrierung im Master, `/api/v1/health` (`socketStatus: ok`, `apiStatus: ok`, Podman-Version), Containerliste und Start/Stop/Restart über die Master-Oberfläche funktionieren. Andere 5.x-Versionen sind nicht gesondert getestet.
 
 ## Bewusst nicht enthalten
-Container erstellen/löschen, Images, Volumes, Netzwerke, Pods, Exec/Terminal, Statistiken, Compose. (Logs gibt es nur als schreibgeschützte Ansicht der letzten 150 Zeilen, kein Live-Stream.)
+Container und Pods erstellen/löschen, Images, Volumes, Netzwerke, Exec/Terminal, Statistiken, Compose. (Pods gibt es nur als Liste, Detail und Start/Stop/Restart. Logs gibt es nur als schreibgeschützte Ansicht der letzten 150 Zeilen, kein Live-Stream.)

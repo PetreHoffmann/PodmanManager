@@ -52,16 +52,17 @@ export default async function Containers({ searchParams }: { searchParams: SP })
       ))}
 
       <div className="card hidden overflow-x-auto p-0 md:block">
-        <table className="w-full min-w-[1000px]">
+        <table className="w-full min-w-[1100px]">
           <thead className="border-b border-slate-800">
-            <tr>{(["cont.name", "cont.id", "cont.host", "cont.image", "cont.status", "cont.created", "cont.started", "cont.actions"] as const).map((k) => <th key={k} className="th">{t(k)}</th>)}</tr>
+            <tr>{(["cont.name", "cont.id", "cont.pod", "cont.host", "cont.image", "cont.status", "cont.created", "cont.started", "cont.actions"] as const).map((k) => <th key={k} className="th">{t(k)}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
-            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>{t("cont.none")}</td></tr>}
+            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={9}>{t("cont.none")}</td></tr>}
             {rows.map(({ agent, c }) => (
               <tr key={`${agent.id}-${c.id}`} className="transition hover:bg-slate-900">
                 <td className="td max-w-[12rem] break-words font-medium"><Link className="text-sky-400 hover:underline" href={`/containers/${agent.id}/${c.id}`}>{c.name || c.id.slice(0, 12)}</Link></td>
                 <td className="td font-mono text-xs">{c.id.slice(0, 12)}</td>
+                <td className="td max-w-[10rem] truncate text-xs">{c.podId ? <Link className="text-sky-400 hover:underline" href={`/pods/${agent.id}/${c.podId}`}>{c.podName || c.podId.slice(0, 12)}</Link> : "—"}</td>
                 <td className="td max-w-[11rem] truncate" title={agent.hostname}>{agent.hostname}</td>
                 <td className="td max-w-[14rem] truncate text-xs" title={c.image}>{c.image}</td>
                 <td className="td"><StatusBadge status={c.state} /></td>
@@ -83,6 +84,7 @@ export default async function Containers({ searchParams }: { searchParams: SP })
             </div>
             <div className="break-all text-xs text-slate-400">{c.image}</div>
             <div className="text-xs text-slate-500">{agent.agent_id} · {c.id.slice(0, 12)}</div>
+            {c.podId && <div className="text-xs text-slate-500">{t("cont.pod")}: <Link className="text-sky-400" href={`/pods/${agent.id}/${c.podId}`}>{c.podName || c.podId.slice(0, 12)}</Link></div>}
             <div className="text-xs text-slate-500">{t("cont.started")}: {fmt(c.startedAt)}</div>
             <ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} />
           </div>

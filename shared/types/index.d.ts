@@ -26,6 +26,32 @@ export interface ContainerInfo {
   status: string;
   createdAt: string | null;
   startedAt: string | null;
+  /** Pod the container belongs to (id / name), if any */
+  podId?: string | null;
+  podName?: string | null;
+}
+
+export interface PodContainer {
+  id: string;
+  name: string;
+  state: string;
+  /** infra container of the pod */
+  infra: boolean;
+}
+
+export interface PodInfo {
+  id: string;
+  name: string;
+  /** lower case: running, degraded, exited, stopped, created, paused */
+  status: string;
+  createdAt: string | null;
+  containers: PodContainer[];
+}
+
+export interface PodActionResult {
+  action: ContainerAction;
+  changed: boolean;
+  pod: PodInfo;
 }
 
 export type ContainerAction = "start" | "stop" | "restart";
