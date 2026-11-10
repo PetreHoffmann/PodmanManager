@@ -59,14 +59,14 @@ export default async function Containers({ searchParams }: { searchParams: SP })
             {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={8}>{t("cont.none")}</td></tr>}
             {rows.map(({ agent, c }) => (
               <tr key={`${agent.id}-${c.id}`} className="transition hover:bg-slate-900">
-                <td className="td font-medium"><Link className="text-sky-400 hover:underline" href={`/containers/${agent.id}/${c.id}`}>{c.name || c.id.slice(0, 12)}</Link></td>
+                <td className="td max-w-[12rem] break-words font-medium"><Link className="text-sky-400 hover:underline" href={`/containers/${agent.id}/${c.id}`}>{c.name || c.id.slice(0, 12)}</Link></td>
                 <td className="td font-mono text-xs">{c.id.slice(0, 12)}</td>
-                <td className="td">{agent.hostname}</td>
-                <td className="td max-w-[220px] truncate text-xs" title={c.image}>{c.image}</td>
+                <td className="td max-w-[11rem] truncate" title={agent.hostname}>{agent.hostname}</td>
+                <td className="td max-w-[14rem] truncate text-xs" title={c.image}>{c.image}</td>
                 <td className="td"><StatusBadge status={c.state} /></td>
-                <td className="td text-xs">{fmt(c.createdAt)}</td>
-                <td className="td text-xs">{fmt(c.startedAt)}</td>
-                <td className="td"><ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} /></td>
+                <td className="td whitespace-nowrap text-xs">{fmt(c.createdAt)}</td>
+                <td className="td whitespace-nowrap text-xs">{fmt(c.startedAt)}</td>
+                <td className="td w-px"><ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} /></td>
               </tr>
             ))}
           </tbody>
