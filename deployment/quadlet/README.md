@@ -7,6 +7,7 @@ Beispiele, um Master und Agent als **rootless Quadlet** zu betreiben. **Ungetest
 | `podmanmanager-master.container` | Master (Web-UI, Port 8080) |
 | `podmanmanager-data.volume` | Volume für die Master-Datenbank |
 | `podmanmanager-agent.container` | Agent (Port 9126, spricht mit dem Rootless-Podman-Socket) |
+| `podmanmanager.network` | optional: gemeinsames Netzwerk, wenn Master und Agent auf demselben Host laufen |
 
 Ablegen unter `~/.config/containers/systemd/` (rootless). Anpassen: Image-Tag, `PublishPort` (Agent: eigene Management-IP), `AGENT_ID`.
 
@@ -48,6 +49,19 @@ Wichtig: `printf '%s'` statt `echo` – ein Zeilenumbruch im Secret lässt den A
 Token erneuern: `podman secret rm podmanmanager-agent-hash`, Block oben erneut ausführen, `systemctl --user restart podmanmanager-agent`, dann den Host im Master entfernen und mit dem neuen Token neu hinzufügen (Secrets werden nur beim Containerstart gelesen).
 
 Port 9126 nur für die Master-IP freigeben (siehe [Sicherheit](../../docs/security.md)).
+
+## Master und Agent auf demselben Host
+
+Läuft der Master als Rootless-Container auf demselben Host wie der Agent, scheitert die Registrierung über Hostname oder Host-IP oft mit **`Agent not reachable (ECONNREFUSED)`**, obwohl `curl` vom Host aus funktioniert: Bei Rootless-Podman mit `pasta` ist die Host-Adresse im Container häufig die Adresse des Containers selbst, oder der Port ist nur auf `127.0.0.1` veröffentlicht. Zuverlässig ist ein gemeinsames Podman-Netzwerk:
+
+1. `podmanmanager.network` nach `~/.config/containers/systemd/` kopieren.
+2. In **beiden** `.container`-Dateien die Zeile `# Network=podmanmanager.network` auskommentieren (also `Network=podmanmanager.network`).
+3. `systemctl --user daemon-reload && systemctl --user restart podmanmanager-agent podmanmanager-master`
+4. Im Master unter *Hosts* `http://podmanmanager-agent:9126` und den Token eintragen.
+
+`PublishPort` am Agent ist dann nur für Master auf **anderen** Hosts nötig. Alternative ohne Netzwerk: im Master `http://host.containers.internal:9126` eintragen (der Agent-Port muss dazu auf einer erreichbaren Adresse veröffentlicht sein). Diagnose: `podman port podmanmanager-agent`, `ss -ltnp | grep 9126` und vom Master aus
+`podman exec podmanmanager-master node -e "fetch('http://<agent>:9126/api/v1/health').then(r=>console.log(r.status)).catch(e=>console.log(e.cause.code))"` (`401` = Verbindung steht).
+Das Netzwerk-Beispiel ist **ungetestet**.
 
 ## Beide: Start ohne Login
 

@@ -9,6 +9,9 @@ After=podman.socket network-online.target
 Image=docker.io/petrecalinoiu/podmanmanager-agent:0.3.0
 ContainerName=podmanmanager-agent
 # Nur auf der Management-Adresse lauschen (anpassen!); Firewall: Port 9126 nur fuer die Master-IP.
+# Master und Agent auf demselben Host: gemeinsames Netzwerk (podmanmanager.network mit ablegen),
+# der Master erreicht den Agent dann unter http://podmanmanager-agent:9126
+# Network=podmanmanager.network
 PublishPort=192.168.1.21:9126:9126
 
 # Rootless-Socket des eigenen Benutzers; der Agent laeuft mit dessen UID, nie als root.

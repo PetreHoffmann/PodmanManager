@@ -1,0 +1,3 @@
+# Gemeinsames Netzwerk fuer Master und Agent auf DEMSELBEN Host (siehe README.md).
+# Nur noetig, wenn beide Container auf einem Rechner laufen.
+[Network]
