@@ -37,7 +37,39 @@ export function updateRepo(env: Record<string, string | undefined> = process.env
 type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
 const cache = new Map<string, { at: number; latest: string | null }>();
 
-/** Asks Docker Hub for the newest release tag; results are cached, failures never throw. */
+const reqInit = (extra: Record<string, string> = {}): RequestInit => ({
+  headers: { Accept: "application/json", ...extra },
+  cache: "no-store",
+  redirect: "error",
+  signal: AbortSignal.timeout(5000),
+});
+
+/** Registry API (the hosts `podman pull docker.io/...` uses): anonymous pull token, then the tag list. */
+async function tagsViaRegistry(repo: string, fetchFn: FetchFn): Promise<string[]> {
+  const t = await fetchFn(`https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull`, reqInit());
+  if (!t.ok) throw new Error("token");
+  const token = ((await t.json()) as { token?: unknown }).token;
+  if (typeof token !== "string" || token.length === 0 || token.length > 8192) throw new Error("token");
+  const r = await fetchFn(`https://registry-1.docker.io/v2/${repo}/tags/list?n=1000`, reqInit({ Authorization: `Bearer ${token}` }));
+  if (!r.ok) throw new Error("tags");
+  const tags = ((await r.json()) as { tags?: unknown }).tags;
+  if (!Array.isArray(tags)) throw new Error("tags");
+  return tags.filter((x): x is string => typeof x === "string");
+}
+
+/** Docker Hub web API (hub.docker.com). */
+async function tagsViaHub(repo: string, fetchFn: FetchFn): Promise<string[]> {
+  const res = await fetchFn(`https://hub.docker.com/v2/repositories/${repo}/tags/?page_size=100`, reqInit());
+  if (!res.ok) throw new Error("hub");
+  const body = (await res.json()) as { results?: { name?: unknown }[] };
+  return (body.results ?? []).map((r) => (typeof r.name === "string" ? r.name : ""));
+}
+
+/**
+ * Asks Docker Hub for the newest release tag. Both the registry API and the hub API are tried in
+ * parallel (networks often allow only one of them); the first answer wins. Results are cached,
+ * failures never throw.
+ */
 export async function checkForUpdate(
   current: string,
   opts: { fetchFn?: FetchFn; repo?: string; now?: number; enabled?: boolean } = {},
@@ -45,23 +77,14 @@ export async function checkForUpdate(
   if (!(opts.enabled ?? updateCheckEnabled())) return { state: "disabled" };
   const repo = opts.repo ?? updateRepo();
   const now = opts.now ?? Date.now();
+  const fetchFn = opts.fetchFn ?? fetch;
   const hit = cache.get(repo);
   let latest: string | null;
   if (hit && now - hit.at < (hit.latest ? OK_TTL_MS : FAIL_TTL_MS)) {
     latest = hit.latest;
   } else {
-    latest = null;
     try {
-      const res = await (opts.fetchFn ?? fetch)(`https://hub.docker.com/v2/repositories/${repo}/tags/?page_size=100`, {
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-        redirect: "error",
-        signal: AbortSignal.timeout(5000),
-      });
-      if (res.ok) {
-        const body = (await res.json()) as { results?: { name?: unknown }[] };
-        latest = latestStable((body.results ?? []).map((r) => (typeof r.name === "string" ? r.name : "")));
-      }
+      latest = latestStable(await Promise.any([tagsViaRegistry(repo, fetchFn), tagsViaHub(repo, fetchFn)]));
     } catch {
       latest = null;
     }

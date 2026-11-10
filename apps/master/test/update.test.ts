@@ -3,7 +3,24 @@ import { beforeEach, describe, it } from "node:test";
 import { checkForUpdate, clearUpdateCache, compareSemver, latestStable, parseSemver, updateCheckEnabled, updateRepo } from "../src/lib/update-check";
 import { getVersion } from "../src/lib/version";
 
-const tags = (...names: string[]) => async () => new Response(JSON.stringify({ results: names.map((name) => ({ name })) }), { status: 200 });
+type Sources = { registry?: boolean; hub?: boolean };
+const URLS = {
+  token: /^https:\/\/auth\.docker\.io\/token\?service=registry\.docker\.io&scope=repository:/,
+  tags: /^https:\/\/registry-1\.docker\.io\/v2\/[^/]+\/[^/]+\/tags\/list\?n=1000$/,
+  hub: /^https:\/\/hub\.docker\.com\/v2\/repositories\/[^/]+\/[^/]+\/tags\/\?page_size=100$/,
+};
+/** Fake Docker Hub: answers the registry API and/or the hub API; a source that is off behaves like a firewall. */
+function fake(names: string[], on: Sources = { registry: true, hub: true }, log: string[] = []) {
+  return async (url: string, init: RequestInit) => {
+    log.push(url);
+    const auth = (init.headers as Record<string, string> | undefined)?.Authorization;
+    if (URLS.token.test(url) && on.registry) return new Response(JSON.stringify({ token: "tok123" }));
+    if (URLS.tags.test(url) && on.registry && auth === "Bearer tok123") return new Response(JSON.stringify({ name: "x", tags: names }));
+    if (URLS.hub.test(url) && on.hub) return new Response(JSON.stringify({ results: names.map((name) => ({ name })) }));
+    throw new TypeError("fetch failed");
+  };
+}
+const tags = (...names: string[]) => fake(names);
 
 describe("version", () => {
   it("prefers a valid APP_VERSION (strips v), otherwise falls back to package.json", () => {
@@ -64,28 +81,56 @@ describe("update check", () => {
     assert.equal(called, 0);
   });
 
-  it("caches results (6 h) and retries failures sooner (5 min)", async () => {
-    let calls = 0;
-    const f = async () => { calls++; return tags("0.3.0")(); };
-    await checkForUpdate("0.3.0", { fetchFn: f, enabled: true, now: 0 });
-    await checkForUpdate("0.3.0", { fetchFn: f, enabled: true, now: 3600_000 });
-    assert.equal(calls, 1);
-    await checkForUpdate("0.3.0", { fetchFn: f, enabled: true, now: 7 * 3600_000 });
-    assert.equal(calls, 2);
-    clearUpdateCache();
-    let fails = 0;
-    const bad = async () => { fails++; throw new Error("x"); };
-    await checkForUpdate("0.3.0", { fetchFn: bad, enabled: true, now: 0 });
-    await checkForUpdate("0.3.0", { fetchFn: bad, enabled: true, now: 60_000 });
-    assert.equal(fails, 1);
-    await checkForUpdate("0.3.0", { fetchFn: bad, enabled: true, now: 6 * 60_000 });
-    assert.equal(fails, 2);
+  it("works when only the registry API is reachable (docker.io allowed, hub.docker.com blocked)", async () => {
+    const log: string[] = [];
+    const r = await checkForUpdate("0.3.0", { fetchFn: fake(["latest", "0.3.4", "0.3.0"], { registry: true }, log), enabled: true });
+    assert.deepEqual(r, { state: "ok", current: "0.3.0", latest: "0.3.4", newer: true, devBuild: false });
+    assert.ok(log.some((u) => URLS.tags.test(u)));
   });
 
-  it("only queries the configured Docker Hub repository and validates the override", async () => {
-    let url = "";
-    await checkForUpdate("0.3.0", { fetchFn: async (u) => { url = u; return tags("0.3.0")(); }, enabled: true });
-    assert.equal(url, "https://hub.docker.com/v2/repositories/petrecalinoiu/podmanmanager-master/tags/?page_size=100");
+  it("works when only the hub API is reachable", async () => {
+    const r = await checkForUpdate("0.3.4", { fetchFn: fake(["0.3.4"], { hub: true }), enabled: true });
+    assert.deepEqual(r, { state: "ok", current: "0.3.4", latest: "0.3.4", newer: false, devBuild: false });
+  });
+
+  it("is unavailable when both are blocked, the token is rejected or the tag list is malformed", async () => {
+    assert.deepEqual(await checkForUpdate("0.3.0", { fetchFn: fake(["0.3.4"], {}), enabled: true }), { state: "unavailable" });
+    clearUpdateCache();
+    const badToken = async (u: string) => (URLS.token.test(u) ? new Response("{}", { status: 200 }) : Promise.reject(new TypeError("blocked")));
+    assert.deepEqual(await checkForUpdate("0.3.0", { fetchFn: badToken, enabled: true }), { state: "unavailable" });
+    clearUpdateCache();
+    const badList = async (u: string) => (URLS.token.test(u) ? new Response(JSON.stringify({ token: "t" })) : URLS.tags.test(u) ? new Response(JSON.stringify({ tags: "nope" })) : Promise.reject(new TypeError("blocked")));
+    assert.deepEqual(await checkForUpdate("0.3.0", { fetchFn: badList, enabled: true }), { state: "unavailable" });
+  });
+
+  it("caches results (6 h) and retries failures sooner (5 min)", async () => {
+    const ok: string[] = [];
+    const f = fake(["0.3.0"], { registry: true, hub: true }, ok);
+    await checkForUpdate("0.3.0", { fetchFn: f, enabled: true, now: 0 });
+    const afterFirst = ok.length;
+    await checkForUpdate("0.3.0", { fetchFn: f, enabled: true, now: 3600_000 });
+    assert.equal(ok.length, afterFirst, "served from cache");
+    await checkForUpdate("0.3.0", { fetchFn: f, enabled: true, now: 7 * 3600_000 });
+    assert.ok(ok.length > afterFirst, "refreshed after 6 h");
+    clearUpdateCache();
+    const bad: string[] = [];
+    const blocked = fake(["0.3.0"], {}, bad);
+    await checkForUpdate("0.3.0", { fetchFn: blocked, enabled: true, now: 0 });
+    const failures = bad.length;
+    await checkForUpdate("0.3.0", { fetchFn: blocked, enabled: true, now: 60_000 });
+    assert.equal(bad.length, failures, "failure cached for 5 min");
+    await checkForUpdate("0.3.0", { fetchFn: blocked, enabled: true, now: 6 * 60_000 });
+    assert.ok(bad.length > failures, "retried after 5 min");
+  });
+
+  it("only queries the configured repository on the known Docker hosts and validates the override", async () => {
+    const log: string[] = [];
+    await checkForUpdate("0.3.0", { fetchFn: fake(["0.3.0"], { registry: true, hub: true }, log), enabled: true });
+    assert.ok(log.length >= 3);
+    for (const u of log) {
+      assert.match(u, /^https:\/\/(auth\.docker\.io|registry-1\.docker\.io|hub\.docker\.com)\//);
+      if (!u.startsWith("https://auth.docker.io")) assert.ok(u.includes("/petrecalinoiu/podmanmanager-master/"), u);
+    }
     assert.equal(updateRepo({ UPDATE_CHECK_REPO: "me/my-master" }), "me/my-master");
     for (const bad of ["../etc", "a/b/c", "x", "a b/c", "https://evil/x"]) {
       assert.equal(updateRepo({ UPDATE_CHECK_REPO: bad }), "petrecalinoiu/podmanmanager-master", bad);
