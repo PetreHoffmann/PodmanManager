@@ -27,23 +27,28 @@ export default function ContainerActions({ agentId, containerId, state, name }: 
 
   const ask = (op: Op) => (op === "start" ? run(op) : setConfirm(op));
 
+  const seg = "px-3 py-1 text-xs font-medium text-slate-200 transition disabled:cursor-not-allowed disabled:opacity-40";
+  const divider = "border-l border-slate-700";
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col items-start gap-1">
       {confirm ? (
         <>
-          <span className="text-sm text-amber-300">{confirm === "stop" ? t("act.stopQ", { name }) : t("act.restartQ", { name })}</span>
-          <button className="btn btn-danger" onClick={() => run(confirm)}>{t("common.confirm")}</button>
-          <button className="btn" onClick={() => setConfirm(null)}>{t("common.cancel")}</button>
+          <span key="question" className="text-xs text-amber-300">{confirm === "stop" ? t("act.stopQ", { name }) : t("act.restartQ", { name })}</span>
+          <div key="confirm-buttons" className="flex gap-1">
+            <button className="btn btn-danger !px-3 !py-1 text-xs" onClick={() => run(confirm)}>{t("common.confirm")}</button>
+            <button className="btn !px-3 !py-1 text-xs" onClick={() => setConfirm(null)}>{t("common.cancel")}</button>
+          </div>
         </>
       ) : (
-        <>
-          <button className="btn" disabled={pending || running} onClick={() => ask("start")}>{t("act.start")}</button>
-          <button className="btn" disabled={pending || !running} onClick={() => ask("stop")}>{t("act.stop")}</button>
-          <button className="btn" disabled={pending} onClick={() => ask("restart")}>{t("act.restart")}</button>
-        </>
+        <div key="actions" className="inline-flex overflow-hidden whitespace-nowrap rounded-md border border-slate-700 bg-slate-800" role="group">
+          <button className={`${seg} enabled:hover:bg-emerald-900/60 enabled:hover:text-emerald-200`} disabled={pending || running} onClick={() => ask("start")}>{t("act.start")}</button>
+          <button className={`${seg} ${divider} enabled:hover:bg-red-900/60 enabled:hover:text-red-200`} disabled={pending || !running} onClick={() => ask("stop")}>{t("act.stop")}</button>
+          <button className={`${seg} ${divider} enabled:hover:bg-sky-900/60 enabled:hover:text-sky-200`} disabled={pending} onClick={() => ask("restart")}>{t("act.restart")}</button>
+        </div>
       )}
       {pending && <span className="animate-pulse text-xs text-slate-400">{t("act.working")}</span>}
-      {msg && <span role="status" className={`text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</span>}
+      {msg && <span role="status" className={`max-w-[16rem] text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</span>}
     </div>
   );
 }
