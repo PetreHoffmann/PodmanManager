@@ -105,7 +105,7 @@ Der Update-Check im About-Dialog des Masters (und nur er) nutzt `https_proxy`, d
    ```
 3. `systemctl --user daemon-reload && systemctl --user restart podmanmanager-master`, danach den About-Dialog öffnen.
 
-`NODE_EXTRA_CA_CERTS` **ergänzt** die normalen Zertifikate. Die CA gilt für alle ausgehenden TLS-Verbindungen des Masters (auch LDAPS ohne eigene CA). Nur eine CA eintragen, der du vertraust: sie erlaubt dem Proxy, den HTTPS-Verkehr des Masters zu lesen. Kontrolle der Proxy-Variablen: `podman exec podmanmanager-master printenv | grep -i proxy`. Die Schritte sind nicht auf jedem System getestet; das Symptom (`SELF_SIGNED_CERT_IN_CHAIN` hinter einem WSA-Proxy) wurde auf einem echten Host bestätigt.
+`NODE_EXTRA_CA_CERTS` **ergänzt** die normalen Zertifikate. Die CA gilt für alle ausgehenden TLS-Verbindungen des Masters (auch LDAPS ohne eigene CA). Nur eine CA eintragen, der du vertraust: sie erlaubt dem Proxy, den HTTPS-Verkehr des Masters zu lesen. Kontrolle der Proxy-Variablen: `podman exec podmanmanager-master printenv | grep -i proxy`. **Bestätigt** auf einem echten Host hinter einem WSA-Proxy mit TLS-Inspektion: Nach dem Einbinden der Firmen-CA funktioniert der Update-Check. Auf anderen Systemen (anderes Betriebssystem, anderer Proxy) können Pfade und Dateiformat der CA abweichen.
 
 ## Beide: Start ohne Login
 

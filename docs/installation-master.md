@@ -82,7 +82,7 @@ Es genügt, dass **einer** der beiden Wege erreichbar ist (Port 443). Wenn dein 
 2. Die Datei dem Master zugänglich machen und `NODE_EXTRA_CA_CERTS=/pfad/zur/corp-ca.pem` setzen. Bei einem Container: Datei per Volume einbinden. Beispiel (Quadlet): `Volume=%h/.config/podmanmanager/corp-ca.pem:/etc/corp-ca.pem:ro,Z` und `Environment=NODE_EXTRA_CA_CERTS=/etc/corp-ca.pem`; bei `docker run`/`podman run`: `-v /pfad/corp-ca.pem:/etc/corp-ca.pem:ro -e NODE_EXTRA_CA_CERTS=/etc/corp-ca.pem`; beim systemd-Dienst: `NODE_EXTRA_CA_CERTS=…` in `master.env`.
 3. Master neu starten.
 
-`NODE_EXTRA_CA_CERTS` ergänzt die normalen Zertifikate und gilt für alle ausgehenden TLS-Verbindungen des Masters (auch LDAPS ohne eigene CA). Nur eine CA eintragen, der du vertraust. Ausführliche Schritte im Quadlet-Fall: [`deployment/quadlet/README.md`](../deployment/quadlet/README.md).
+`NODE_EXTRA_CA_CERTS` ergänzt die normalen Zertifikate und gilt für alle ausgehenden TLS-Verbindungen des Masters (auch LDAPS ohne eigene CA). Nur eine CA eintragen, der du vertraust. Auf einem echten Host hinter einem WSA-Proxy mit TLS-Inspektion bestätigt. Ausführliche Schritte im Quadlet-Fall: [`deployment/quadlet/README.md`](../deployment/quadlet/README.md).
 
 Sind beide Wege gesperrt, zeigt der Dialog „Update check unavailable“ mit der Ursache je Weg, z. B. `registry: ECONNREFUSED, hub: ECONNREFUSED` (`ENOTFOUND` = Name nicht auflösbar, `ETIMEDOUT`/`ECONNREFUSED` = gesperrt oder Proxy nötig, `PROXY_403`/`PROXY_407` = Proxy lehnt ab bzw. verlangt Anmeldung, `UNABLE_TO_VERIFY_LEAF_SIGNATURE` = unbekanntes Zertifikat, `HTTP_429` = Docker Hub drosselt); mit `UPDATE_CHECK=off` findet gar keine Anfrage statt. Es werden keine Daten über die Installation übertragen.
 
@@ -121,7 +121,7 @@ Hinweise:
 - Ist das Verzeichnis nicht erreichbar, erscheint „Directory login is currently unavailable"; die lokale Anmeldung bleibt möglich.
 
 ### Agent-Gruppen
-Unter **Settings → Agent groups** (nur lokaler `admin`):
+Unter **Settings → Agent groups** (nur lokaler `admin`); auf einem echten Active Directory bestätigt:
 
 1. Gruppe anlegen: Name (z. B. „Team A“) und **AD-Gruppen-DN** (z. B. `CN=Team-A,OU=Groups,DC=example,DC=com`).
 2. Die Agents ankreuzen, die diese Gruppe verwalten darf. Ein Agent darf in **mehreren** Gruppen sein; ein Benutzer in mehreren Gruppen erhält die **Vereinigung** ihrer Agents.
@@ -135,7 +135,7 @@ Was Gruppenmitglieder (ohne Administratoren-Gruppe) sehen und dürfen:
 Ein Benutzer, der weder in der Administratoren-Gruppe noch in einer zugeordneten Gruppe ist, kann sich nicht anmelden. Eine Gruppe ohne Agents gewährt Anmeldung, aber keine Hosts.
 
 ### Container verstecken
-Unter **Settings → Hidden containers** (nur lokaler `admin`) lassen sich Container per Namensmuster vor Benutzern **ohne vollen Zugriff** (Mitglieder von Agent-Gruppen) verbergen, zum Beispiel die Container von PodmanManager selbst.
+Unter **Settings → Hidden containers** (nur lokaler `admin`) lassen sich Container per Namensmuster vor Benutzern **ohne vollen Zugriff** (Mitglieder von Agent-Gruppen) verbergen, zum Beispiel die Container von PodmanManager selbst. Auf einem echten Active Directory mit eingeschränkten Benutzern bestätigt.
 
 - **Muster:** ein Eintrag pro Zeile, `*` und `?` als Platzhalter, Groß-/Kleinschreibung egal. Erlaubt sind Buchstaben, Ziffern und `. _ - * ?`; Zeilen mit `#` sind Kommentare; höchstens 100 Muster. Beispiel: `podmanmanager*` versteckt `podmanmanager-agent` und `podmanmanager-master`; `*-secret` versteckt alles, was auf `-secret` endet.
 - **Wirkung für eingeschränkte Benutzer:** Der Container fehlt in der Container-Liste und **in allen Zahlen** (Dashboard, Spalte „Containers“ in der Hostliste), die Detailseite meldet „nicht gefunden“, und Start/Stopp/Neustart werden abgelehnt (der Master prüft vor jeder Aktion den aktuellen Namen beim Agent). Der lokale `admin` und die LDAP-Administratoren-Gruppe sehen weiterhin alles.
