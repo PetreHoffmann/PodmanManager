@@ -1,6 +1,7 @@
 import { fetchAllContainers } from "@/lib/agents";
 import { getT } from "@/lib/lang";
 import { allowedAgentIds, groupNames } from "@/lib/groups";
+import { hiddenPatternsFor } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
 import { Stat } from "@/components/ui";
 
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function Dashboard() {
   const session = await requireAuth();
   const t = await getT();
-  const hosts = await fetchAllContainers(undefined, allowedAgentIds(session));
+  const hosts = await fetchAllContainers(undefined, allowedAgentIds(session), hiddenPatternsFor(session));
   const total = hosts.length;
   const reachable = hosts.filter((h) => h.agent.enabled && (h.agent.status === "online" || h.agent.status === "degraded")).length;
   const unreachable = hosts.filter((h) => h.agent.enabled && h.agent.status === "offline").length;

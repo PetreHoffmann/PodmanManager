@@ -1,5 +1,5 @@
 import ActionForm from "@/components/ActionForm";
-import { changePasswordAction, ldapAction, logoutAction } from "@/app/actions";
+import { changePasswordAction, hiddenAction, ldapAction, logoutAction } from "@/app/actions";
 import { getConfig } from "@/lib/config";
 import { DEFAULT_FILTER } from "@/lib/ldap";
 import { EMPTY_LDAP, loadLdapConfig } from "@/lib/ldap-config";
@@ -7,6 +7,7 @@ import { getT } from "@/lib/lang";
 import GroupEditor from "@/components/GroupEditor";
 import { listAgents } from "@/lib/agents";
 import { groupNames, listGroups } from "@/lib/groups";
+import { loadHiddenPatterns } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ export default async function Settings() {
   const l = (local ? loadLdapConfig() : null) ?? EMPTY_LDAP;
   const agentOptions = local ? listAgents().map((a) => ({ id: a.id, label: `${a.agent_id} (${a.hostname})` })) : [];
   const groups = local ? listGroups() : [];
+  const hiddenText = local ? loadHiddenPatterns().join("\n") : "";
   const insecure = l.enabled && l.url.startsWith("ldap://") && !l.startTls;
 
   return (
@@ -90,6 +92,24 @@ export default async function Settings() {
               <div className="flex gap-2">
                 <button name="intent" value="save" className="btn btn-primary">{t("ldap.save")}</button>
                 <button name="intent" value="test" className="btn">{t("ldap.test")}</button>
+              </div>
+            </ActionForm>
+          </section>
+
+          <section className="card">
+            <h2 className="mb-1 font-medium">{t("hidden.title")}</h2>
+            <p className="mb-3 text-xs text-slate-400">{t("hidden.intro")}</p>
+            <ActionForm action={hiddenAction} className="space-y-3">
+              <label className="block text-sm">{t("hidden.patterns")}
+                <textarea name="patterns" defaultValue={hiddenText} rows={4} spellCheck={false} placeholder={"podmanmanager*\n*-secret"} className="input mt-1 font-mono text-xs" />
+                <span className="text-xs text-slate-500">{t("hidden.hint")}</span>
+              </label>
+              <label className="block text-sm">{t("hidden.testName")}
+                <input name="testName" autoComplete="off" maxLength={128} placeholder="podmanmanager-agent" className="input mt-1" />
+              </label>
+              <div className="flex gap-2">
+                <button name="intent" value="save" className="btn btn-primary">{t("hidden.save")}</button>
+                <button name="intent" value="test" className="btn" formNoValidate>{t("hidden.test")}</button>
               </div>
             </ActionForm>
           </section>

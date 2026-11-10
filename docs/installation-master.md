@@ -127,6 +127,14 @@ Was Gruppenmitglieder (ohne Administratoren-Gruppe) sehen und dürfen:
 
 Ein Benutzer, der weder in der Administratoren-Gruppe noch in einer zugeordneten Gruppe ist, kann sich nicht anmelden. Eine Gruppe ohne Agents gewährt Anmeldung, aber keine Hosts.
 
+### Container verstecken
+Unter **Settings → Hidden containers** (nur lokaler `admin`) lassen sich Container per Namensmuster vor Benutzern **ohne vollen Zugriff** (Mitglieder von Agent-Gruppen) verbergen, zum Beispiel die Container von PodmanManager selbst.
+
+- **Muster:** ein Eintrag pro Zeile, `*` und `?` als Platzhalter, Groß-/Kleinschreibung egal. Erlaubt sind Buchstaben, Ziffern und `. _ - * ?`; Zeilen mit `#` sind Kommentare; höchstens 100 Muster. Beispiel: `podmanmanager*` versteckt `podmanmanager-agent` und `podmanmanager-master`; `*-secret` versteckt alles, was auf `-secret` endet.
+- **Wirkung für eingeschränkte Benutzer:** Der Container fehlt in der Container-Liste und **in allen Zahlen** (Dashboard, Spalte „Containers“ in der Hostliste), die Detailseite meldet „nicht gefunden“, und Start/Stopp/Neustart werden abgelehnt (der Master prüft vor jeder Aktion den aktuellen Namen beim Agent). Der lokale `admin` und die LDAP-Administratoren-Gruppe sehen weiterhin alles.
+- **Global:** Die Liste gilt für alle eingeschränkten Benutzer, nicht pro Gruppe. Änderungen wirken sofort, auch in laufenden Sitzungen.
+- **Test:** Mit dem Feld „Test a container name“ lässt sich prüfen, ob ein Name versteckt würde.
+
 ## Firewall
 Port 8080 nur für berechtigte Netze freigeben, nie ins Internet (siehe [Sicherheit](security.md)).
 

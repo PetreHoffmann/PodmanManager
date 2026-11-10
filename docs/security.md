@@ -35,6 +35,11 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Gruppen-IDs stehen in der Sitzung; welche Agents dazugehören, wird bei jedem Zugriff aus der Datenbank gelesen (Änderungen und Löschen wirken sofort). Unbekannte oder fehlende Zugriffswerte erweitern nie die Rechte.
 - Zusätzliche Laufzeit-Abhängigkeit: `ldapts` (reines TypeScript, nur im Master).
 
+**Versteckte Container**
+- Namensmuster (nur lokaler `admin`) gelten für alle Sitzungen mit `access = groups`. Serverseitig durchgesetzt an jeder Stelle, an der Container ausgegeben werden: die Listen werden schon beim Abruf der Agents gefiltert (damit auch Dashboard und Host-Zahlen sie nicht enthalten), die Detailseite prüft den Namen, und jede Aktion fragt beim Agent den **aktuellen** Namen ab und lehnt versteckte Container ab (schützt auch bei veralteten Seiten und selbst gebauten Aufrufen).
+- Der Agent selbst filtert nicht; die Grenze ist der Master. Wer das Host-System verwaltet (Container umbenennen, Agent-API mit dem Token direkt ansprechen), ist von dieser Funktion nicht eingeschränkt.
+- Abgleich nur über den Namen: Wird ein Container umbenannt, ändert sich seine Sichtbarkeit.
+
 **Reverse-Proxy / `ALLOWED_ORIGINS`**
 - Der CSRF-Schutz für Formular-Aktionen (Origin muss zum Host passen) bleibt immer aktiv. `ALLOWED_ORIGINS` nimmt ausschließlich die dort gelisteten Hosts davon aus (Laufzeit-Variable, kein Wildcard-Standard, nur `*.domain` auf ausdrücklichen Wunsch). Zusätzlich hat das Session-Cookie `SameSite=Strict`. Der Master selbst spricht weiter nur HTTP; TLS endet am Proxy. Das Cookie trägt kein `Secure`-Flag.
 

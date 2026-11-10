@@ -3,11 +3,12 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentAction } from "@/lib/agent-client";
+import { agentAction, agentInspect } from "@/lib/agent-client";
 import { checkAgent, getAgent, registerAgent, removeAgent, setEnabled, targetFor } from "@/lib/agents";
 import { LANG_COOKIE, errText, isLang, lastErrText, statusLabel, type Key } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
 import { loadLdapConfig, parseLdapInput, saveLdapConfig } from "@/lib/ldap-config";
+import { MAX_PATTERNS, hiddenPatternsFor, isHidden, parsePatterns, saveHiddenPatterns } from "@/lib/hidden";
 import { checkForUpdate, type UpdateInfo } from "@/lib/update-check";
 import { getVersion } from "@/lib/version";
 import { LdapError, authenticateLdap, testLdap, type MappedGroup } from "@/lib/ldap";
@@ -158,6 +159,13 @@ export async function containerOpAction(agentId: number, containerId: string, ac
   if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
   const tg = targetFor(agentId);
   if (!tg) return { ok: false, message: t("msg.noCreds") };
+  // Restricted users must not operate hidden containers: check the container's current name first.
+  const hidden = hiddenPatternsFor(session);
+  if (hidden.length > 0) {
+    const ins = await agentInspect(tg, containerId);
+    if (!ins.ok) return { ok: false, message: errText(t, ins.code, ins.message) };
+    if (isHidden(ins.data.name, hidden)) return { ok: false, message: t("detail.notFound") };
+  }
   const r = await agentAction(tg, containerId, action);
   revalidatePath("/containers");
   revalidatePath("/");
@@ -231,4 +239,23 @@ export async function groupAction(_: FormState, fd: FormData): Promise<FormState
 export async function checkUpdateAction(): Promise<UpdateInfo> {
   await requireAuth();
   return checkForUpdate(getVersion());
+}
+
+export async function hiddenAction(_: FormState, fd: FormData): Promise<FormState> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+  const parsed = parsePatterns(s(fd, "patterns"));
+  if (!parsed.ok) return { ok: false, message: t(parsed.error as Key, { pattern: parsed.pattern ?? "", max: MAX_PATTERNS }) };
+
+  if (s(fd, "intent") === "test") {
+    const name = s(fd, "testName").trim();
+    if (!name) return { ok: false, message: t("err.hiddenPattern", { pattern: "" }) };
+    return isHidden(name, parsed.patterns)
+      ? { ok: true, message: t("msg.hiddenTestYes", { name }) }
+      : { ok: true, message: t("msg.hiddenTestNo", { name }) };
+  }
+  saveHiddenPatterns(parsed.patterns);
+  revalidatePath("/", "layout");
+  return { ok: true, message: t("msg.hiddenSaved", { n: parsed.patterns.length }) };
 }

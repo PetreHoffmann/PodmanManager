@@ -133,6 +133,18 @@ const en = {
   "about.unavailable": "Update check unavailable (Docker Hub not reachable).",
   "about.disabled": "Update check is disabled.",
   "about.devBuild": "Development build. Latest release: {latest}",
+  "hidden.title": "Hidden containers",
+  "hidden.intro": "Containers whose name matches one of these patterns are hidden from users without full access (members of agent groups). Administrators still see everything. Hidden containers are also excluded from counts and cannot be operated by these users.",
+  "hidden.patterns": "Name patterns (one per line)",
+  "hidden.hint": "Wildcards: * and ?, case-insensitive. Example: podmanmanager* hides podmanmanager-agent and podmanmanager-master.",
+  "hidden.testName": "Test a container name",
+  "hidden.save": "Save",
+  "hidden.test": "Test name",
+  "msg.hiddenSaved": "Saved ({n} pattern(s))",
+  "msg.hiddenTestYes": "“{name}” would be hidden from users without full access",
+  "msg.hiddenTestNo": "“{name}” stays visible",
+  "err.hiddenPattern": "Invalid pattern “{pattern}”: only letters, digits, . _ - * ? are allowed",
+  "err.hiddenLimit": "Too many patterns (max. {max})",
 } as const;
 
 export type Key = keyof typeof en;
@@ -267,6 +279,18 @@ const de: Dict = {
   "about.unavailable": "Update-Prüfung nicht möglich (Docker Hub nicht erreichbar).",
   "about.disabled": "Die Update-Prüfung ist deaktiviert.",
   "about.devBuild": "Entwicklungsversion. Neueste Version: {latest}",
+  "hidden.title": "Versteckte Container",
+  "hidden.intro": "Container, deren Name zu einem dieser Muster passt, sind für Benutzer ohne vollen Zugriff (Mitglieder von Agent-Gruppen) unsichtbar. Administratoren sehen weiterhin alles. Versteckte Container zählen auch nicht in den Zahlen mit und können von diesen Benutzern nicht bedient werden.",
+  "hidden.patterns": "Namensmuster (eines pro Zeile)",
+  "hidden.hint": "Platzhalter: * und ?, Groß-/Kleinschreibung egal. Beispiel: podmanmanager* versteckt podmanmanager-agent und podmanmanager-master.",
+  "hidden.testName": "Containernamen testen",
+  "hidden.save": "Speichern",
+  "hidden.test": "Namen testen",
+  "msg.hiddenSaved": "Gespeichert ({n} Muster)",
+  "msg.hiddenTestYes": "„{name}“ wäre für Benutzer ohne vollen Zugriff versteckt",
+  "msg.hiddenTestNo": "„{name}“ bleibt sichtbar",
+  "err.hiddenPattern": "Ungültiges Muster „{pattern}“: erlaubt sind nur Buchstaben, Ziffern, . _ - * ?",
+  "err.hiddenLimit": "Zu viele Muster (max. {max})",
 };
 
 const ro: Dict = {
@@ -398,6 +422,18 @@ const ro: Dict = {
   "about.unavailable": "Verificarea actualizărilor nu este posibilă (Docker Hub inaccesibil).",
   "about.disabled": "Verificarea actualizărilor este dezactivată.",
   "about.devBuild": "Versiune de dezvoltare. Ultima versiune: {latest}",
+  "hidden.title": "Containere ascunse",
+  "hidden.intro": "Containerele al căror nume se potrivește cu unul dintre aceste modele sunt ascunse utilizatorilor fără acces complet (membri ai grupurilor de agenți). Administratorii văd în continuare totul. Containerele ascunse nu sunt incluse nici în numărători și nu pot fi operate de acești utilizatori.",
+  "hidden.patterns": "Modele de nume (unul pe linie)",
+  "hidden.hint": "Metacaractere: * și ?, fără diferență între majuscule și minuscule. Exemplu: podmanmanager* ascunde podmanmanager-agent și podmanmanager-master.",
+  "hidden.testName": "Testează un nume de container",
+  "hidden.save": "Salvează",
+  "hidden.test": "Testează numele",
+  "msg.hiddenSaved": "Salvat ({n} model/modele)",
+  "msg.hiddenTestYes": "„{name}” ar fi ascuns utilizatorilor fără acces complet",
+  "msg.hiddenTestNo": "„{name}” rămâne vizibil",
+  "err.hiddenPattern": "Model invalid „{pattern}”: sunt permise doar litere, cifre, . _ - * ?",
+  "err.hiddenLimit": "Prea multe modele (max. {max})",
 };
 
 const es: Dict = {
@@ -529,6 +565,18 @@ const es: Dict = {
   "about.unavailable": "No se puede comprobar si hay actualizaciones (Docker Hub no accesible).",
   "about.disabled": "La comprobación de actualizaciones está desactivada.",
   "about.devBuild": "Versión de desarrollo. Última versión: {latest}",
+  "hidden.title": "Contenedores ocultos",
+  "hidden.intro": "Los contenedores cuyo nombre coincide con alguno de estos patrones se ocultan a los usuarios sin acceso completo (miembros de grupos de agentes). Los administradores siguen viéndolo todo. Los contenedores ocultos tampoco se incluyen en los recuentos y estos usuarios no pueden operarlos.",
+  "hidden.patterns": "Patrones de nombre (uno por línea)",
+  "hidden.hint": "Comodines: * y ?, sin distinguir mayúsculas. Ejemplo: podmanmanager* oculta podmanmanager-agent y podmanmanager-master.",
+  "hidden.testName": "Probar un nombre de contenedor",
+  "hidden.save": "Guardar",
+  "hidden.test": "Probar nombre",
+  "msg.hiddenSaved": "Guardado ({n} patrón/patrones)",
+  "msg.hiddenTestYes": "«{name}» estaría oculto para usuarios sin acceso completo",
+  "msg.hiddenTestNo": "«{name}» sigue visible",
+  "err.hiddenPattern": "Patrón no válido «{pattern}»: solo se permiten letras, dígitos, . _ - * ?",
+  "err.hiddenLimit": "Demasiados patrones (máx. {max})",
 };
 
 export const dicts: Record<Lang, Dict> = { en, de, ro, es };

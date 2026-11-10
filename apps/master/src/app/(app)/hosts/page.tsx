@@ -7,6 +7,7 @@ import { fetchAllContainers } from "@/lib/agents";
 import { lastErrText } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
 import { allowedAgentIds, groupNames } from "@/lib/groups";
+import { hiddenPatternsFor } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function Hosts() {
   const session = await requireAuth();
   const t = await getT();
   const canManage = session.access === "all";
-  const hosts = await fetchAllContainers(undefined, allowedAgentIds(session));
+  const hosts = await fetchAllContainers(undefined, allowedAgentIds(session), hiddenPatternsFor(session));
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">{t("hosts.title")}</h1>
