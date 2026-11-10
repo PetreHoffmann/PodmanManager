@@ -5,6 +5,7 @@ import { FailureLimiter, verifyToken } from "../auth/auth.js";
 import { PodmanError } from "../podman/client.js";
 import { isValidContainerId, type PodmanService } from "../podman/service.js";
 import { collectHealth } from "../services/health.js";
+import type { LogBuffer } from "../logbuffer.js";
 
 export interface Logger {
   info(msg: string): void;
@@ -59,7 +60,7 @@ function drain(req: IncomingMessage): Promise<boolean> {
   });
 }
 
-export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: Logger): Server {
+export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: Logger, logs?: LogBuffer): Server {
   const limiter = new FailureLimiter(cfg.rateLimitMax, cfg.rateLimitWindowMs);
 
   const server = createServer(async (req, res) => {
@@ -89,6 +90,14 @@ export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: 
       if (route.length === 1 && route[0] === "health") {
         if (method !== "GET") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
         return send(res, 200, { ok: true, data: await collectHealth(cfg.agentId, podman) });
+      }
+
+      if (route.length === 2 && route[0] === "agent" && route[1] === "logs") {
+        if (method !== "GET") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+        const raw = url.searchParams.get("tail");
+        const tail = raw === null ? DEFAULT_TAIL : /^\d{1,3}$/.test(raw) ? Number(raw) : 0;
+        if (tail < 1 || tail > MAX_TAIL) return fail(res, 400, "INVALID_PARAM", `tail must be 1-${MAX_TAIL}`);
+        return send(res, 200, { ok: true, data: { lines: logs ? logs.tail(tail) : [] } });
       }
 
       if (route[0] === "containers") {

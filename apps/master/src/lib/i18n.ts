@@ -152,6 +152,10 @@ const en = {
   "logs.empty": "No log output.",
   "logs.caption": "Last {n} line(s), times in UTC. Lines from stderr are highlighted.",
   "errc.INVALID_PARAM": "Invalid parameter",
+  "alogs.agent": "Agent logs",
+  "alogs.master": "Master logs",
+  "alogs.host": "Host",
+  "alogs.caption": "Last {n} line(s), times in UTC. Newest at the bottom. Admins only.",
   "errc.LOGS_TOO_LARGE": "Log output too large",
 } as const;
 
@@ -306,6 +310,10 @@ const de: Dict = {
   "logs.empty": "Keine Log-Ausgabe.",
   "logs.caption": "Letzte {n} Zeile(n), Zeiten in UTC. Zeilen von stderr sind hervorgehoben.",
   "errc.INVALID_PARAM": "Ungültiger Parameter",
+  "alogs.agent": "Agent-Logs",
+  "alogs.master": "Master-Logs",
+  "alogs.host": "Host",
+  "alogs.caption": "Letzte {n} Zeile(n), Zeiten in UTC. Neueste unten. Nur für Admins.",
   "errc.LOGS_TOO_LARGE": "Log-Ausgabe zu groß",
 };
 
@@ -457,6 +465,10 @@ const ro: Dict = {
   "logs.empty": "Fără ieșire în jurnal.",
   "logs.caption": "Ultimele {n} linie/linii, ore în UTC. Liniile din stderr sunt evidențiate.",
   "errc.INVALID_PARAM": "Parametru invalid",
+  "alogs.agent": "Jurnale agent",
+  "alogs.master": "Jurnale master",
+  "alogs.host": "Gazdă",
+  "alogs.caption": "Ultimele {n} linie/linii, ore în UTC. Cele mai noi jos. Doar administratori.",
   "errc.LOGS_TOO_LARGE": "Ieșirea jurnalului este prea mare",
 };
 
@@ -608,6 +620,10 @@ const es: Dict = {
   "logs.empty": "Sin salida de registro.",
   "logs.caption": "Últimas {n} línea(s), horas en UTC. Las líneas de stderr están resaltadas.",
   "errc.INVALID_PARAM": "Parámetro no válido",
+  "alogs.agent": "Logs del agente",
+  "alogs.master": "Logs del master",
+  "alogs.host": "Host",
+  "alogs.caption": "Últimas {n} línea(s), horas en UTC. Las más recientes abajo. Solo administradores.",
   "errc.LOGS_TOO_LARGE": "La salida del registro es demasiado grande",
 };
 

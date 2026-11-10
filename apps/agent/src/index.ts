@@ -4,10 +4,18 @@ import { createAgentServer, type Logger } from "./api/server.js";
 import { PodmanClient } from "./podman/client.js";
 import { PodmanService } from "./podman/service.js";
 import { AGENT_VERSION } from "./services/health.js";
+import { LogBuffer } from "./logbuffer.js";
 
+const logs = new LogBuffer(500);
 const log: Logger = {
-  info: (m) => console.log(`${new Date().toISOString()} INFO ${m}`),
-  error: (m) => console.error(`${new Date().toISOString()} ERROR ${m}`),
+  info: (m) => {
+    console.log(`${new Date().toISOString()} INFO ${m}`);
+    logs.push("info", m);
+  },
+  error: (m) => {
+    console.error(`${new Date().toISOString()} ERROR ${m}`);
+    logs.push("error", m);
+  },
 };
 
 if (process.argv.includes("--generate-token")) {
@@ -32,7 +40,7 @@ try {
 
 const client = new PodmanClient(cfg.podmanSocket, cfg.podmanTimeoutMs);
 const podman = new PodmanService(client, cfg.stopTimeoutSec);
-const server = createAgentServer(cfg, podman, log);
+const server = createAgentServer(cfg, podman, log, logs);
 
 server.listen(cfg.port, cfg.host, () => {
   log.info(`agent ${cfg.agentId} v${AGENT_VERSION} listening on http://${cfg.host}:${cfg.port}`);

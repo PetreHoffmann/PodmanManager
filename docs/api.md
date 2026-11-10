@@ -19,6 +19,7 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 | POST | `/containers/:id/stop` | stoppen (Timeout fest 10 s) |
 | POST | `/containers/:id/restart` | neustarten (Timeout fest 10 s) |
 | GET | `/containers/:id/logs?tail=<n>` | letzte `n` Log-Zeilen (1–500, Standard 150), nur lesend |
+| GET | `/agent/logs?tail=<n>` | letzte `n` eigene Log-Zeilen des Agents (1–500, Standard 150), nur lesend |
 
 Andere Pfade → `404`, falsche Methode → `405`.
 
@@ -41,6 +42,11 @@ Andere Pfade → `404`, falsche Methode → `405`.
 
 ### Aktionen
 Antwort: `{ "action": "stop", "changed": true, "container": { … } }`. `changed: false`, wenn Podman 304 liefert (bereits im Zielzustand). `container` ist der Zustand **nach** der Aktion.
+
+### `GET /agent/logs?tail=150`
+Eigene Logzeilen des Agents aus einem Ringpuffer im Speicher (max. 500 Zeilen, nach Neustart leer). Antwort:
+`{"ok":true,"data":{"lines":[{"ts":"2026-11-10T21:13:11.000Z","level":"info|warn|error","text":"…"}]}}`.
+Tokens/Secrets werden vor dem Speichern maskiert (`***`), Steuerzeichen entfernt, Zeilen auf 1000 Zeichen begrenzt. `tail` ungültig → 400 `INVALID_PARAM`.
 
 ### `GET /containers/:id/logs?tail=150`
 ```json

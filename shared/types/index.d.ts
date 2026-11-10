@@ -47,3 +47,14 @@ export interface ContainerLogs {
   tail: number;
   lines: LogLine[];
 }
+
+export interface AppLogLine {
+  /** ISO timestamp (UTC) */
+  ts: string;
+  level: "info" | "warn" | "error";
+  text: string;
+}
+
+export interface AppLogs {
+  lines: AppLogLine[];
+}

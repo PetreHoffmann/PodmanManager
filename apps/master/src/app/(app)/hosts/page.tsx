@@ -1,8 +1,9 @@
 import ActionForm from "@/components/ActionForm";
+import AppLogs from "@/components/AppLogs";
 import HostActions from "@/components/HostActions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { fmt } from "@/components/ui";
-import { addAgentAction } from "@/app/actions";
+import { addAgentAction, appLogsAction } from "@/app/actions";
 import { fetchAllContainers } from "@/lib/agents";
 import { lastErrText } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
@@ -71,6 +72,10 @@ export default async function Hosts() {
           </div>
         ))}
       </div>
+
+      {canManage && hosts.length > 0 && (
+        <AppLogs title={t("alogs.agent")} load={appLogsAction} options={hosts.map(({ agent: a }) => ({ id: a.id, label: `${a.agent_id} (${a.hostname})` }))} />
+      )}
 
       {canManage && (
       <section className="card max-w-xl">

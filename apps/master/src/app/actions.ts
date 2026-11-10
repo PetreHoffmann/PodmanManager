@@ -3,8 +3,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentAction, agentInspect, agentLogs } from "@/lib/agent-client";
-import type { LogLine } from "../../../../shared/types/index.js";
+import { agentAction, agentAppLogs, agentInspect, agentLogs } from "@/lib/agent-client";
+import { appLogTail } from "@/lib/applog";
+import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
 import { checkAgent, getAgent, registerAgent, removeAgent, setEnabled, targetFor } from "@/lib/agents";
 import { LANG_COOKIE, errText, isLang, lastErrText, statusLabel, type Key } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
@@ -280,6 +281,24 @@ export async function containerLogsAction(agentId: number, containerId: string):
     if (isHidden(ins.data.name, hidden)) return { ok: false, message: t("detail.notFound") };
   }
   const r = await agentLogs(tg, containerId);
+  if (!r.ok) return { ok: false, message: errText(t, r.code, r.message) };
+  return { ok: true, lines: r.data.lines };
+}
+
+export type AppLogsResult = { ok: true; lines: AppLogLine[] } | { ok: false; message: string };
+
+/** Own log lines of an agent (agentId > 0) or of the master itself (agentId 0). Admins only. */
+export async function appLogsAction(agentId: number): Promise<AppLogsResult> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  if (agentId === 0) return { ok: true, lines: appLogTail(150) };
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  if (!a) return { ok: false, message: t("msg.unknownHost") };
+  if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
+  const tg = targetFor(agentId);
+  if (!tg) return { ok: false, message: t("msg.noCreds") };
+  const r = await agentAppLogs(tg);
   if (!r.ok) return { ok: false, message: errText(t, r.code, r.message) };
   return { ok: true, lines: r.data.lines };
 }

@@ -1,4 +1,4 @@
-import type { ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, HealthInfo } from "../../../../shared/types/index.js";
+import type { ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { CONTAINER_ID_RE } from "./validate";
 
@@ -68,3 +68,6 @@ export function agentLogs(t: AgentTarget, id: string) {
   if (!CONTAINER_ID_RE.test(id)) return Promise.resolve<CallResult<ContainerLogs>>({ ok: false, code: "INVALID_ID", message: "Invalid container id", unreachable: false });
   return call<ContainerLogs>(t, "GET", `/api/v1/containers/${id}/logs?tail=${LOG_TAIL}`, 15);
 }
+
+/** The agent's own recent log lines (read-only). */
+export const agentAppLogs = (t: AgentTarget) => call<AppLogs>(t, "GET", `/api/v1/agent/logs?tail=${LOG_TAIL}`, 15);

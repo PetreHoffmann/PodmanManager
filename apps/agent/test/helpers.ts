@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AddressInfo } from "node:net";
+import { LogBuffer } from "../src/logbuffer.js";
 import { createAgentServer } from "../src/api/server.js";
 import { hashToken } from "../src/auth/auth.js";
 import type { AgentConfig } from "../src/config/config.js";
@@ -74,6 +75,7 @@ export const silent = { info() {}, error() {} };
 
 export interface Running {
   base: string;
+  logs: LogBuffer;
   close(): Promise<void>;
 }
 
@@ -91,10 +93,11 @@ export async function startAgent(socketPath: string, over: Partial<AgentConfig> 
     ...over,
   };
   const svc = new PodmanService(new PodmanClient(socketPath, cfg.podmanTimeoutMs), cfg.stopTimeoutSec);
-  const server = createAgentServer(cfg, svc, silent);
+  const logs = new LogBuffer(5);
+  const server = createAgentServer(cfg, svc, silent, logs);
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   const port = (server.address() as AddressInfo).port;
-  return { base: `http://127.0.0.1:${port}`, close: () => new Promise((r) => server.close(() => r())) };
+  return { base: `http://127.0.0.1:${port}`, logs, close: () => new Promise((r) => server.close(() => r())) };
 }
 
 export const auth = { Authorization: `Bearer ${TOKEN}` };
