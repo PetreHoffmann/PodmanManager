@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
-import { mapListItem, mapPod } from "../src/podman/service.js";
+import { mapListItem, mapPod, mergeLogs } from "../src/podman/service.js";
 import { auth, jsonRes, startAgent, startFakePodman, type Fake, type Running } from "./helpers.js";
 
 const POD = "e".repeat(64);
@@ -101,5 +101,84 @@ describe("pod routes", () => {
     assert.equal((await get(`/pods/${POD}/rm`, "POST")).status, 404);
     assert.equal((await get(`/pods/${POD}`, "DELETE")).status, 405);
     assert.equal((await get("/pods", "GET", {})).status, 401);
+  });
+});
+
+function frame(stream: 1 | 2, text: string): Buffer {
+  const p = Buffer.from(text, "utf8");
+  const h = Buffer.alloc(8);
+  h[0] = stream;
+  h.writeUInt32BE(p.length, 4);
+  return Buffer.concat([h, p]);
+}
+
+describe("pod logs", () => {
+  const DB = "3".repeat(64);
+  const LOGS: Record<string, Buffer> = {
+    [APP]: Buffer.concat([frame(1, "2026-11-10T10:00:01Z app one\n"), frame(2, "2026-11-10T10:00:04Z app boom\n"), frame(1, "continuation without time\n")]),
+    [DB]: Buffer.concat([frame(1, "2026-11-10T10:00:02Z db two\n"), frame(1, "2026-11-10T10:00:03.5Z db three\n")]),
+  };
+  let fake: Fake;
+  let agent: Running;
+  let failDb = false;
+  let failApp = false;
+  before(async () => {
+    fake = await startFakePodman((req, res) => {
+      const u = req.url ?? "";
+      if (u === "/libpod/pods/json") {
+        return jsonRes(res, 200, [{ Id: POD, Name: "web", Status: "Running", InfraId: INFRA, Containers: [{ Id: INFRA, Names: "x-infra", Status: "running" }, { Id: APP, Names: "web-app", Status: "running" }, { Id: DB, Names: "web-db", Status: "running" }] }]);
+      }
+      const m = /^\/libpod\/containers\/([a-f0-9]+)\/logs\?/.exec(u);
+      if (m) {
+        if ((m[1] === DB && failDb) || (m[1] === APP && failApp)) return jsonRes(res, 500, { message: "this container is using the 'none' log driver" });
+        res.writeHead(200);
+        return void res.end(LOGS[m[1]!] ?? Buffer.alloc(0));
+      }
+      jsonRes(res, 404, { message: "nope" });
+    });
+    agent = await startAgent(fake.socketPath);
+  });
+  after(async () => {
+    await agent.close();
+    await fake.close();
+  });
+  const get = (p: string) => fetch(`${agent.base}/api/v1${p}`, { headers: auth });
+
+  it("merges the logs of all containers by time and labels each line; infra container is not read", async () => {
+    const r = (await (await get(`/pods/${POD}/logs`)).json()) as { data: { tail: number; skipped: string[]; lines: { container: string; text: string; stream: string }[] } };
+    assert.deepEqual(r.data.lines.map((l) => `${l.container}:${l.text}`), ["web-app:app one", "web-db:db two", "web-db:db three", "web-app:app boom", "web-app:continuation without time"]);
+    assert.equal(r.data.lines[3]?.stream, "stderr");
+    assert.deepEqual(r.data.skipped, []);
+    assert.ok(!fake.calls.some((c) => c.includes(`/containers/${INFRA}/logs`)));
+  });
+  it("keeps only the newest `tail` lines of the merged result", async () => {
+    const r = (await (await get(`/pods/${POD}/logs?tail=2`)).json()) as { data: { lines: { text: string }[] } };
+    assert.deepEqual(r.data.lines.map((l) => l.text), ["app boom", "continuation without time"]);
+    assert.ok(fake.calls.some((c) => c.includes(`/containers/${DB}/logs?`) && c.includes("tail=2")));
+  });
+  it("skips containers whose logs are unreadable; fails when none is readable", async () => {
+    failDb = true;
+    const r = (await (await get(`/pods/${POD}/logs`)).json()) as { data: { skipped: string[]; lines: { container: string }[] } };
+    assert.deepEqual(r.data.skipped, ["web-db"]);
+    assert.ok(r.data.lines.every((l) => l.container === "web-app"));
+    failApp = true;
+    assert.equal((await get(`/pods/${POD}/logs`)).status, 502);
+    failDb = false;
+    failApp = false;
+  });
+  it("validates tail, pod id, method and auth; unknown pod is 404", async () => {
+    for (const q of ["0", "501", "abc"]) assert.equal((await get(`/pods/${POD}/logs?tail=${q}`)).status, 400, q);
+    assert.equal((await get(`/pods/zzz/logs`)).status, 400);
+    assert.equal((await get(`/pods/${"f".repeat(64)}/logs`)).status, 404);
+    assert.equal((await fetch(`${agent.base}/api/v1/pods/${POD}/logs`, { method: "POST", headers: auth })).status, 405);
+    assert.equal((await fetch(`${agent.base}/api/v1/pods/${POD}/logs`)).status, 401);
+  });
+});
+
+describe("mergeLogs", () => {
+  it("is stable for equal times and handles lines without timestamps", () => {
+    const l = (ts: string | null, text: string) => ({ ts, stream: "stdout" as const, text });
+    const out = mergeLogs([{ name: "a", lines: [l("2026-11-10T10:00:00Z", "a1"), l(null, "a2")] }, { name: "b", lines: [l("2026-11-10T10:00:00Z", "b1")] }], 10);
+    assert.deepEqual(out.map((x) => `${x.container}:${x.text}`), ["a:a1", "a:a2", "b:b1"]);
   });
 });

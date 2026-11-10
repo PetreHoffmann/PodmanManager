@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction } from "@/lib/agent-client";
+import { agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
 import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
 import { checkAgent, getAgent, registerAgent, removeAgent, setEnabled, targetFor } from "@/lib/agents";
@@ -262,7 +262,7 @@ export async function hiddenAction(_: FormState, fd: FormData): Promise<FormStat
   return { ok: true, message: t("msg.hiddenSaved", { n: parsed.patterns.length }) };
 }
 
-export type LogsResult = { ok: true; lines: LogLine[] } | { ok: false; message: string };
+export type LogsResult = { ok: true; lines: LogLine[]; skipped?: string[] } | { ok: false; message: string };
 
 /** Last log lines of a container; same access rules as container actions (agent scope, hidden containers). */
 export async function containerLogsAction(agentId: number, containerId: string): Promise<LogsResult> {
@@ -330,4 +330,25 @@ export async function podOpAction(agentId: number, podId: string, action: string
     return { ok: true, message: r.data.changed ? t("msg.opOk", { action: verb, state: label }) : t("msg.opNoChange", { state: label }) };
   }
   return { ok: false, message: t("msg.opFailed", { action: verb, msg: errText(t, r.code, r.message), code: r.code }) };
+}
+
+/** Merged logs of a pod; same rules as pod actions (agent scope, pods with hidden containers are blocked). */
+export async function podLogsAction(agentId: number, podId: string): Promise<LogsResult> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (!CONTAINER_ID_RE.test(podId)) return { ok: false, message: t("msg.invalidPodId") };
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  if (!a || !mayAccessAgent(allowedAgentIds(session), a.id)) return { ok: false, message: t("msg.unknownHost") };
+  if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
+  const tg = targetFor(agentId);
+  if (!tg) return { ok: false, message: t("msg.noCreds") };
+  const hidden = hiddenPatternsFor(session);
+  if (hidden.length > 0) {
+    const cur = await agentPod(tg, podId);
+    if (!cur.ok) return { ok: false, message: errText(t, cur.code, cur.message) };
+    if (isPodHidden(cur.data, hidden)) return { ok: false, message: t("pods.notFound") };
+  }
+  const r = await agentPodLogs(tg, podId);
+  if (!r.ok) return { ok: false, message: errText(t, r.code, r.message) };
+  return { ok: true, lines: r.data.lines, skipped: r.data.skipped };
 }

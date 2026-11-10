@@ -10,7 +10,7 @@ Funktionsumfang bewusst begrenzt: Container **anzeigen, starten, stoppen, neusta
 Browser ── HTTP :8080 ── Master ── HTTP :9126 (Bearer-Token) ── Agent ── Unix-Socket ── Podman (rootless)
 ```
 
-Neben Containern zeigt der Master auch **Pods** (Liste, Detail mit Containern, Start/Stop/Restart des ganzen Pods); in der Container-Liste steht, zu welchem Pod ein Container gehört.
+Neben Containern zeigt der Master auch **Pods** (Liste, Detail mit Containern, Start/Stop/Restart und die letzten 150 Log-Zeilen des ganzen Pods); in der Container-Liste steht, zu welchem Pod ein Container gehört.
 
 Die Oberfläche ist in Englisch, Deutsch, Rumänisch und Spanisch verfügbar (Flaggen-Auswahl oben rechts; Standard aus `Accept-Language`, danach per Cookie gemerkt). Die automatische Browser-Übersetzung ist per `translate="no"` und `<meta name="google" content="notranslate">` unterbunden.
 
