@@ -27,6 +27,8 @@ Environment=AGENT_ID=host-1
 Environment=PODMAN_SOCKET=/run/podman/podman.sock
 # SHA-256-Hash des Agent-Tokens als Podman-Secret (Anleitung in README.md):
 Secret=podmanmanager-agent-hash,type=env,target=AGENT_TOKEN_HASH
+# Alternative ohne Secret (Hash steht dann in dieser Datei, chmod 600): obige Zeile ersetzen durch
+# Environment=AGENT_TOKEN_HASH=<64 Hex-Zeichen>
 
 NoNewPrivileges=true
 DropCapability=ALL

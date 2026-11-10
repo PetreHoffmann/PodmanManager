@@ -92,6 +92,7 @@ Den Token im Master unter *Hosts* eintragen; Port 9126 nur für die Master-IP fr
 | [Architektur](docs/architecture.md) | Komponenten, Datenfluss, Entscheidungen |
 | [Master-Installation](docs/installation-master.md) | Build, Konfiguration, systemd, Datenbank |
 | [Agent-Installation](docs/installation-agent.md) | install.sh, User-Service, Lingering, Podman-Socket |
+| [Deployment (Schritt für Schritt)](deployment/README.md) | `podman run` und Quadlet für Master und Agent; Agent-Hash als Secret oder Environment-Wert |
 | [Quadlets](deployment/quadlet/README.md) | Rootless-Quadlets für Master und Agent (Podman-Secrets, gemeinsames Netzwerk) |
 | [API](docs/api.md) | Agent-REST-API, Fehlercodes |
 | [Sicherheit](docs/security.md) | Bedrohungsmodell, Tokens, Firewall |
