@@ -3,7 +3,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentAction, agentInspect } from "@/lib/agent-client";
+import { agentAction, agentAppLogs, agentInspect, agentLogs } from "@/lib/agent-client";
+import { appLogTail } from "@/lib/applog";
+import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
 import { checkAgent, getAgent, registerAgent, removeAgent, setEnabled, targetFor } from "@/lib/agents";
 import { LANG_COOKIE, errText, isLang, lastErrText, statusLabel, type Key } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
@@ -258,4 +260,45 @@ export async function hiddenAction(_: FormState, fd: FormData): Promise<FormStat
   saveHiddenPatterns(parsed.patterns);
   revalidatePath("/", "layout");
   return { ok: true, message: t("msg.hiddenSaved", { n: parsed.patterns.length }) };
+}
+
+export type LogsResult = { ok: true; lines: LogLine[] } | { ok: false; message: string };
+
+/** Last log lines of a container; same access rules as container actions (agent scope, hidden containers). */
+export async function containerLogsAction(agentId: number, containerId: string): Promise<LogsResult> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (!CONTAINER_ID_RE.test(containerId)) return { ok: false, message: t("msg.invalidId") };
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  if (!a || !mayAccessAgent(allowedAgentIds(session), a.id)) return { ok: false, message: t("msg.unknownHost") };
+  if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
+  const tg = targetFor(agentId);
+  if (!tg) return { ok: false, message: t("msg.noCreds") };
+  const hidden = hiddenPatternsFor(session);
+  if (hidden.length > 0) {
+    const ins = await agentInspect(tg, containerId);
+    if (!ins.ok) return { ok: false, message: errText(t, ins.code, ins.message) };
+    if (isHidden(ins.data.name, hidden)) return { ok: false, message: t("detail.notFound") };
+  }
+  const r = await agentLogs(tg, containerId);
+  if (!r.ok) return { ok: false, message: errText(t, r.code, r.message) };
+  return { ok: true, lines: r.data.lines };
+}
+
+export type AppLogsResult = { ok: true; lines: AppLogLine[] } | { ok: false; message: string };
+
+/** Own log lines of an agent (agentId > 0) or of the master itself (agentId 0). Admins only. */
+export async function appLogsAction(agentId: number): Promise<AppLogsResult> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  if (agentId === 0) return { ok: true, lines: appLogTail(150) };
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  if (!a) return { ok: false, message: t("msg.unknownHost") };
+  if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
+  const tg = targetFor(agentId);
+  if (!tg) return { ok: false, message: t("msg.noCreds") };
+  const r = await agentAppLogs(tg);
+  if (!r.ok) return { ok: false, message: errText(t, r.code, r.message) };
+  return { ok: true, lines: r.data.lines };
 }

@@ -129,12 +129,13 @@ try {
     assert.equal(h1.state.get(id("a")), "running");
   });
 
-  await step("detail page works and offers only start/stop/restart", async () => {
+  await step("detail page works and offers only start/stop/restart (plus read-only logs)", async () => {
     await page.goto(MASTER + "/containers");
     await page.click("a:has-text('host-a-db')");
     await page.waitForSelector("text=Container ID");
     const buttons = (await page.locator("main button").allInnerTexts()).map((t) => t.trim()).sort();
-    assert.deepEqual(buttons, ["Restart", "Start", "Stop"]);
+    // container actions are exactly start/stop/restart; "Show logs" is the read-only log view
+    assert.deepEqual(buttons, ["Restart", "Show logs", "Start", "Stop"]);
   });
 
   await step("offline agent is flagged separately, others keep working", async () => {

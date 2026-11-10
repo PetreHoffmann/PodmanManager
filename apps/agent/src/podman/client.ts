@@ -6,7 +6,8 @@ export type PodmanErrorCode =
   | "SOCKET_UNREACHABLE"
   | "PODMAN_API_ERROR"
   | "PODMAN_TIMEOUT"
-  | "CONTAINER_NOT_FOUND";
+  | "CONTAINER_NOT_FOUND"
+  | "LOGS_TOO_LARGE";
 
 export class PodmanError extends Error {
   constructor(
@@ -25,6 +26,7 @@ export interface PodmanResponse {
 }
 
 const MAX_BODY = 32 * 1024 * 1024;
+export const TOO_LARGE_MESSAGE = "Podman response too large";
 
 export class PodmanClient {
   constructor(
@@ -50,7 +52,8 @@ export class PodmanClient {
   }
 
   /** Low-level call. Only invoked with fixed paths built by PodmanService. */
-  call(method: "GET" | "POST", path: string): Promise<PodmanResponse> {
+  call(method: "GET" | "POST", path: string, opts: { maxBytes?: number } = {}): Promise<PodmanResponse> {
+    const limit = opts.maxBytes ?? MAX_BODY;
     return new Promise((resolve, reject) => {
       const req = request(
         {
@@ -65,8 +68,8 @@ export class PodmanClient {
           let size = 0;
           res.on("data", (c: Buffer) => {
             size += c.length;
-            if (size > MAX_BODY) {
-              req.destroy(new PodmanError("PODMAN_API_ERROR", "Podman response too large"));
+            if (size > limit) {
+              req.destroy(new PodmanError("PODMAN_API_ERROR", TOO_LARGE_MESSAGE));
               return;
             }
             chunks.push(c);

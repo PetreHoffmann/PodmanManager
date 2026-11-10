@@ -1,5 +1,6 @@
-import type { ContainerAction, ContainerInfo } from "../../../../shared/types/index.js";
-import { PodmanClient, PodmanError, type PodmanResponse } from "./client.js";
+import type { ContainerAction, ContainerInfo, LogLine } from "../../../../shared/types/index.js";
+import { PodmanClient, PodmanError, TOO_LARGE_MESSAGE, type PodmanResponse } from "./client.js";
+import { parseLogStream } from "./logs.js";
 
 export const CONTAINER_ID_RE = /^[a-f0-9]{12,64}$/;
 
@@ -139,6 +140,23 @@ export class PodmanService {
       throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     }
     return mapInspect(json(res));
+  }
+
+  /** Last `tail` lines (stdout and stderr, with timestamps). `tail` must be validated by the caller. */
+  async logs(id: string, tail: number): Promise<LogLine[]> {
+    this.assertId(id);
+    await this.client.checkSocket();
+    const lp = await this.libpod();
+    let res: PodmanResponse;
+    try {
+      res = await this.client.call("GET", `${lp}/containers/${id}/logs?stdout=true&stderr=true&tail=${tail}&timestamps=true`, { maxBytes: 4 * 1024 * 1024 });
+    } catch (e) {
+      if (e instanceof PodmanError && e.message === TOO_LARGE_MESSAGE) throw new PodmanError("LOGS_TOO_LARGE", "Log output too large", e.upstreamStatus);
+      throw e;
+    }
+    if (res.status === 404) throw new PodmanError("CONTAINER_NOT_FOUND", "Container not found", 404);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    return parseLogStream(res.body, tail);
   }
 
   async act(id: string, action: ContainerAction): Promise<{ changed: boolean; container: ContainerInfo }> {

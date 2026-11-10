@@ -1,5 +1,6 @@
+import AppLogs from "@/components/AppLogs";
 import ActionForm from "@/components/ActionForm";
-import { changePasswordAction, hiddenAction, ldapAction, logoutAction } from "@/app/actions";
+import { appLogsAction, changePasswordAction, hiddenAction, ldapAction, logoutAction } from "@/app/actions";
 import { getConfig } from "@/lib/config";
 import { DEFAULT_FILTER } from "@/lib/ldap";
 import { EMPTY_LDAP, loadLdapConfig } from "@/lib/ldap-config";
@@ -39,6 +40,8 @@ export default async function Settings() {
           <dt className="text-slate-400">{t("set.failures")}</dt><dd>{c.offlineAfterFailures}</dd>
         </dl>
       </section>
+
+      {session.access === "all" && <AppLogs title={t("alogs.master")} load={appLogsAction} />}
 
       {local ? (
         <>

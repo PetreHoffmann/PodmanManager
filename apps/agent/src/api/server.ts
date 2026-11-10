@@ -5,6 +5,7 @@ import { FailureLimiter, verifyToken } from "../auth/auth.js";
 import { PodmanError } from "../podman/client.js";
 import { isValidContainerId, type PodmanService } from "../podman/service.js";
 import { collectHealth } from "../services/health.js";
+import type { LogBuffer } from "../logbuffer.js";
 
 export interface Logger {
   info(msg: string): void;
@@ -13,6 +14,8 @@ export interface Logger {
 
 const ACTIONS: ReadonlySet<string> = new Set(["start", "stop", "restart"]);
 const MAX_BODY_BYTES = 1024;
+const DEFAULT_TAIL = 150;
+const MAX_TAIL = 500;
 
 function send(res: ServerResponse, status: number, body: ApiResponse<unknown>, extra?: Record<string, string>): void {
   const payload = JSON.stringify(body);
@@ -57,7 +60,7 @@ function drain(req: IncomingMessage): Promise<boolean> {
   });
 }
 
-export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: Logger): Server {
+export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: Logger, logs?: LogBuffer): Server {
   const limiter = new FailureLimiter(cfg.rateLimitMax, cfg.rateLimitWindowMs);
 
   const server = createServer(async (req, res) => {
@@ -89,6 +92,14 @@ export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: 
         return send(res, 200, { ok: true, data: await collectHealth(cfg.agentId, podman) });
       }
 
+      if (route.length === 2 && route[0] === "agent" && route[1] === "logs") {
+        if (method !== "GET") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+        const raw = url.searchParams.get("tail");
+        const tail = raw === null ? DEFAULT_TAIL : /^\d{1,3}$/.test(raw) ? Number(raw) : 0;
+        if (tail < 1 || tail > MAX_TAIL) return fail(res, 400, "INVALID_PARAM", `tail must be 1-${MAX_TAIL}`);
+        return send(res, 200, { ok: true, data: { lines: logs ? logs.tail(tail) : [] } });
+      }
+
       if (route[0] === "containers") {
         if (route.length === 1) {
           if (method !== "GET") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
@@ -102,6 +113,13 @@ export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: 
           return send(res, 200, { ok: true, data: await podman.inspect(id) });
         }
         const action = route[2] ?? "";
+        if (route.length === 3 && action === "logs") {
+          if (method !== "GET") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+          const raw = url.searchParams.get("tail");
+          const tail = raw === null ? DEFAULT_TAIL : /^\d{1,3}$/.test(raw) ? Number(raw) : 0;
+          if (tail < 1 || tail > MAX_TAIL) return fail(res, 400, "INVALID_PARAM", `tail must be 1-${MAX_TAIL}`);
+          return send(res, 200, { ok: true, data: { tail, lines: await podman.logs(id, tail) } });
+        }
         if (route.length === 3 && ACTIONS.has(action)) {
           if (method !== "POST") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "POST" });
           const r = await podman.act(id, action as ContainerAction);
