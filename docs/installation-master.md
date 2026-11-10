@@ -82,7 +82,7 @@ Es genügt, dass **einer** der beiden Wege erreichbar ist (Port 443). Wenn dein 
 2. Die Datei dem Master zugänglich machen und `NODE_EXTRA_CA_CERTS=/pfad/zur/corp-ca.pem` setzen. Bei einem Container: Datei per Volume einbinden. Beispiel (Quadlet): `Volume=%h/.config/podmanmanager/corp-ca.pem:/etc/corp-ca.pem:ro,Z` und `Environment=NODE_EXTRA_CA_CERTS=/etc/corp-ca.pem`; bei `docker run`/`podman run`: `-v /pfad/corp-ca.pem:/etc/corp-ca.pem:ro -e NODE_EXTRA_CA_CERTS=/etc/corp-ca.pem`; beim systemd-Dienst: `NODE_EXTRA_CA_CERTS=…` in `master.env`.
 3. Master neu starten.
 
-`NODE_EXTRA_CA_CERTS` ergänzt die normalen Zertifikate und gilt für alle ausgehenden TLS-Verbindungen des Masters (auch LDAPS ohne eigene CA). Nur eine CA eintragen, der du vertraust. Ausführliche Schritte im Quadlet-Fall: [`deployment/quadlet/README.md`](../deployment/quadlet/README.md).
+`NODE_EXTRA_CA_CERTS` ergänzt die normalen Zertifikate und gilt für alle ausgehenden TLS-Verbindungen des Masters (auch LDAPS ohne eigene CA). Nur eine CA eintragen, der du vertraust. Auf einem echten Host hinter einem WSA-Proxy mit TLS-Inspektion bestätigt. Ausführliche Schritte im Quadlet-Fall: [`deployment/quadlet/README.md`](../deployment/quadlet/README.md).
 
 Sind beide Wege gesperrt, zeigt der Dialog „Update check unavailable“ mit der Ursache je Weg, z. B. `registry: ECONNREFUSED, hub: ECONNREFUSED` (`ENOTFOUND` = Name nicht auflösbar, `ETIMEDOUT`/`ECONNREFUSED` = gesperrt oder Proxy nötig, `PROXY_403`/`PROXY_407` = Proxy lehnt ab bzw. verlangt Anmeldung, `UNABLE_TO_VERIFY_LEAF_SIGNATURE` = unbekanntes Zertifikat, `HTTP_429` = Docker Hub drosselt); mit `UPDATE_CHECK=off` findet gar keine Anfrage statt. Es werden keine Daten über die Installation übertragen.
 
