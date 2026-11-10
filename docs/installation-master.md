@@ -41,6 +41,9 @@ journalctl -u podmanmanager-master -f
 ```
 Der Dienst benötigt keinen Podman-Zugriff. Die Datenbank (`/var/lib/podmanmanager/master.db`) wird beim ersten Start automatisch angelegt (Schema wird per `CREATE TABLE IF NOT EXISTS` initialisiert).
 
+## Als Podman-Quadlet (Container, rootless)
+Beispiel-Units und Anleitung (Secret für `MASTER_SECRET_KEY`, Volume, Start ohne Login) liegen in [`deployment/quadlet/`](../deployment/quadlet/README.md).
+
 ## Manueller Start
 `deployment/master/start.sh [env-datei]` (oder Variablen setzen). Ändere den Port über `MASTER_PORT`.
 

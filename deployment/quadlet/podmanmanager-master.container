@@ -1,0 +1,31 @@
+# PodmanManager Master als Quadlet (rootless).
+# Ablegen unter ~/.config/containers/systemd/ (siehe README.md in diesem Ordner).
+[Unit]
+Description=PodmanManager Master
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/petrecalinoiu/podmanmanager-master:0.3.0
+ContainerName=podmanmanager-master
+# Master und Agent auf demselben Host: gemeinsames Netzwerk (podmanmanager.network mit ablegen),
+# der Master erreicht den Agent dann unter http://podmanmanager-agent:9126
+# Network=podmanmanager.network
+PublishPort=8080:8080
+Volume=podmanmanager-data.volume:/data
+# Schluessel fuer die verschluesselten Agent-Tokens (einmal anlegen, nie aendern):
+#   openssl rand -base64 32 | tr -d '\n' | podman secret create podmanmanager-key -
+Secret=podmanmanager-key,type=env,target=MASTER_SECRET_KEY
+Environment=HEARTBEAT_INTERVAL=30
+Environment=AGENT_TIMEOUT=5
+# Update-Pruefung im About-Dialog abschalten (abgeschottete Netze):
+# Environment=UPDATE_CHECK=off
+# Automatische Updates (braucht :latest statt festem Tag, dazu podman-auto-update.timer):
+# AutoUpdate=registry
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

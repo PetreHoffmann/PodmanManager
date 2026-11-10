@@ -14,6 +14,8 @@ systemctl --user enable --now podmanmanager-agent
 ```
 **Der Token wird nur einmal ausgegeben** (in der Datei steht nur sein SHA-256-Hash). Im Master unter *Hosts → Add agent* zusammen mit `http://<host-ip>:9126` eintragen.
 
+Alternativ als Container: [`deployment/quadlet/`](../deployment/quadlet/README.md) (Rootless-Socket-Mount, Token-Hash als Podman-Secret). Die native Installation ist einfacher und robuster.
+
 ## Konfiguration (`agent.env`)
 | Variable | Standard | |
 |---|---|---|

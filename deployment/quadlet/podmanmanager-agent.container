@@ -1,0 +1,39 @@
+# PodmanManager Agent als Quadlet (rootless).
+# Ablegen unter ~/.config/containers/systemd/ (siehe README.md in diesem Ordner).
+[Unit]
+Description=PodmanManager Agent
+Wants=podman.socket
+After=podman.socket network-online.target
+
+[Container]
+Image=docker.io/petrecalinoiu/podmanmanager-agent:0.3.0
+ContainerName=podmanmanager-agent
+# Nur auf der Management-Adresse lauschen (anpassen!); Firewall: Port 9126 nur fuer die Master-IP.
+# Master und Agent auf demselben Host: gemeinsames Netzwerk (podmanmanager.network mit ablegen),
+# der Master erreicht den Agent dann unter http://podmanmanager-agent:9126
+# Network=podmanmanager.network
+PublishPort=192.168.1.21:9126:9126
+
+# Rootless-Socket des eigenen Benutzers; der Agent laeuft mit dessen UID, nie als root.
+Volume=%t/podman/podman.sock:/run/podman/podman.sock
+UserNS=keep-id
+User=%U
+# Auf SELinux-Hosts (Fedora/RHEL) noetig, sonst wird der Zugriff auf den Socket verweigert:
+SecurityLabelDisable=true
+
+Environment=AGENT_ID=host-1
+Environment=PODMAN_SOCKET=/run/podman/podman.sock
+# SHA-256-Hash des Agent-Tokens als Podman-Secret (Anleitung in README.md):
+Secret=podmanmanager-agent-hash,type=env,target=AGENT_TOKEN_HASH
+
+NoNewPrivileges=true
+DropCapability=ALL
+# Automatische Updates (braucht :latest statt festem Tag, dazu podman-auto-update.timer):
+# AutoUpdate=registry
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target
