@@ -1,9 +1,28 @@
 import type { HealthInfo } from "../../../../shared/types/index.js";
+import { readFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { PodmanError } from "../podman/client.js";
 import type { PodmanService } from "../podman/service.js";
 
-export const AGENT_VERSION = "0.1.0";
+const SEMVER = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
+
+/** APP_VERSION (set from the git tag in Docker images) wins, then dist/version.json (written by the build), else "dev". */
+export function resolveVersion(env: Record<string, string | undefined>, fileVersion: string | null): string {
+  const e = (env.APP_VERSION ?? "").trim().replace(/^v/, "");
+  if (SEMVER.test(e)) return e;
+  return fileVersion && SEMVER.test(fileVersion) ? fileVersion : "dev";
+}
+
+function readBuildVersion(): string | null {
+  try {
+    const v = (JSON.parse(readFileSync(new URL("../version.json", import.meta.url), "utf8")) as { version?: unknown }).version;
+    return typeof v === "string" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export const AGENT_VERSION = resolveVersion(process.env, readBuildVersion());
 
 export async function collectHealth(agentId: string, podman: PodmanService): Promise<HealthInfo> {
   const info: HealthInfo = {

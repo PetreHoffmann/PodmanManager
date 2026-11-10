@@ -14,6 +14,30 @@ export const ID = "a".repeat(64);
 
 export type FakeHandler = (req: IncomingMessage, res: ServerResponse) => void;
 
+export const FAKE_LIBPOD_VERSION = "4.9.3";
+
+/**
+ * Mimics real Podman routing (verified against Podman 4.9.3): /libpod/_ping is unversioned and
+ * announces Libpod-Api-Version; every other libpod route answers 404 without the /v<version> prefix.
+ * The wrapped handler always sees the unversioned path.
+ */
+export function realisticPodman(handler: FakeHandler, version: string | null = FAKE_LIBPOD_VERSION): FakeHandler {
+  return (req, res) => {
+    const url = req.url ?? "";
+    if (url === "/libpod/_ping" || url === "/_ping") {
+      res.writeHead(200, { "Content-Type": "text/plain", ...(version ? { "Libpod-Api-Version": version } : {}) });
+      return void res.end("OK");
+    }
+    const m = /^\/v(\d+\.\d+\.\d+)(\/libpod\/.*)$/.exec(url);
+    if (m) {
+      req.url = m[2]!;
+      return handler(req, res);
+    }
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("404 page not found");
+  };
+}
+
 export interface Fake {
   server: Server;
   socketPath: string;
@@ -26,9 +50,10 @@ export async function startFakePodman(handler: FakeHandler): Promise<Fake> {
   const dir = mkdtempSync(join(tmpdir(), "pm-test-"));
   const socketPath = join(dir, "podman.sock");
   const calls: string[] = [];
+  const real = realisticPodman(handler);
   const server = createServer((req, res) => {
     calls.push(`${req.method} ${req.url}`);
-    handler(req, res);
+    real(req, res);
   });
   await new Promise<void>((r) => server.listen(socketPath, r));
   return {

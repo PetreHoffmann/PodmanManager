@@ -19,19 +19,21 @@ Der Browser spricht nur mit dem Master. Der Master fragt Agents serverseitig ab;
 `unknown` (noch nicht geprüft) · `online` · `degraded` (Agent erreichbar, Podman-Socket/API defekt) · `offline` · `disabled` (kein Zugriff, keine Aktionen).
 
 ## Podman-REST-API (libpod)
-Der Agent nutzt ausschließlich diese festen Endpunkte (kein Pass-through):
+Der Agent nutzt ausschließlich diese festen Endpunkte (kein Pass-through). `<base>` = `/v<libpod-api-version>/libpod`, z. B. `/v4.9.3/libpod`:
 
 | Zweck | Aufruf |
 |---|---|
-| Erreichbarkeit | `GET /libpod/_ping` |
-| Version | `GET /libpod/version` |
-| Liste | `GET /libpod/containers/json?all=true` |
-| Details | `GET /libpod/containers/{id}/json` |
-| Start | `POST /libpod/containers/{id}/start` (204, 304 = läuft bereits) |
-| Stop | `POST /libpod/containers/{id}/stop?timeout=10` (204, 304 = bereits gestoppt) |
-| Restart | `POST /libpod/containers/{id}/restart?t=10` (204) |
+| Erreichbarkeit + API-Version | `GET /libpod/_ping` (unversioniert; Antwort-Header `Libpod-Api-Version`) |
+| Version | `GET <base>/version` |
+| Liste | `GET <base>/containers/json?all=true` |
+| Details | `GET <base>/containers/{id}/json` |
+| Start | `POST <base>/containers/{id}/start` (204, 304 = läuft bereits) |
+| Stop | `POST <base>/containers/{id}/stop?timeout=10` (204, 304 = bereits gestoppt) |
+| Restart | `POST <base>/containers/{id}/restart?t=10` (204) |
 
-Geprüft gegen den Podman-Quellcode (`register_containers.go`). **Offen:** Test gegen ein echtes Podman. Die Quellen registrieren libpod-Routen mit Versionspräfix (`/vX.Y.Z/libpod/…`); der Agent verwendet unversionierte Pfade. Falls ein Podman diese ablehnt, muss in `apps/agent/src/podman/service.ts` ein fester Präfix ergänzt werden.
+**Versionierung:** Podman beantwortet die libpod-Routen außer `_ping` nur **mit** Versionspräfix; ohne Präfix kommt `404`. Der Agent liest deshalb bei jedem Ping (jede Health-Prüfung) die Version aus dem Header `Libpod-Api-Version` und verwendet sie für alle Aufrufe. Fehlt der Header, gilt `v4.0.0`.
+
+**Geprüft** gegen den Podman-Quellcode und gegen ein echtes **Podman 4.9.3** (Socket, `_ping`, Version, Container auflisten/ansehen, Start/Stop/Restart inkl. 304-Fall und unbekannter ID, mit einem echten Container). Dieser Test lief gegen einen Root-Socket; ein Rootless-Socket spricht dieselbe API. Ältere/neuere Podman-Versionen (z. B. 5.x) sind nicht gesondert getestet.
 
 ## Bewusst nicht enthalten
 Container erstellen/löschen, Images, Volumes, Netzwerke, Pods, Logs, Exec/Terminal, Statistiken, Compose.

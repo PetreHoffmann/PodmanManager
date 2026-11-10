@@ -246,3 +246,13 @@ describe("failure handling", () => {
     }
   });
 });
+
+describe("agent version", () => {
+  it("prefers APP_VERSION, then the build file, else dev", async () => {
+    const { resolveVersion } = await import("../src/services/health.js");
+    assert.equal(resolveVersion({ APP_VERSION: "v1.2.3" }, "0.0.1"), "1.2.3");
+    assert.equal(resolveVersion({ APP_VERSION: "" }, "0.3.0"), "0.3.0");
+    assert.equal(resolveVersion({ APP_VERSION: "latest" }, null), "dev");
+    assert.equal(resolveVersion({}, "x"), "dev");
+  });
+});
