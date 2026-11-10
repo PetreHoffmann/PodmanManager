@@ -9,7 +9,7 @@ Beispiele, um Master und Agent als **rootless Quadlet** zu betreiben. **Bestäti
 | `podmanmanager-agent.container` | Agent (Port 9126, spricht mit dem Rootless-Podman-Socket) |
 | `podmanmanager.network` | optional: gemeinsames Netzwerk, wenn Master und Agent auf demselben Host laufen |
 
-Ablegen unter `~/.config/containers/systemd/` (rootless). Anpassen: Image-Tag, `PublishPort` (Agent: eigene Management-IP), `AGENT_ID`.
+**Schritt für Schritt (`podman run` und Quadlet, Hash als Secret oder Environment-Wert): [deployment/README.md](../README.md).** Ablegen unter `~/.config/containers/systemd/` (rootless). Anpassen: Image-Tag, `PublishPort` (Agent: eigene Management-IP), `AGENT_ID`.
 
 ## Master
 
@@ -45,6 +45,8 @@ systemctl --user daemon-reload
 systemctl --user start podmanmanager-agent
 ```
 Wichtig: `printf '%s'` statt `echo` – ein Zeilenumbruch im Secret lässt den Agent mit „not a SHA-256 hex digest“ abbrechen. Hat man schon einen Token: `printf '%s' "$TOKEN" | sha256sum | cut -d' ' -f1 | tr -d '\n' | podman secret create podmanmanager-agent-hash -`.
+
+**Hash als Environment-Wert statt Secret** (ohne `podman secret`): in `podmanmanager-agent.container` die Zeile `Secret=podmanmanager-agent-hash,…` durch `Environment=AGENT_TOKEN_HASH=<hash>` ersetzen und die Datei mit `chmod 600` schützen; Details in [deployment/README.md](../README.md#b4-agent-hash-als-environment-wert).
 
 Token erneuern: `podman secret rm podmanmanager-agent-hash`, Block oben erneut ausführen, `systemctl --user restart podmanmanager-agent`, dann den Host im Master entfernen und mit dem neuen Token neu hinzufügen (Secrets werden nur beim Containerstart gelesen).
 
