@@ -35,3 +35,15 @@ export interface ActionResult {
   changed: boolean;
   container: ContainerInfo;
 }
+
+export interface LogLine {
+  /** RFC3339 timestamp from the container runtime, if present */
+  ts: string | null;
+  stream: "stdout" | "stderr";
+  text: string;
+}
+
+export interface ContainerLogs {
+  tail: number;
+  lines: LogLine[];
+}

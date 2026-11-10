@@ -18,6 +18,7 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 | POST | `/containers/:id/start` | starten |
 | POST | `/containers/:id/stop` | stoppen (Timeout fest 10 s) |
 | POST | `/containers/:id/restart` | neustarten (Timeout fest 10 s) |
+| GET | `/containers/:id/logs?tail=<n>` | letzte `n` Log-Zeilen (1–500, Standard 150), nur lesend |
 
 Andere Pfade → `404`, falsche Methode → `405`.
 
@@ -41,6 +42,14 @@ Andere Pfade → `404`, falsche Methode → `405`.
 ### Aktionen
 Antwort: `{ "action": "stop", "changed": true, "container": { … } }`. `changed: false`, wenn Podman 304 liefert (bereits im Zielzustand). `container` ist der Zustand **nach** der Aktion.
 
+### `GET /containers/:id/logs?tail=150`
+```json
+{ "ok": true, "data": { "tail": 150, "lines": [
+  { "ts": "2026-11-10T21:13:11Z", "stream": "stdout", "text": "line 300" },
+  { "ts": "2026-11-10T21:13:12Z", "stream": "stderr", "text": "to stderr" } ] } }
+```
+`ts` ist `null`, wenn die Zeile keinen Zeitstempel hat. `stream` ist `stdout` oder `stderr`. Der Text hat keine ANSI-/Steuerzeichen, Zeilen sind auf 2000 Zeichen gekürzt (`…`), die Gesamtantwort auf 4 MB begrenzt (sonst `LOGS_TOO_LARGE`). Ungültiges `tail` (nicht 1–500) → `400 INVALID_PARAM`.
+
 ## Fehlercodes
 | HTTP | Code | Bedeutung |
 |---|---|---|
@@ -49,9 +58,11 @@ Antwort: `{ "action": "stop", "changed": true, "container": { … } }`. `changed
 | 404 | `CONTAINER_NOT_FOUND`, `NOT_FOUND` | Container bzw. Pfad unbekannt |
 | 405 | `METHOD_NOT_ALLOWED` | |
 | 409 | `PODMAN_API_ERROR` | Podman meldet Konflikt |
+| 400 | `INVALID_PARAM` | ungültiger Query-Parameter (z. B. `tail`) |
 | 413 | `BODY_TOO_LARGE` | |
 | 429 | `RATE_LIMITED` | zu viele Fehlversuche von dieser IP |
 | 502 | `PODMAN_API_ERROR` | Podman-Fehler (Meldung weitergereicht, max. 300 Zeichen) |
+| 502 | `LOGS_TOO_LARGE` | Log-Ausgabe größer als 4 MB |
 | 503 | `SOCKET_MISSING`, `SOCKET_UNREACHABLE` | Podman-Socket fehlt/nicht erreichbar |
 | 504 | `PODMAN_TIMEOUT` | Podman antwortet nicht |
 | 500 | `INTERNAL` | |

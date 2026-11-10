@@ -35,6 +35,11 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Gruppen-IDs stehen in der Sitzung; welche Agents dazugehören, wird bei jedem Zugriff aus der Datenbank gelesen (Änderungen und Löschen wirken sofort). Unbekannte oder fehlende Zugriffswerte erweitern nie die Rechte.
 - Zusätzliche Laufzeit-Abhängigkeit: `ldapts` (reines TypeScript, nur im Master).
 
+**Container-Logs**
+- Die Detailseite zeigt auf Knopfdruck die letzten 150 Zeilen. Der Abruf folgt denselben Regeln wie Container-Aktionen: Benutzer müssen den Agent sehen dürfen (Agent-Gruppen) und **versteckte Container sind gesperrt** (aktueller Name wird vor dem Abruf geprüft). Wer einen Container bedienen darf, darf also auch seine Logs lesen.
+- **Logs können Geheimnisse enthalten** (Passwörter in Debug-Ausgaben, Tokens, interne Adressen). Wer das nicht möchte, sollte den Container mit einem Muster verstecken oder die betroffenen Benutzer nicht in die Agent-Gruppe aufnehmen.
+- Die Ausgabe wird als reiner Text dargestellt (kein HTML), ANSI-/Steuerzeichen werden vom Agent entfernt; Länge und Größe sind begrenzt. Die Route ist nur lesend, braucht den Agent-Token und unterliegt dem Rate Limit.
+
 **Versteckte Container**
 - Namensmuster (nur lokaler `admin`) gelten für alle Sitzungen mit `access = groups`. Serverseitig durchgesetzt an jeder Stelle, an der Container ausgegeben werden: die Listen werden schon beim Abruf der Agents gefiltert (damit auch Dashboard und Host-Zahlen sie nicht enthalten), die Detailseite prüft den Namen, und jede Aktion fragt beim Agent den **aktuellen** Namen ab und lehnt versteckte Container ab (schützt auch bei veralteten Seiten und selbst gebauten Aufrufen).
 - Der Agent selbst filtert nicht; die Grenze ist der Master. Wer das Host-System verwaltet (Container umbenennen, Agent-API mit dem Token direkt ansprechen), ist von dieser Funktion nicht eingeschränkt.

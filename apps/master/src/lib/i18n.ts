@@ -145,6 +145,14 @@ const en = {
   "msg.hiddenTestNo": "“{name}” stays visible",
   "err.hiddenPattern": "Invalid pattern “{pattern}”: only letters, digits, . _ - * ? are allowed",
   "err.hiddenLimit": "Too many patterns (max. {max})",
+  "logs.title": "Logs",
+  "logs.show": "Show logs",
+  "logs.refresh": "Refresh",
+  "logs.loading": "Loading…",
+  "logs.empty": "No log output.",
+  "logs.caption": "Last {n} line(s), times in UTC. Lines from stderr are highlighted.",
+  "errc.INVALID_PARAM": "Invalid parameter",
+  "errc.LOGS_TOO_LARGE": "Log output too large",
 } as const;
 
 export type Key = keyof typeof en;
@@ -291,6 +299,14 @@ const de: Dict = {
   "msg.hiddenTestNo": "„{name}“ bleibt sichtbar",
   "err.hiddenPattern": "Ungültiges Muster „{pattern}“: erlaubt sind nur Buchstaben, Ziffern, . _ - * ?",
   "err.hiddenLimit": "Zu viele Muster (max. {max})",
+  "logs.title": "Logs",
+  "logs.show": "Logs anzeigen",
+  "logs.refresh": "Aktualisieren",
+  "logs.loading": "Lädt …",
+  "logs.empty": "Keine Log-Ausgabe.",
+  "logs.caption": "Letzte {n} Zeile(n), Zeiten in UTC. Zeilen von stderr sind hervorgehoben.",
+  "errc.INVALID_PARAM": "Ungültiger Parameter",
+  "errc.LOGS_TOO_LARGE": "Log-Ausgabe zu groß",
 };
 
 const ro: Dict = {
@@ -434,6 +450,14 @@ const ro: Dict = {
   "msg.hiddenTestNo": "„{name}” rămâne vizibil",
   "err.hiddenPattern": "Model invalid „{pattern}”: sunt permise doar litere, cifre, . _ - * ?",
   "err.hiddenLimit": "Prea multe modele (max. {max})",
+  "logs.title": "Jurnale",
+  "logs.show": "Afișează jurnalele",
+  "logs.refresh": "Reîmprospătează",
+  "logs.loading": "Se încarcă…",
+  "logs.empty": "Fără ieșire în jurnal.",
+  "logs.caption": "Ultimele {n} linie/linii, ore în UTC. Liniile din stderr sunt evidențiate.",
+  "errc.INVALID_PARAM": "Parametru invalid",
+  "errc.LOGS_TOO_LARGE": "Ieșirea jurnalului este prea mare",
 };
 
 const es: Dict = {
@@ -577,6 +601,14 @@ const es: Dict = {
   "msg.hiddenTestNo": "«{name}» sigue visible",
   "err.hiddenPattern": "Patrón no válido «{pattern}»: solo se permiten letras, dígitos, . _ - * ?",
   "err.hiddenLimit": "Demasiados patrones (máx. {max})",
+  "logs.title": "Registros",
+  "logs.show": "Mostrar registros",
+  "logs.refresh": "Actualizar",
+  "logs.loading": "Cargando…",
+  "logs.empty": "Sin salida de registro.",
+  "logs.caption": "Últimas {n} línea(s), horas en UTC. Las líneas de stderr están resaltadas.",
+  "errc.INVALID_PARAM": "Parámetro no válido",
+  "errc.LOGS_TOO_LARGE": "La salida del registro es demasiado grande",
 };
 
 export const dicts: Record<Lang, Dict> = { en, de, ro, es };

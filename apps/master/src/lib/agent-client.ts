@@ -1,4 +1,4 @@
-import type { ActionResult, ApiResponse, ContainerAction, ContainerInfo, HealthInfo } from "../../../../shared/types/index.js";
+import type { ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { CONTAINER_ID_RE } from "./validate";
 
@@ -59,4 +59,12 @@ export function agentInspect(t: AgentTarget, id: string) {
 export function agentAction(t: AgentTarget, id: string, action: ContainerAction) {
   if (!CONTAINER_ID_RE.test(id)) return Promise.resolve<CallResult<ActionResult>>({ ok: false, code: "INVALID_ID", message: "Invalid container id", unreachable: false });
   return call<ActionResult>(t, "POST", `/api/v1/containers/${id}/${action}`, cfg().actionTimeoutSec);
+}
+
+export const LOG_TAIL = 150;
+
+/** Last LOG_TAIL log lines of a container (read-only). */
+export function agentLogs(t: AgentTarget, id: string) {
+  if (!CONTAINER_ID_RE.test(id)) return Promise.resolve<CallResult<ContainerLogs>>({ ok: false, code: "INVALID_ID", message: "Invalid container id", unreachable: false });
+  return call<ContainerLogs>(t, "GET", `/api/v1/containers/${id}/logs?tail=${LOG_TAIL}`, 15);
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ContainerActions from "@/components/ContainerActions";
+import ContainerLogs from "@/components/ContainerLogs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { fmt } from "@/components/ui";
 import { agentInspect } from "@/lib/agent-client";
@@ -43,6 +44,7 @@ export default async function Detail({ params }: { params: Promise<{ host: strin
         {rows.map(([k, v]) => (<><dt key={k} className="text-slate-400">{k}</dt><dd key={k + "v"}>{v}</dd></>))}
       </dl>
       <ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} />
+      <ContainerLogs agentId={agent.id} containerId={c.id} />
     </div>
   );
 }
