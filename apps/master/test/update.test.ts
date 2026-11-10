@@ -95,3 +95,26 @@ describe("update check", () => {
     assert.equal(updateCheckEnabled({}), true);
   });
 });
+
+import { originAllowed, parseAllowedOrigins } from "../src/lib/origins";
+
+describe("reverse proxy origin allowlist", () => {
+  it("parses hosts, URLs and wildcards; drops junk", () => {
+    assert.deepEqual(parseAllowedOrigins("Master.Example.com, https://pm.example.org:8443/ ,*.corp.example.com,bad host,,"), ["master.example.com", "pm.example.org:8443", "*.corp.example.com"]);
+    assert.deepEqual(parseAllowedOrigins(undefined), []);
+    assert.deepEqual(parseAllowedOrigins("javascript:alert(1), http://"), []);
+  });
+  it("matches exact hosts (incl. port) and wildcard subdomains only", () => {
+    const p = parseAllowedOrigins("master.example.com,pm.example.org:8443,*.corp.example.com");
+    assert.ok(originAllowed("master.example.com", p));
+    assert.ok(originAllowed("MASTER.example.com", p));
+    assert.ok(originAllowed("pm.example.org:8443", p));
+    assert.ok(originAllowed("a.corp.example.com", p));
+    assert.ok(!originAllowed("example.com", p));
+    assert.ok(!originAllowed("master.example.com:8443", p));
+    assert.ok(!originAllowed("pm.example.org", p));
+    assert.ok(!originAllowed("corp.example.com", p));
+    assert.ok(!originAllowed("evil-corp.example.com.attacker.net", p));
+    assert.ok(!originAllowed("xcorp.example.com", p));
+  });
+});

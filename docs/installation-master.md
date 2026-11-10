@@ -47,6 +47,29 @@ Beispiel-Units und Anleitung (Secret für `MASTER_SECRET_KEY`, Volume, Start ohn
 ## Manueller Start
 `deployment/master/start.sh [env-datei]` (oder Variablen setzen). Ändere den Port über `MASTER_PORT`.
 
+## Hinter einem Reverse-Proxy
+TLS, eigene Domain und Zugriffsschutz lassen sich einem Reverse-Proxy (nginx, Apache, Traefik, Caddy, HAProxy) überlassen; der Master selbst bleibt HTTP. Der Proxy muss den **ursprünglichen Host** weiterreichen, sonst lehnt der CSRF-Schutz von Next.js jede Formular-Aktion (Anmelden, Hosts, Container) ab: die Seite zeigt „Application error“ und das Master-Log meldet `x-forwarded-host header … does not match origin header … Invalid Server Actions request`.
+
+**Richtig konfigurieren** (bevorzugt):
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;                 # bei Port ≠ 80/443 in der öffentlichen URL: $http_host
+    proxy_set_header X-Forwarded-Host $host;     # dito
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+Apache: `ProxyPreserveHost On` und `RequestHeader set X-Forwarded-Proto "https"`. HAProxy: `http-request set-header X-Forwarded-Host %[req.hdr(Host)]`. Traefik und Caddy reichen den Host standardmäßig durch.
+
+**Wenn sich der Proxy nicht ändern lässt:** die öffentliche Adresse(n) im Master freigeben, zur Laufzeit per Umgebungsvariable (kein neuer Build nötig, auch im Docker-Image):
+
+| Variable | Beispiel | |
+|---|---|---|
+| `ALLOWED_ORIGINS` | `master.example.com,pm.example.org:8443,*.corp.example.com` | Kommagetrennt: Host (mit Port, wenn nicht 80/443) wie im Browser, `*.domain` für Subdomains; `https://master.example.com` ist ebenfalls erlaubt (das Schema wird ignoriert) |
+
+Nur die gelisteten Hosts werden akzeptiert; für alle anderen bleibt der CSRF-Schutz aktiv. Nach dem Ändern den Master neu starten.
+
 ## Hilfe und About
 In der Navigationsleiste öffnet **Help** das Git-Repository in einem neuen Tab. **About** zeigt einen Dialog mit Name, Version, Ersteller, Copyright (Apache-2.0) und ob auf Docker Hub eine neuere Version verfügbar ist.
 
