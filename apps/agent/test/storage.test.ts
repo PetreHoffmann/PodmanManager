@@ -79,3 +79,23 @@ describe("GET /api/v1/system/storage", () => {
     assert.equal((await get(auth, "POST")).status, 405);
   });
 });
+
+describe("agent log of failed Podman calls", () => {
+  it("names the request, Podman's HTTP status and message (not only the error code)", async () => {
+    const fake = await startFakePodman((req, res) => {
+      if ((req.url ?? "") === "/libpod/system/df") return jsonRes(res, 500, { message: "error getting image size: layer not known" });
+      jsonRes(res, 404, { message: "nope" });
+    });
+    const agent = await startAgent(fake.socketPath);
+    try {
+      const r = await fetch(`${agent.base}/api/v1/system/storage?x=1`, { headers: auth });
+      assert.equal(r.status, 502);
+      const line = agent.logs.tail(5).find((l) => l.level === "error")?.text ?? "";
+      assert.match(line, /^podman error PODMAN_API_ERROR on GET \/api\/v1\/system\/storage \(Podman HTTP 500\): error getting image size: layer not known$/);
+      assert.ok(!line.includes("x=1"), "query string is not logged");
+    } finally {
+      await agent.close();
+      await fake.close();
+    }
+  });
+});

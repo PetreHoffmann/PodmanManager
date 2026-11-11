@@ -163,11 +163,14 @@ export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: 
       }
       return fail(res, 404, "NOT_FOUND", "Not found");
     } catch (e) {
+      // which request failed and why (path without query; Podman's own message, already shortened)
+      const where = `${req.method ?? "?"} ${(req.url ?? "").split("?")[0]?.slice(0, 120)}`;
       if (e instanceof PodmanError) {
-        log.error(`podman error ${e.code}`);
+        const up = e.upstreamStatus ? ` (Podman HTTP ${e.upstreamStatus})` : "";
+        log.error(`podman error ${e.code} on ${where}${up}: ${e.message}`.slice(0, 500));
         return fail(res, statusFor(e), e.code, e.message);
       }
-      log.error("internal error");
+      log.error(`internal error on ${where}: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500));
       return fail(res, 500, "INTERNAL", "Internal error");
     }
   });

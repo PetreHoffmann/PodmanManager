@@ -94,7 +94,7 @@ export async function startAgent(socketPath: string, over: Partial<AgentConfig> 
   };
   const svc = new PodmanService(new PodmanClient(socketPath, cfg.podmanTimeoutMs), cfg.stopTimeoutSec);
   const logs = new LogBuffer(5);
-  const server = createAgentServer(cfg, svc, silent, logs);
+  const server = createAgentServer(cfg, svc, { info: (m) => logs.push("info", m), error: (m) => logs.push("error", m) }, logs);
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   const port = (server.address() as AddressInfo).port;
   return { base: `http://127.0.0.1:${port}`, logs, close: () => new Promise((r) => server.close(() => r())) };
