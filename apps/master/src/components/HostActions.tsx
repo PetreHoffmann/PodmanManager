@@ -9,7 +9,7 @@ export default function HostActions({ id, enabled, hostname }: { id: number; ena
   const t = useT();
   const [confirm, setConfirm] = useState(false);
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className={`flex items-center gap-1 ${confirm ? "flex-wrap" : "flex-nowrap whitespace-nowrap"}`}>
       <ActionForm action={testAgentAction} inline>
         <input type="hidden" name="id" value={id} />
         <button className="btn !px-2.5 !py-1 text-xs" disabled={!enabled}>{t("hosts.test")}</button>
