@@ -1,7 +1,7 @@
 import Link from "next/link";
 import ContainerActions from "@/components/ContainerActions";
 import { StatusBadge } from "@/components/StatusBadge";
-import { fmt } from "@/components/ui";
+import { fmt, fmtShort } from "@/components/ui";
 import { fetchAllPods } from "@/lib/agents";
 import { errText } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
@@ -54,7 +54,7 @@ export default async function Pods({ searchParams }: { searchParams: SP }) {
       ))}
 
       <div className="card hidden overflow-x-auto p-0 md:block">
-        <table className="w-full min-w-[900px]">
+        <table className="w-full min-w-[800px]">
           <thead className="border-b border-slate-800">
             <tr>{(["pods.name", "cont.id", "cont.host", "cont.status", "pods.containers", "cont.created", "cont.actions"] as const).map((k) => <th key={k} className="th">{t(k)}</th>)}</tr>
           </thead>
@@ -67,7 +67,7 @@ export default async function Pods({ searchParams }: { searchParams: SP }) {
                 <td className="td max-w-[11rem] truncate" title={agent.hostname}>{agent.hostname}</td>
                 <td className="td"><StatusBadge status={p.status} /></td>
                 <td className="td tabular-nums">{count(p)}</td>
-                <td className="td whitespace-nowrap text-xs">{fmt(p.createdAt)}</td>
+                <td className="td whitespace-nowrap text-xs" title={fmt(p.createdAt)}>{fmtShort(p.createdAt)}</td>
                 <td className="td w-px"><ContainerActions kind="pod" agentId={agent.id} containerId={p.id} state={p.status} name={p.name} /></td>
               </tr>
             ))}

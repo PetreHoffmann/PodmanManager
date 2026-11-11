@@ -1,7 +1,7 @@
 import Link from "next/link";
 import ContainerActions from "@/components/ContainerActions";
 import { StatusBadge } from "@/components/StatusBadge";
-import { fmt } from "@/components/ui";
+import { fmt, fmtShort } from "@/components/ui";
 import { fetchAllContainers } from "@/lib/agents";
 import { errText } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
@@ -52,7 +52,7 @@ export default async function Containers({ searchParams }: { searchParams: SP })
       ))}
 
       <div className="card hidden overflow-x-auto p-0 md:block">
-        <table className="w-full min-w-[1100px]">
+        <table className="w-full min-w-[960px]">
           <thead className="border-b border-slate-800">
             <tr>{(["cont.name", "cont.id", "cont.pod", "cont.host", "cont.image", "cont.status", "cont.created", "cont.started", "cont.actions"] as const).map((k) => <th key={k} className="th">{t(k)}</th>)}</tr>
           </thead>
@@ -63,11 +63,11 @@ export default async function Containers({ searchParams }: { searchParams: SP })
                 <td className="td max-w-[12rem] break-words font-medium"><Link className="text-sky-400 hover:underline" href={`/containers/${agent.id}/${c.id}`}>{c.name || c.id.slice(0, 12)}</Link></td>
                 <td className="td font-mono text-xs">{c.id.slice(0, 12)}</td>
                 <td className="td max-w-[10rem] truncate text-xs">{c.podId ? <Link className="text-sky-400 hover:underline" href={`/pods/${agent.id}/${c.podId}`}>{c.podName || c.podId.slice(0, 12)}</Link> : "—"}</td>
-                <td className="td max-w-[11rem] truncate" title={agent.hostname}>{agent.hostname}</td>
-                <td className="td max-w-[14rem] truncate text-xs" title={c.image}>{c.image}</td>
+                <td className="td max-w-[9rem] truncate" title={agent.hostname}>{agent.hostname}</td>
+                <td className="td max-w-[12rem] truncate text-xs" title={c.image}>{c.image}</td>
                 <td className="td"><StatusBadge status={c.state} /></td>
-                <td className="td whitespace-nowrap text-xs">{fmt(c.createdAt)}</td>
-                <td className="td whitespace-nowrap text-xs">{fmt(c.startedAt)}</td>
+                <td className="td whitespace-nowrap text-xs" title={fmt(c.createdAt)}>{fmtShort(c.createdAt)}</td>
+                <td className="td whitespace-nowrap text-xs" title={fmt(c.startedAt)}>{fmtShort(c.startedAt)}</td>
                 <td className="td w-px"><ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} /></td>
               </tr>
             ))}
