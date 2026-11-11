@@ -117,6 +117,7 @@ sudo loginctl enable-linger $USER
 
 ## Hinweise
 
+- **cgroup v1** (`podman info --format '{{.Host.CgroupsVersion}}'` zeigt `v1`): Die Units scheitern mit Exit-Code 126 und `mkdir /sys/fs/cgroup/…: permission denied`. Abhilfe: `PodmanArgs=--cgroups=enabled` im `[Container]`-Abschnitt (siehe [deployment/README.md](../README.md#hosts-mit-cgroup-v1-quadlet)). Bestätigt auf einem echten Host mit Podman 4.9.4.
 - **Aktivierung:** Quadlet-Units lassen sich nicht mit `enable` aktivieren; `[Install]` wirkt automatisch nach `daemon-reload`.
 - **Secrets** liegen standardmäßig im Dateitreiber (Base64, nur durch Dateirechte geschützt). Das hält sie aus Unit-Dateien und `podman inspect` heraus, ist aber keine Verschlüsselung.
 - **Updates:** Mit festem Tag bleibt die Version stabil (der About-Dialog des Masters meldet neue Versionen). `AutoUpdate=registry` braucht `:latest` und `systemctl --user enable --now podman-auto-update.timer`.

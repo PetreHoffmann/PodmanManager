@@ -6,6 +6,8 @@ After=network-online.target
 Wants=network-online.target
 
 [Container]
+# Host mit cgroup v1 (Start scheitert mit "mkdir /sys/fs/cgroup/...: permission denied", Exit-Code 126): Zeile aktivieren
+# PodmanArgs=--cgroups=enabled
 Image=docker.io/petrecalinoiu/podmanmanager-master:0.3.0
 ContainerName=podmanmanager-master
 # Master und Agent auf demselben Host: gemeinsames Netzwerk (podmanmanager.network mit ablegen),
