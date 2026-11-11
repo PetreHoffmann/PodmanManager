@@ -13,3 +13,10 @@ export function fmt(iso: string | null | undefined): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "—" : d.toISOString().replace("T", " ").slice(0, 19) + " UTC";
 }
+
+/** Compact table form "YYYY-MM-DD HH:MM" (UTC); show the full value via fmt() in a title attribute. */
+export function fmtShort(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toISOString().replace("T", " ").slice(0, 16);
+}
