@@ -94,6 +94,7 @@ Den Token im Master unter *Hosts* eintragen; Port 9126 nur für die Master-IP fr
 
 | | |
 |---|---|
+| [Benutzerhandbuch](docs/benutzerhandbuch.md) | Für Benutzer ohne Admin-Rechte, ohne Fachbegriffe, mit Bildern |
 | [Architektur](docs/architecture.md) | Komponenten, Datenfluss, Entscheidungen |
 | [Master-Installation](docs/installation-master.md) | Build, Konfiguration, systemd, Datenbank |
 | [Agent-Installation](docs/installation-agent.md) | install.sh, User-Service, Lingering, Podman-Socket |
