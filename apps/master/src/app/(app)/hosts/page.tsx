@@ -4,7 +4,7 @@ import ActionForm from "@/components/ActionForm";
 import AppLogs from "@/components/AppLogs";
 import HostActions from "@/components/HostActions";
 import { StatusBadge } from "@/components/StatusBadge";
-import { fmt } from "@/components/ui";
+import { fmt, fmtShort } from "@/components/ui";
 import { addAgentAction, appLogsAction } from "@/app/actions";
 import { fetchAllContainers } from "@/lib/agents";
 import { lastErrText } from "@/lib/i18n";
@@ -28,7 +28,7 @@ export default async function Hosts() {
         <table className="w-full min-w-[1000px]">
           <thead className="border-b border-slate-800">
             <tr>
-              {(["hosts.hostname", "hosts.agentId", "hosts.address", "hosts.status", "hosts.heartbeat", "hosts.podman", "hosts.containers", "hosts.storage"] as const).map((k) => (
+              {(["hosts.hostname", "hosts.agentId", "hosts.address", "hosts.status", "hosts.heartbeat", "hosts.podman", "hosts.agentVersion", "hosts.containers", "hosts.storage"] as const).map((k) => (
                 <th key={k} className="th">{t(k)}</th>
               ))}
               {canManage && <th className="th" />}
@@ -36,7 +36,7 @@ export default async function Hosts() {
           </thead>
           <tbody className="divide-y divide-slate-800">
             {hosts.length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={canManage ? 9 : 8}>{t("hosts.none")}</td></tr>
+              <tr><td className="td text-slate-400" colSpan={canManage ? 10 : 9}>{t("hosts.none")}</td></tr>
             )}
             {hosts.map(({ agent: a, result }) => (
               <tr key={a.id} className="transition hover:bg-slate-900">
@@ -49,8 +49,9 @@ export default async function Hosts() {
                     <div className="mt-1 max-w-xs truncate text-xs text-slate-500" title={a.last_error}>{lastErrText(t, a.last_error)}</div>
                   )}
                 </td>
-                <td className="td text-xs">{fmt(a.last_heartbeat)}</td>
+                <td className="td whitespace-nowrap text-xs" title={fmt(a.last_heartbeat)}>{fmtShort(a.last_heartbeat)}</td>
                 <td className="td text-xs">{a.podman_version ?? "—"}</td>
+                <td className="td font-mono text-xs">{a.agent_version ?? "—"}</td>
                 <td className="td">{result.ok ? result.data.length : t("common.na")}</td>
                 <td className="td max-w-[15rem]">
                   {a.enabled && a.status !== "offline" ? <Suspense fallback={<span className="animate-pulse text-slate-500">…</span>}><HostStorage agentId={a.id} /></Suspense> : <span className="text-slate-500">—</span>}
@@ -71,7 +72,7 @@ export default async function Hosts() {
               <StatusBadge status={a.enabled ? a.status : "disabled"} />
             </div>
             <div className="font-mono text-xs text-slate-400">{a.hostname} · {a.address}:{a.port}</div>
-            <div className="text-xs text-slate-500">{t("hosts.cardMeta", { hb: fmt(a.last_heartbeat), pv: a.podman_version ?? "—", n: result.ok ? result.data.length : t("common.na") })}</div>
+            <div className="text-xs text-slate-500">{t("hosts.cardMeta", { hb: fmt(a.last_heartbeat), pv: a.podman_version ?? "—", av: a.agent_version ?? "—", n: result.ok ? result.data.length : t("common.na") })}</div>
             {a.enabled && a.status !== "offline" && (
               <div className="text-xs text-slate-500">{t("hosts.storage")}: <Suspense fallback="…"><HostStorage agentId={a.id} compact /></Suspense></div>
             )}
