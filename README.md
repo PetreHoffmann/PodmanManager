@@ -14,6 +14,8 @@ Neben Containern zeigt der Master auch **Pods** (Liste, Detail mit Containern, S
 
 Die Oberfläche ist in Englisch, Deutsch, Rumänisch und Spanisch verfügbar (Flaggen-Auswahl oben rechts; Standard aus `Accept-Language`, danach per Cookie gemerkt). Die automatische Browser-Übersetzung ist per `translate="no"` und `<meta name="google" content="notranslate">` unterbunden.
 
+Der Name in der Navigationsleiste lässt sich unter *Einstellungen* durch einen eigenen Text oder ein Logo ersetzen (zu große Logos werden skaliert; Standard: „PodmanManager“).
+
 Die Navigationsleiste hat **Help** (öffnet dieses Repository) und **About** (Version, Ersteller, Copyright und Hinweis, ob auf Docker Hub eine neuere Version vorliegt; abschaltbar mit `UPDATE_CHECK=off`).
 
 Optional: Anmeldung per LDAP/Active Directory. Agents lassen sich in **Gruppen** zusammenfassen und AD-Gruppen zuordnen: Mitglieder sehen und bedienen nur die Agents ihrer Gruppen (bestimmte Container, z. B. `podmanmanager*`, lassen sich für sie per Namensmuster **verstecken**); eine optionale Administratoren-Gruppe hat Zugriff auf alle (Settings; siehe [Master-Installation](docs/installation-master.md)). Das lokale Konto `admin` bleibt als Notzugang.

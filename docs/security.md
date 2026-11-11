@@ -44,6 +44,10 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Die Web-UI zeigt auf Knopfdruck die letzten 150 Logzeilen eines Agents (Seite Hosts) und des Masters (Einstellungen). Serverseitig **nur für Administratoren** (`access = all`); Gruppenbenutzer erhalten `forbidden`.
 - Quelle sind Ringpuffer im Speicher (max. 500 Zeilen, nichts auf Platte). Vor dem Speichern werden Bearer-Tokens sowie Werte nach `token`/`password`/`secret`/`authorization`/`hash` maskiert, Steuerzeichen entfernt. Anzeige als reiner Text.
 
+**Eigenes Logo / Navbar-Text**
+- Nur das lokale `admin`-Konto kann beides ändern (Server Action prüft die Sitzung). Das Logo wird anhand des **Inhalts** (Magic Bytes) als PNG/JPEG/GIF/WebP/SVG erkannt, nie anhand von Dateiname oder Browser-Typ; höchstens 512 KB. SVG mit aktiven Inhalten (`<script>`, `on…=`-Attribute, `javascript:`, `foreignObject`, `iframe/embed/object`, Entities) wird abgelehnt. Beim Ausliefern wird der Typ erneut geprüft.
+- Ausgeliefert wird das Logo unter `/brand/logo` nur an angemeldete Benutzer, mit `X-Content-Type-Options: nosniff` und `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`, und es wird nur als `<img>` eingebunden – ein SVG kann so keine Skripte ausführen. Der Navbar-Text wird als Text dargestellt (kein HTML).
+
 **Pods**
 - Pods folgen denselben Regeln wie Container: Gruppenbenutzer sehen und bedienen nur Pods ihrer Agents. Ein Pod, der **mindestens einen versteckten Container** enthält, ist für eingeschränkte Benutzer komplett unsichtbar (Liste, Detail) und gesperrt (Aktion prüft den aktuellen Inhalt beim Agent). Nur start/stop/restart, kein Anlegen oder Löschen. Die Pod-Logs (letzte 150 Zeilen aller Container, auf Knopfdruck) folgen denselben Regeln wie Container-Logs: gleicher Zugriff, Pods mit verstecktem Container gesperrt; die Hinweise zu Geheimnissen in Logs gelten ebenso.
 

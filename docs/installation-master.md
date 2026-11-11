@@ -86,6 +86,16 @@ Es genügt, dass **einer** der beiden Wege erreichbar ist (Port 443). Wenn dein 
 
 Sind beide Wege gesperrt, zeigt der Dialog „Update check unavailable“ mit der Ursache je Weg, z. B. `registry: ECONNREFUSED, hub: ECONNREFUSED` (`ENOTFOUND` = Name nicht auflösbar, `ETIMEDOUT`/`ECONNREFUSED` = gesperrt oder Proxy nötig, `PROXY_403`/`PROXY_407` = Proxy lehnt ab bzw. verlangt Anmeldung, `UNABLE_TO_VERIFY_LEAF_SIGNATURE` = unbekanntes Zertifikat, `HTTP_429` = Docker Hub drosselt); mit `UPDATE_CHECK=off` findet gar keine Anfrage statt. Es werden keine Daten über die Installation übertragen.
 
+## Eigener Navbar-Text oder Logo (optional)
+
+Unter *Einstellungen* → *Darstellung* (nur lokales Konto `admin`) lässt sich der Name in der Navigationsleiste ändern:
+
+- **Navbar-Text:** bis zu 40 Zeichen; Leerraum wird zusammengefasst, Steuerzeichen werden entfernt.
+- **Logo:** PNG, JPEG, GIF, WebP oder SVG bis 512 KB. Ist ein Logo gesetzt, ersetzt es den Text (der Text dient als Alternativtext). Zu große Bilder werden **skaliert**: Rasterbilder über 512 × 128 Pixel verkleinert der Browser vor dem Hochladen (Seitenverhältnis bleibt, nie vergrößert; ein animiertes GIF wird dabei zum Standbild); in der Leiste selbst wird jedes Logo auf höchstens 32 Pixel Höhe und 224 Pixel Breite eingepasst.
+- Ohne Text und ohne Logo erscheint **PodmanManager**. *Auf Standard zurücksetzen* entfernt beides, *Logo entfernen* nur das Logo.
+
+Die Einstellung liegt in der Master-Datenbank (Backup wie sonst) und gilt für alle Benutzer. Auf der Login- und der Setup-Seite bleibt der Standardname.
+
 ## Erster Start
 `http://<master>:8080` öffnen → Passwort für das lokale Konto **`admin`** anlegen (mind. 10 Zeichen). Anmeldung danach mit Benutzername `admin`. **Direkt nach dem Start setzen:** solange kein Passwort existiert, kann es jeder mit Netzwerkzugriff anlegen. Danach unter **Hosts** die Agents hinzufügen (Adresse `http://<ip>:9126` + Token des Agents).
 

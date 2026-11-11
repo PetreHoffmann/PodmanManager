@@ -12,7 +12,8 @@ const nextConfig = {
   }),
   async headers() {
     return [{
-      source: "/:path*",
+      // everything except the navbar logo (its URL carries a content hash and is cached by the route itself)
+      source: "/:path((?!brand/logo$).*)",
       headers: [
         { key: "X-Frame-Options", value: "DENY" },
         { key: "X-Content-Type-Options", value: "nosniff" },

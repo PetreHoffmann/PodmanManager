@@ -1,14 +1,16 @@
 import AppLogs from "@/components/AppLogs";
 import ActionForm from "@/components/ActionForm";
-import { appLogsAction, changePasswordAction, hiddenAction, ldapAction, logoutAction } from "@/app/actions";
+import { appLogsAction, brandingAction, changePasswordAction, hiddenAction, ldapAction, logoutAction } from "@/app/actions";
 import { getConfig } from "@/lib/config";
 import { DEFAULT_FILTER } from "@/lib/ldap";
 import { EMPTY_LDAP, loadLdapConfig } from "@/lib/ldap-config";
 import { getT } from "@/lib/lang";
 import GroupEditor from "@/components/GroupEditor";
+import LogoInput from "@/components/LogoInput";
 import { listAgents } from "@/lib/agents";
 import { groupNames, listGroups } from "@/lib/groups";
 import { loadHiddenPatterns } from "@/lib/hidden";
+import { MAX_LOGO_BYTES, MAX_TEXT_CHARS, loadBranding } from "@/lib/branding";
 import { requireAuth } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +24,7 @@ export default async function Settings() {
   const agentOptions = local ? listAgents().map((a) => ({ id: a.id, label: `${a.agent_id} (${a.hostname})` })) : [];
   const groups = local ? listGroups() : [];
   const hiddenText = local ? loadHiddenPatterns().join("\n") : "";
+  const brand = loadBranding();
   const insecure = l.enabled && l.url.startsWith("ldap://") && !l.startTls;
 
   return (
@@ -52,6 +55,31 @@ export default async function Settings() {
               <input name="password" type="password" required minLength={10} placeholder={t("set.new")} autoComplete="new-password" className="input" />
               <input name="confirm" type="password" required placeholder={t("set.repeat")} autoComplete="new-password" className="input" />
               <button className="btn btn-primary">{t("set.changeBtn")}</button>
+            </ActionForm>
+          </section>
+
+          <section className="card">
+            <h2 className="mb-1 font-medium">{t("brand.title")}</h2>
+            <p className="mb-3 text-xs text-slate-400">{t("brand.intro")}</p>
+            <ActionForm action={brandingAction} className="space-y-3">
+              <label className="block text-sm">{t("brand.text")}
+                <input name="text" defaultValue={brand.text ?? ""} maxLength={MAX_TEXT_CHARS} placeholder="PodmanManager" autoComplete="off" className="input mt-1" />
+              </label>
+              <label className="block text-sm">{t("brand.logo")}
+                <LogoInput name="logo" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" />
+                <span className="text-xs text-slate-500">{t("brand.hint", { max: Math.round(MAX_LOGO_BYTES / 1024) })}</span>
+              </label>
+              {brand.logo && (
+                <div className="flex items-center gap-3 text-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/brand/logo?v=${brand.logo}`} alt="" className="h-8 w-auto max-w-[14rem] rounded border border-slate-800 bg-slate-950 object-contain p-1" />
+                  <label className="flex items-center gap-2"><input type="checkbox" name="removeLogo" />{t("brand.remove")}</label>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button name="intent" value="save" className="btn btn-primary">{t("brand.save")}</button>
+                <button name="intent" value="reset" className="btn" formNoValidate>{t("brand.reset")}</button>
+              </div>
             </ActionForm>
           </section>
 

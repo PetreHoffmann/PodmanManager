@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
+import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
 import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
 import { checkAgent, getAgent, registerAgent, removeAgent, setEnabled, targetFor } from "@/lib/agents";
@@ -351,4 +352,29 @@ export async function podLogsAction(agentId: number, podId: string): Promise<Log
   const r = await agentPodLogs(tg, podId);
   if (!r.ok) return { ok: false, message: errText(t, r.code, r.message) };
   return { ok: true, lines: r.data.lines, skipped: r.data.skipped };
+}
+
+/** Custom navbar text and logo (local administrator only). */
+export async function brandingAction(_: FormState, fd: FormData): Promise<FormState> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+  const intent = s(fd, "intent");
+  if (intent === "reset") {
+    saveText(null);
+    clearLogo();
+    revalidatePath("/", "layout");
+    return { ok: true, message: t("msg.brandReset") };
+  }
+  const file = fd.get("logo");
+  if (file instanceof File && file.size > 0) {
+    if (file.size > MAX_LOGO_BYTES) return { ok: false, message: t("err.brandTooLarge", { max: Math.round(MAX_LOGO_BYTES / 1024) }) };
+    const r = saveLogo(Buffer.from(await file.arrayBuffer()));
+    if (!r.ok) return { ok: false, message: t(r.error, { max: Math.round(MAX_LOGO_BYTES / 1024) }) };
+  } else if (fd.get("removeLogo") === "on") {
+    clearLogo();
+  }
+  saveText(normalizeText(s(fd, "text")));
+  revalidatePath("/", "layout");
+  return { ok: true, message: t("msg.brandSaved") };
 }
