@@ -56,7 +56,7 @@ export default async function Hosts() {
                 <td className="td max-w-[15rem]">
                   {a.enabled && a.status !== "offline" ? <Suspense fallback={<span className="animate-pulse text-slate-500">…</span>}><HostStorage agentId={a.id} /></Suspense> : <span className="text-slate-500">—</span>}
                 </td>
-                {canManage && <td className="td"><HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} /></td>}
+                {canManage && <td className="td w-px"><HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} /></td>}
               </tr>
             ))}
           </tbody>
