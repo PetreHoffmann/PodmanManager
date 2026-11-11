@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import HostStorage from "@/components/HostStorage";
 import ActionForm from "@/components/ActionForm";
 import AppLogs from "@/components/AppLogs";
 import HostActions from "@/components/HostActions";
@@ -23,10 +25,10 @@ export default async function Hosts() {
       <h1 className="text-xl font-semibold">{t("hosts.title")}</h1>
       {!canManage && <p className="text-xs text-slate-400">{t("scope.note", { groups: groupNames(session).join(", ") || "—" })}</p>}
       <div className="card hidden overflow-x-auto p-0 md:block">
-        <table className="w-full min-w-[900px]">
+        <table className="w-full min-w-[1000px]">
           <thead className="border-b border-slate-800">
             <tr>
-              {(["hosts.hostname", "hosts.agentId", "hosts.address", "hosts.status", "hosts.heartbeat", "hosts.podman", "hosts.containers"] as const).map((k) => (
+              {(["hosts.hostname", "hosts.agentId", "hosts.address", "hosts.status", "hosts.heartbeat", "hosts.podman", "hosts.containers", "hosts.storage"] as const).map((k) => (
                 <th key={k} className="th">{t(k)}</th>
               ))}
               {canManage && <th className="th" />}
@@ -34,7 +36,7 @@ export default async function Hosts() {
           </thead>
           <tbody className="divide-y divide-slate-800">
             {hosts.length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={canManage ? 8 : 7}>{t("hosts.none")}</td></tr>
+              <tr><td className="td text-slate-400" colSpan={canManage ? 9 : 8}>{t("hosts.none")}</td></tr>
             )}
             {hosts.map(({ agent: a, result }) => (
               <tr key={a.id} className="transition hover:bg-slate-900">
@@ -50,6 +52,9 @@ export default async function Hosts() {
                 <td className="td text-xs">{fmt(a.last_heartbeat)}</td>
                 <td className="td text-xs">{a.podman_version ?? "—"}</td>
                 <td className="td">{result.ok ? result.data.length : t("common.na")}</td>
+                <td className="td max-w-[15rem]">
+                  {a.enabled && a.status !== "offline" ? <Suspense fallback={<span className="animate-pulse text-slate-500">…</span>}><HostStorage agentId={a.id} /></Suspense> : <span className="text-slate-500">—</span>}
+                </td>
                 {canManage && <td className="td"><HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} /></td>}
               </tr>
             ))}
@@ -67,6 +72,9 @@ export default async function Hosts() {
             </div>
             <div className="font-mono text-xs text-slate-400">{a.hostname} · {a.address}:{a.port}</div>
             <div className="text-xs text-slate-500">{t("hosts.cardMeta", { hb: fmt(a.last_heartbeat), pv: a.podman_version ?? "—", n: result.ok ? result.data.length : t("common.na") })}</div>
+            {a.enabled && a.status !== "offline" && (
+              <div className="text-xs text-slate-500">{t("hosts.storage")}: <Suspense fallback="…"><HostStorage agentId={a.id} compact /></Suspense></div>
+            )}
             {a.enabled && a.last_error && a.status !== "online" && <div className="break-all text-xs text-slate-500">{lastErrText(t, a.last_error)}</div>}
             {canManage && <HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} />}
           </div>

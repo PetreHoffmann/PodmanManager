@@ -53,7 +53,7 @@ export class PodmanClient {
   }
 
   /** Low-level call. Only invoked with fixed paths built by PodmanService. */
-  call(method: "GET" | "POST", path: string, opts: { maxBytes?: number } = {}): Promise<PodmanResponse> {
+  call(method: "GET" | "POST", path: string, opts: { maxBytes?: number; timeoutMs?: number } = {}): Promise<PodmanResponse> {
     const limit = opts.maxBytes ?? MAX_BODY;
     return new Promise((resolve, reject) => {
       const req = request(
@@ -62,7 +62,7 @@ export class PodmanClient {
           method,
           path,
           headers: { Host: "d", Accept: "application/json" },
-          timeout: this.timeoutMs,
+          timeout: opts.timeoutMs ?? this.timeoutMs,
         },
         (res) => {
           const chunks: Buffer[] = [];

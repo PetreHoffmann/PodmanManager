@@ -1,4 +1,4 @@
-import type { ContainerAction, ContainerInfo, LogLine, PodInfo, PodLogs } from "../../../../shared/types/index.js";
+import type { ContainerAction, ContainerInfo, LogLine, PodInfo, PodLogs, StorageInfo } from "../../../../shared/types/index.js";
 import { PodmanClient, PodmanError, TOO_LARGE_MESSAGE, type PodmanResponse } from "./client.js";
 import { parseLogStream } from "./logs.js";
 
@@ -100,6 +100,32 @@ export function mapInspect(raw: unknown): ContainerInfo {
 }
 
 export const MAX_POD_LOG_CONTAINERS = 50;
+const STORAGE_TTL_MS = 60_000;
+const STORAGE_TIMEOUT_MS = 30_000;
+
+const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0);
+
+/** Maps the libpod `system/df` report (verified with Podman 4.9.3 and 5.8.2; sums match `podman system df`). */
+export function mapStorage(raw: unknown, now: Date = new Date()): StorageInfo {
+  const o = rec(raw);
+  const list = (v: unknown): Rec[] => (Array.isArray(v) ? v.map(rec) : []);
+  const imgs = list(o.Images);
+  const ctrs = list(o.Containers);
+  const vols = list(o.Volumes);
+  const unusedImgs = imgs.filter((i) => num(i.Containers) === 0);
+  // ImagesSize counts shared layers once; fall back to the sum of the unique parts plus the shared base.
+  const imagesSize = num(o.ImagesSize) || imgs.reduce((a, i) => a + num(i.UniqueSize), 0) + imgs.reduce((m, i) => Math.max(m, num(i.SharedSize)), 0);
+  const running = ctrs.filter((c) => str(c.Status).toLowerCase() === "running");
+  const containersSize = ctrs.reduce((a, c) => a + num(c.RWSize), 0);
+  const volumesSize = vols.reduce((a, v) => a + num(v.Size), 0);
+  return {
+    images: { count: imgs.length, unused: unusedImgs.length, size: imagesSize, reclaimable: unusedImgs.reduce((a, i) => a + num(i.UniqueSize), 0) },
+    containers: { count: ctrs.length, running: running.length, size: containersSize, reclaimable: ctrs.filter((c) => !running.includes(c)).reduce((a, c) => a + num(c.RWSize), 0) },
+    volumes: { count: vols.length, size: volumesSize, reclaimable: vols.reduce((a, v) => a + num(v.ReclaimableSize), 0) },
+    total: imagesSize + containersSize + volumesSize,
+    measuredAt: now.toISOString(),
+  };
+}
 
 /** Merges per-container log lines by time (stable; lines without timestamp stay behind their predecessor). */
 export function mergeLogs(sources: { name: string; lines: LogLine[] }[], tail: number): LogLine[] {
@@ -221,6 +247,30 @@ export class PodmanService {
       throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     }
     return { changed: res.status === 204, container: await this.inspect(id) };
+  }
+
+  private storageCache: { at: number; value: StorageInfo } | null = null;
+  private storagePending: Promise<StorageInfo> | null = null;
+
+  /** `podman system df` can be slow with many images: cached for a minute, concurrent calls share one query. */
+  async storage(): Promise<StorageInfo> {
+    const now = Date.now();
+    if (this.storageCache && now - this.storageCache.at < STORAGE_TTL_MS) return this.storageCache.value;
+    if (!this.storagePending) {
+      this.storagePending = (async () => {
+        try {
+          await this.client.checkSocket();
+          const res = await this.client.call("GET", `${await this.libpod()}/system/df`, { timeoutMs: STORAGE_TIMEOUT_MS });
+          if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+          const value = mapStorage(json(res));
+          this.storageCache = { at: Date.now(), value };
+          return value;
+        } finally {
+          this.storagePending = null;
+        }
+      })();
+    }
+    return this.storagePending;
   }
 
   async listPods(): Promise<PodInfo[]> {
