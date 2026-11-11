@@ -34,7 +34,7 @@ export default async function Containers({ searchParams }: { searchParams: SP })
       <form className="flex flex-wrap gap-2" method="get">
         <select name="host" defaultValue={host} className="input w-auto">
           <option value="">{t("cont.allHosts")}</option>
-          {hosts.map((h) => <option key={h.agent.id} value={h.agent.id}>{h.agent.hostname}</option>)}
+          {hosts.map((h) => <option key={h.agent.id} value={h.agent.id}>{h.agent.agent_id} ({h.agent.hostname})</option>)}
         </select>
         <select name="status" defaultValue={status} className="input w-auto">
           <option value="">{t("cont.anyStatus")}</option>
