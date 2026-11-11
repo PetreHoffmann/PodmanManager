@@ -6,6 +6,8 @@ Wants=podman.socket
 After=podman.socket network-online.target
 
 [Container]
+# Host mit cgroup v1 (Start scheitert mit "mkdir /sys/fs/cgroup/...: permission denied", Exit-Code 126): Zeile aktivieren
+# PodmanArgs=--cgroups=enabled
 Image=docker.io/petrecalinoiu/podmanmanager-agent:0.3.0
 ContainerName=podmanmanager-agent
 # Der Agent meldet den Hostnamen des Containers; %H = Hostname des Rechners (sonst steht die Container-ID im Master)

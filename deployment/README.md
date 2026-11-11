@@ -219,8 +219,26 @@ Im Master unter *Hosts* `http://<host-ip>:9126` und den Token eintragen. Master 
 | Agent: `Refusing to run as root` | der Container läuft als UID 0 (`--user 0`); mit der UID des Podman-Benutzers starten, siehe A.2 / Quadlet-Datei |
 | `socketStatus: unreachable` | Agent läuft mit einer anderen UID als der Socket-Besitzer: `--user "$(id -u)" --userns=keep-id` bzw. `User=%U` + `UserNS=keep-id` |
 | Master: `Agent not reachable (ECONNREFUSED)` / `EAI_AGAIN` | Master und Agent auf demselben Host ohne gemeinsames Netzwerk, siehe A.5 / B.5 |
+| Quadlet: Exit-Code 126, `mkdir /sys/fs/cgroup/…: permission denied` | Host mit cgroup v1: in der Unit unter `[Container]` `PodmanArgs=--cgroups=enabled` ergänzen (siehe unten) |
 | `socketStatus: missing` im Health-Check | `systemctl --user enable --now podman.socket` fehlt oder falscher Socket-Pfad |
 | Master startet nicht: `MASTER_SECRET_KEY` | Secret `podmanmanager-key` fehlt oder hat keine 32 Byte (base64) |
+
+### Hosts mit cgroup v1 (Quadlet)
+
+Auf Hosts mit **cgroup v1** (z. B. RHEL 8 und ähnliche; Prüfung: `podman info --format '{{.Host.CgroupsVersion}} {{.Host.CgroupManager}} {{.Host.OCIRuntime.Name}}'` zeigt `v1 cgroupfs runc`) startet ein Rootless-Quadlet nicht. Quadlet übergibt `--cgroups=split`, und Podman scheitert dann mit Exit-Code 126 und im Journal (`journalctl --user -u podmanmanager-agent`):
+
+```
+Error: mkdir /sys/fs/cgroup/pids/user.slice/user-1002.slice/user@1002.service/runtime: permission denied
+```
+
+Abhilfe: in `podmanmanager-agent.container` (und bei Bedarf `podmanmanager-master.container`) unter `[Container]` ergänzen:
+
+```ini
+PodmanArgs=--cgroups=enabled
+```
+Danach `systemctl --user daemon-reload && systemctl --user reset-failed podmanmanager-agent && systemctl --user start podmanmanager-agent`. Der spätere Wert überschreibt das `split` des Generators (im Dry-Run mit Podman 4.9.3 geprüft). `--cgroups=disabled` ist hier keine Alternative: `runc` lehnt es ab, nur `crun` unterstützt es. `podman run` ohne `--cgroups`-Option (Teil A) ist von dem Problem nicht betroffen. Langfristig lässt sich der Host auf cgroup v2 umstellen (`systemd.unified_cgroup_hierarchy=1`); die native Agent-Installation braucht keine Container-cgroups.
+
+**Bestätigt** auf einem echten Host mit Podman 4.9.4 (cgroup v1, `cgroupfs`, `runc`): mit `PodmanArgs=--cgroups=enabled` startet der Agent als Quadlet. Nachgestellt (ohne systemd) mit Podman 4.9.3 auf cgroup v1 mit `runc`: `--cgroups=split` scheitert, `enabled` und `no-conmon` starten den Container.
 
 ## Was geprüft ist
 
