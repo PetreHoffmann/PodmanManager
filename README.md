@@ -36,7 +36,7 @@ Kein Docker, kein Compose, kein HTTPS/TLS, kein Root. **Nur in einem abgeschotte
 | **Pods** | **Pod-Details mit gemischten Logs** |
 | ![Pods](docs/screenshots/desktop-pods.png) | ![Pod-Details](docs/screenshots/desktop-pod-detail.png) |
 
-**Smartphone** (Kartenansicht statt Tabellen)
+**Smartphone** (Hamburger-Menü und Kartenansicht statt Tabellen)
 
 <p>
   <img src="docs/screenshots/mobile-dashboard.png" alt="Dashboard mobil" width="200">
