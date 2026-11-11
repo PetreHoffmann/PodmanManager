@@ -1,4 +1,4 @@
-import { fetchAllContainers } from "@/lib/agents";
+import { fetchAllContainers, fetchAllPods } from "@/lib/agents";
 import { getT } from "@/lib/lang";
 import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { hiddenPatternsFor } from "@/lib/hidden";
@@ -10,7 +10,9 @@ export const dynamic = "force-dynamic";
 export default async function Dashboard() {
   const session = await requireAuth();
   const t = await getT();
-  const hosts = await fetchAllContainers(undefined, allowedAgentIds(session), hiddenPatternsFor(session));
+  const allowed = allowedAgentIds(session);
+  const hidden = hiddenPatternsFor(session);
+  const [hosts, podHosts] = await Promise.all([fetchAllContainers(undefined, allowed, hidden), fetchAllPods(undefined, allowed, hidden)]);
   const total = hosts.length;
   const reachable = hosts.filter((h) => h.agent.enabled && (h.agent.status === "online" || h.agent.status === "degraded")).length;
   const unreachable = hosts.filter((h) => h.agent.enabled && h.agent.status === "offline").length;
@@ -19,6 +21,11 @@ export default async function Dashboard() {
   const all = known.flatMap((h) => (h.result.ok ? h.result.data : []));
   const running = all.filter((c) => c.state === "running").length;
   const missing = total - known.length;
+  const pods = podHosts.flatMap((h) => (h.result.ok ? h.result.data : []));
+  const podRunning = pods.filter((p) => p.status === "running").length;
+  const podDegraded = pods.filter((p) => p.status === "degraded").length;
+  // Hosts whose containers could be read but whose pods could not (e.g. agent older than 0.6.0).
+  const podsMissing = podHosts.filter((h) => !h.result.ok && h.agent.enabled && hosts.some((c) => c.agent.id === h.agent.id && c.result.ok));
 
   return (
     <div className="space-y-6">
@@ -35,6 +42,17 @@ export default async function Dashboard() {
         <Stat label={t("dash.running")} value={running} tone="ok" />
         <Stat label={t("dash.stopped")} value={all.length - running} />
       </section>
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label={t("dash.pods")} value={pods.length} />
+        <Stat label={t("dash.podsRunning")} value={podRunning} tone="ok" />
+        <Stat label={t("dash.podsDegraded")} value={podDegraded} tone={podDegraded ? "warn" : undefined} />
+        <Stat label={t("dash.podsStopped")} value={pods.length - podRunning - podDegraded} />
+      </section>
+      {podsMissing.length > 0 && (
+        <p className="card border-amber-800 text-sm text-amber-300">
+          {t("dash.podsExcluded", { n: podsMissing.length, names: podsMissing.map((h) => h.agent.agent_id).join(", ") })}
+        </p>
+      )}
       {missing > 0 && (
         <p className="card border-amber-800 text-sm text-amber-300">
           {t("dash.excluded", { n: missing, names: hosts.filter((h) => !h.result.ok).map((h) => h.agent.hostname).join(", ") })}
