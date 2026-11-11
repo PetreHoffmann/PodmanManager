@@ -23,7 +23,7 @@ export default function AboutDialog({ version }: { version: string }) {
 
   return (
     <>
-      <button type="button" onClick={open} className="rounded-md px-3 py-1.5 text-sm text-slate-400 transition hover:text-white">
+      <button type="button" onClick={open} className="rounded-md px-3 py-2 text-sm text-slate-400 transition hover:text-white md:py-1.5">
         {t("nav.about")}
       </button>
       <dialog
