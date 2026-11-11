@@ -1,4 +1,4 @@
-import type { PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
+import type { StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { CONTAINER_ID_RE } from "./validate";
 
@@ -89,3 +89,6 @@ export function agentPodLogs(t: AgentTarget, id: string) {
   if (!CONTAINER_ID_RE.test(id)) return Promise.resolve<CallResult<PodLogs>>({ ok: false, code: "INVALID_ID", message: "Invalid pod id", unreachable: false });
   return call<PodLogs>(t, "GET", `/api/v1/pods/${id}/logs?tail=${LOG_TAIL}`, 20);
 }
+
+/** Disk space used by the agent's Podman storage (read-only; `podman system df` can take a while). */
+export const agentStorage = (t: AgentTarget) => call<StorageInfo>(t, "GET", "/api/v1/system/storage", 40);

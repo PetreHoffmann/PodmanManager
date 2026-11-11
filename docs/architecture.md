@@ -31,6 +31,7 @@ Der Agent nutzt ausschließlich diese festen Endpunkte (kein Pass-through). `<ba
 | Stop | `POST <base>/containers/{id}/stop?timeout=10` (204, 304 = bereits gestoppt) |
 | Restart | `POST <base>/containers/{id}/restart?t=10` (204) |
 | Pods | `GET <base>/pods/json` (Liste mit Containern); Aktionen `POST <base>/pods/{id}/start|stop?t=10|restart` (200; 304 = Zustand schon erreicht) |
+| Speicher (lesend) | `GET <base>/system/df` (Images, Container, Volumes mit Größen); der Agent summiert und cached 60 s |
 | Pod-Logs (lesend) | keine Podman-Route: Container-Logs jedes Pod-Containers (siehe oben), vom Agent nach Zeitstempel gemischt |
 | Logs (lesend) | `GET <base>/containers/{id}/logs?stdout=true&stderr=true&tail=<n>&timestamps=true` (Antwort: Rahmenformat, siehe unten) |
 

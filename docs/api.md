@@ -25,6 +25,7 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 | POST | `/pods/:id/start` | alle Container des Pods starten |
 | POST | `/pods/:id/stop` | Pod stoppen (Timeout fest 10 s) |
 | POST | `/pods/:id/restart` | Pod neustarten |
+| GET | `/system/storage` | vom Podman-Speicher belegter Platz (Images, Container, Volumes), 60 s im Agent zwischengespeichert |
 | GET | `/agent/logs?tail=<n>` | letzte `n` eigene Log-Zeilen des Agents (1–500, Standard 150), nur lesend |
 
 Andere Pfade → `404`, falsche Methode → `405`.
@@ -53,6 +54,9 @@ Antwort: `{ "action": "stop", "changed": true, "container": { … } }`. `changed
 Eigene Logzeilen des Agents aus einem Ringpuffer im Speicher (max. 500 Zeilen, nach Neustart leer). Antwort:
 `{"ok":true,"data":{"lines":[{"ts":"2026-11-10T21:13:11.000Z","level":"info|warn|error","text":"…"}]}}`.
 Tokens/Secrets werden vor dem Speichern maskiert (`***`), Steuerzeichen entfernt, Zeilen auf 1000 Zeichen begrenzt. `tail` ungültig → 400 `INVALID_PARAM`.
+
+### `GET /system/storage`
+Belegter Platz im Podman-Speicher des Agent-Benutzers (`podman system df`), in Bytes: `{"ok":true,"data":{"images":{"count","unused","size","reclaimable"},"containers":{"count","running","size","reclaimable"},"volumes":{"count","size","reclaimable"},"total","measuredAt"}}`. `images.size` zählt gemeinsame Layer einmal (wie `podman system df`), `containers.size` ist die Summe der beschreibbaren Schichten (`RWSize`), `volumes.size` die Volume-Größen; `total` ist die Summe. `reclaimable` ist bei Images der nur von **unbenutzten** Images belegte Teil (entspricht etwa dem, was `podman image prune -a` freigibt; `podman system df` zeigt bei Images einen höheren Wert), bei Containern die Schicht gestoppter Container, bei Volumes `ReclaimableSize`. `system df` kann bei vielen Images langsam sein: der Agent erlaubt der Abfrage 30 s, merkt sich das Ergebnis 60 Sekunden und lässt gleichzeitige Aufrufe eine Abfrage teilen. Fehler werden nicht zwischengespeichert. Das Dateisystem des Hosts (frei/gesamt) liefert Podman nicht und wird nicht angezeigt.
 
 ### Pods
 `GET /pods` → `[{"id","name","status","createdAt","containers":[{"id","name","state","infra"}]}]`. `status` ist kleingeschrieben (`running`, `degraded`, `exited`, `stopped`, `created`, `paused`), `infra` markiert den Infra-Container. Aktionen liefern `{action, changed, pod}`; `changed=false` bei Podman-`304` (Zustand schon erreicht). Unbekannter Pod → `404 POD_NOT_FOUND`; Fehler beim Start einzelner Container (`Errs`) kommen als Podman-Fehler (409/502) mit den Meldungen. Container-Einträge enthalten zusätzlich `podId`/`podName`.

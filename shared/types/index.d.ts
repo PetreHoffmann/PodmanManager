@@ -94,3 +94,14 @@ export interface AppLogLine {
 export interface AppLogs {
   lines: AppLogLine[];
 }
+
+/** Disk space used by the Podman storage of the agent's user (`podman system df`), in bytes. */
+export interface StorageInfo {
+  images: { count: number; unused: number; size: number; reclaimable: number };
+  containers: { count: number; running: number; size: number; reclaimable: number };
+  volumes: { count: number; size: number; reclaimable: number };
+  /** images + containers + volumes */
+  total: number;
+  /** ISO time of the measurement (the agent caches it for a minute) */
+  measuredAt: string;
+}

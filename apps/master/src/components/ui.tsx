@@ -20,3 +20,17 @@ export function fmtShort(iso: string | null | undefined): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "—" : d.toISOString().replace("T", " ").slice(0, 16);
 }
+
+/** Decimal units like `podman system df` (1 GB = 10^9 bytes), one decimal for MB and above. */
+export function fmtBytes(n: number, locale = "en"): string {
+  if (!Number.isFinite(n) || n < 0) return "—";
+  const units = ["B", "kB", "MB", "GB", "TB", "PB"];
+  let v = n;
+  let i = 0;
+  while (v >= 1000 && i < units.length - 1) {
+    v /= 1000;
+    i++;
+  }
+  const f = new Intl.NumberFormat(locale, { maximumFractionDigits: i < 2 ? 0 : 1, minimumFractionDigits: 0 });
+  return `${f.format(v)} ${units[i]}`;
+}

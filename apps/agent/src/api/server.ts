@@ -101,6 +101,11 @@ export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: 
         return send(res, 200, { ok: true, data: { lines: logs ? logs.tail(tail) : [] } });
       }
 
+      if (route.length === 2 && route[0] === "system" && route[1] === "storage") {
+        if (method !== "GET") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+        return send(res, 200, { ok: true, data: await podman.storage() });
+      }
+
       if (route[0] === "pods") {
         if (route.length === 1) {
           if (method !== "GET") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
