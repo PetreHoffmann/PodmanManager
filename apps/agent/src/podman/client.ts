@@ -8,6 +8,10 @@ export type PodmanErrorCode =
   | "PODMAN_TIMEOUT"
   | "CONTAINER_NOT_FOUND"
   | "POD_NOT_FOUND"
+  | "IMAGE_NOT_FOUND"
+  | "IMAGE_IN_USE"
+  | "IMAGE_PROTECTED"
+  | "INVALID_PARAM"
   | "LOGS_TOO_LARGE";
 
 export class PodmanError extends Error {
@@ -53,7 +57,7 @@ export class PodmanClient {
   }
 
   /** Low-level call. Only invoked with fixed paths built by PodmanService. */
-  call(method: "GET" | "POST", path: string, opts: { maxBytes?: number; timeoutMs?: number } = {}): Promise<PodmanResponse> {
+  call(method: "GET" | "POST" | "DELETE", path: string, opts: { maxBytes?: number; timeoutMs?: number } = {}): Promise<PodmanResponse> {
     const limit = opts.maxBytes ?? MAX_BODY;
     return new Promise((resolve, reject) => {
       const req = request(

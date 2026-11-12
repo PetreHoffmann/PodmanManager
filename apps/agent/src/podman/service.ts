@@ -1,4 +1,4 @@
-import type { ContainerAction, ContainerInfo, LogLine, PodInfo, PodLogs, StorageInfo } from "../../../../shared/types/index.js";
+import type { ContainerAction, ContainerInfo, ImageDeleteResult, ImageInfo, ImagePruneResult, LogLine, PodInfo, PodLogs, StorageInfo } from "../../../../shared/types/index.js";
 import { PodmanClient, PodmanError, TOO_LARGE_MESSAGE, type PodmanResponse } from "./client.js";
 import { parseLogStream } from "./logs.js";
 
@@ -151,7 +151,24 @@ export interface PodmanVersion {
 /** Used when a Podman does not announce its libpod API version. */
 export const FALLBACK_API_VERSION = "4.0.0";
 
+export function mapImage(raw: unknown, inUse: number, isProtected: boolean): ImageInfo {
+  const o = rec(raw);
+  const tags = (Array.isArray(o.RepoTags) ? o.RepoTags : []).filter((t): t is string => typeof t === "string" && t !== "" && !t.startsWith("<none>"));
+  return {
+    id: str(o.Id).replace(/^sha256:/, ""),
+    tags,
+    size: num(o.Size),
+    createdAt: isoTime(o.Created),
+    containers: inUse,
+    dangling: tags.length === 0,
+    protected: isProtected,
+  };
+}
+
 export class PodmanService {
+  /** returns ids of images that must not be deleted (own image, image of the updatable unit) */
+  imageGuard: () => Promise<string[]> = async () => [];
+
   /**
    * Podman serves most libpod routes only with a version prefix (/v4.9.3/libpod/...);
    * unversioned paths answer 404. The prefix is taken from the ping header Libpod-Api-Version.
@@ -299,6 +316,71 @@ export class PodmanService {
     if (!/^[a-f0-9]{64}$/.test(id)) return null;
     const s = await this.inspectSelf(id);
     return { id, imageName: s.imageName, imageId: s.imageId };
+  }
+
+  /** Counts of containers per image id (all containers, running or not). */
+  private async imageUsage(): Promise<Map<string, number>> {
+    const res = await this.client.call("GET", `${await this.libpod()}/containers/json?all=true`);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const m = new Map<string, number>();
+    const arr = json(res);
+    if (Array.isArray(arr)) for (const c of arr) {
+      const id = str(rec(c).ImageID).replace(/^sha256:/, "");
+      if (id) m.set(id, (m.get(id) ?? 0) + 1);
+    }
+    return m;
+  }
+
+  async listImages(): Promise<ImageInfo[]> {
+    await this.client.checkSocket();
+    const res = await this.client.call("GET", `${await this.libpod()}/images/json`);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const [usage, guard] = await Promise.all([this.imageUsage(), this.imageGuard().catch(() => [] as string[])]);
+    const arr = json(res);
+    const out = (Array.isArray(arr) ? arr : []).map((r) => {
+      const id = str(rec(r).Id).replace(/^sha256:/, "");
+      return mapImage(r, usage.get(id) ?? 0, guard.includes(id));
+    });
+    return out.sort((a, b) => (a.tags[0] ?? "~").localeCompare(b.tags[0] ?? "~"));
+  }
+
+  /**
+   * Removes an image, or only one tag of it (`tag` given and the image has other tags). Refuses images that are in use
+   * (409 IMAGE_IN_USE) and the protected ones (409 IMAGE_PROTECTED); never forces.
+   */
+  async deleteImage(id: string, tag?: string): Promise<ImageDeleteResult> {
+    if (!isValidContainerId(id)) throw new PodmanError("IMAGE_NOT_FOUND", "Image not found", 404);
+    if (tag !== undefined && !/^[A-Za-z0-9._\-/:@]{1,255}$/.test(tag)) throw new PodmanError("INVALID_PARAM", "Invalid tag", 400);
+    const img = (await this.listImages()).find((i) => i.id === id || (id.length < 64 && i.id.startsWith(id)));
+    if (!img) throw new PodmanError("IMAGE_NOT_FOUND", "Image not found", 404);
+    if (tag !== undefined && !img.tags.includes(tag)) throw new PodmanError("IMAGE_NOT_FOUND", "Tag not found on this image", 404);
+    if (img.protected) throw new PodmanError("IMAGE_PROTECTED", "Image is used by the agent or by the unit it updates", 409);
+    const untag = tag !== undefined && img.tags.length > 1;
+    if (!untag && img.containers > 0) throw new PodmanError("IMAGE_IN_USE", `Image is used by ${img.containers} container(s)`, 409);
+    const ref = untag ? tag! : img.id;
+    const res = await this.client.call("DELETE", `${await this.libpod()}/images/${encodeURIComponent(ref).replace(/%2F/g, "/")}?force=false`);
+    if (res.status === 404) throw new PodmanError("IMAGE_NOT_FOUND", "Image not found", 404);
+    if (res.status === 409) throw new PodmanError("IMAGE_IN_USE", upstreamMessage(res), 409);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    return { result: untag ? "untagged" : "removed" };
+  }
+
+  /** Removes dangling images that no container uses. */
+  async pruneImages(): Promise<ImagePruneResult> {
+    await this.client.checkSocket();
+    const filters = encodeURIComponent(JSON.stringify({ dangling: ["true"] }));
+    const res = await this.client.call("POST", `${await this.libpod()}/images/prune?all=false&filters=${filters}`, { timeoutMs: 120_000 });
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const arr = json(res);
+    let removed = 0;
+    let reclaimed = 0;
+    if (Array.isArray(arr)) for (const r of arr) {
+      const o = rec(r);
+      if (o.Err) continue;
+      removed++;
+      reclaimed += num(o.Size);
+    }
+    return { removed, reclaimed };
   }
 
   /** Pulls an image (the registry is reached by the host's Podman) and returns its image id. */

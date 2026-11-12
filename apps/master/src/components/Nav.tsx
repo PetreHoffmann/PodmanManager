@@ -14,6 +14,7 @@ const ITEMS: { href: string; key: Key }[] = [
   { href: "/hosts", key: "nav.hosts" },
   { href: "/containers", key: "nav.containers" },
   { href: "/pods", key: "nav.pods" },
+  { href: "/images", key: "nav.images" },
   { href: "/settings", key: "nav.settings" },
 ];
 

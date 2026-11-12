@@ -37,7 +37,13 @@ function statusFor(e: PodmanError): number {
   switch (e.code) {
     case "CONTAINER_NOT_FOUND":
     case "POD_NOT_FOUND":
+    case "IMAGE_NOT_FOUND":
       return 404;
+    case "IMAGE_IN_USE":
+    case "IMAGE_PROTECTED":
+      return 409;
+    case "INVALID_PARAM":
+      return 400;
     case "SOCKET_MISSING":
     case "SOCKET_UNREACHABLE":
       return 503;
@@ -125,6 +131,27 @@ export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: 
         if (!info.possible) return fail(res, 409, "UPDATE_NOT_POSSIBLE", info.reason ?? "not_possible");
         log.info(`peer update requested (state ${info.state})`);
         return send(res, 202, { ok: true, data: info });
+      }
+
+      if (route[0] === "images") {
+        if (route.length === 1) {
+          if (method !== "GET") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+          return send(res, 200, { ok: true, data: await podman.listImages() });
+        }
+        if (route.length === 2 && route[1] === "prune") {
+          if (method !== "POST") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "POST" });
+          const r = await podman.pruneImages();
+          log.info(`images pruned: ${r.removed} removed, ${r.reclaimed} bytes`);
+          return send(res, 200, { ok: true, data: r });
+        }
+        if (route.length === 2) {
+          if (method !== "DELETE") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "DELETE" });
+          const tag = url.searchParams.get("tag") ?? undefined;
+          const r = await podman.deleteImage(route[1]!, tag);
+          log.info(`image ${route[1]!.slice(0, 12)}${tag ? ` (${tag})` : ""} ${r.result}`);
+          return send(res, 200, { ok: true, data: r });
+        }
+        return fail(res, 404, "NOT_FOUND", "Not found");
       }
 
       if (route[0] === "pods") {

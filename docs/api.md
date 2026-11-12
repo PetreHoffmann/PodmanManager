@@ -19,6 +19,9 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 | POST | `/containers/:id/stop` | stoppen (Timeout fest 10 s) |
 | POST | `/containers/:id/restart` | neustarten (Timeout fest 10 s) |
 | GET | `/containers/:id/logs?tail=<n>` | letzte `n` Log-Zeilen (1–500, Standard 150), nur lesend |
+| GET | `/images` | alle Images: `id`, `tags`, `size`, `createdAt`, `containers` (nutzende Container), `dangling`, `protected` |
+| DELETE | `/images/:id[?tag=<repo:tag>]` | Image löschen; mit `tag` nur dieses Tag entfernen, wenn das Image weitere Tags hat. 409 `IMAGE_IN_USE` (Container nutzen es), 409 `IMAGE_PROTECTED` (Image des Agents bzw. der `UPDATE_UNIT`), 404 `IMAGE_NOT_FOUND`; nie mit Force |
+| POST | `/images/prune` | ungenutzte Images ohne Tag entfernen: `{removed, reclaimed}` |
 | GET | `/pods` | alle Pods mit ihren Containern |
 | GET | `/pods/:id` | ein Pod (ID wie bei Containern, auch Kurzform) |
 | GET | `/pods/:id/logs?tail=<n>` | letzte `n` Log-Zeilen aller Container des Pods, nach Zeit gemischt (1–500, Standard 150), nur lesend |

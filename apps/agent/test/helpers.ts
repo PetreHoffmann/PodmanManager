@@ -80,7 +80,7 @@ export interface Running {
   close(): Promise<void>;
 }
 
-export async function startAgent(socketPath: string, over: Partial<AgentConfig> = {}, updater?: UpdaterOptions, peerUnit?: string): Promise<Running> {
+export async function startAgent(socketPath: string, over: Partial<AgentConfig> = {}, updater?: UpdaterOptions, peerUnit?: string, guard: string[] = []): Promise<Running> {
   const cfg: AgentConfig = {
     agentId: "test-agent",
     host: "127.0.0.1",
@@ -94,6 +94,7 @@ export async function startAgent(socketPath: string, over: Partial<AgentConfig> 
     ...over,
   };
   const svc = new PodmanService(new PodmanClient(socketPath, cfg.podmanTimeoutMs), cfg.stopTimeoutSec);
+  svc.imageGuard = async () => guard;
   const logs = new LogBuffer(5);
   const server = createAgentServer(cfg, svc, { info: (m) => logs.push("info", m), error: (m) => logs.push("error", m) }, logs, updater ? new SelfUpdater(svc, updater) : undefined, peerUnit ? new PeerUpdater(svc, peerUnit) : undefined);
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));

@@ -84,6 +84,16 @@ export class SelfUpdater {
     return (await this.eligibility()).info;
   }
 
+  /** Id of the image this agent runs from (cannot be deleted); null outside a container. */
+  async ownImageId(): Promise<string | null> {
+    try {
+      const id = containerIdFromMountinfo(this.o.mountinfo());
+      return id ? (await this.podman.inspectSelf(id)).imageId.replace(/^sha256:/, "") : null;
+    } catch {
+      return null;
+    }
+  }
+
   /** Starts the update in the background; returns at once. An update that is already running is not started twice. */
   async start(): Promise<UpdateInfo> {
     const { info, imageId } = await this.eligibility();
@@ -146,6 +156,15 @@ export class PeerUpdater {
 
   async info(): Promise<UpdateInfo> {
     return (await this.eligibility()).info;
+  }
+
+  /** Id of the image of the unit's container (cannot be deleted). */
+  async targetImageId(): Promise<string | null> {
+    try {
+      return (await this.podman.findUnitContainer(this.unit))?.imageId.replace(/^sha256:/, "") ?? null;
+    } catch {
+      return null;
+    }
   }
 
   async start(): Promise<UpdateInfo> {

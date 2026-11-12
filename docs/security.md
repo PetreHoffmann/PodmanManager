@@ -73,6 +73,8 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 
 - **Master-Update über den Agent:** nur wenn der Agent mit `UPDATE_UNIT` konfiguriert ist; er berührt ausschließlich den Container dieser Unit (per Label gefunden), das Image stammt aus diesem Container, nicht vom Aufrufer. Der Master bekommt weiterhin keinen Podman-Zugriff; Auslösen nur durch Admins.
 
+- **Images löschen:** Der Agent löscht nie mit Force, verweigert Images in Benutzung sowie sein eigenes Image und das der `UPDATE_UNIT`, und validiert Id und Tag. Der Master erlaubt Löschen und Aufräumen nur Admins (serverseitig geprüft); Nutzer mit Agent-Gruppen sehen die Images ihrer Agents nur lesend.
+
 ## Restrisiken
 - Aktiver Angreifer im Netz kann Token/Cookie abgreifen oder Traffic manipulieren (kein TLS).
 - Wer den Agent-Token kennt, kann Container dieses Benutzers starten/stoppen/neustarten (nur das).
