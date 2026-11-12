@@ -5,27 +5,33 @@ import type { SessionInfo } from "./session-types";
 export interface AgentGroup {
   id: number;
   name: string;
+  /** AD group for LDAP login ("" if the group is only used for SAML) */
   ad_group_dn: string;
+  /** group value sent by ADFS for SAML login, e.g. CORP\Team-A ("" if only used for LDAP) */
+  saml_group: string;
   agentIds: number[];
 }
 
 export const MAX_GROUPS = 200;
 
 export function listGroups(db: DatabaseSync = getDb()): AgentGroup[] {
-  const groups = db.prepare("SELECT id, name, ad_group_dn FROM agent_groups ORDER BY name COLLATE NOCASE").all() as unknown as Omit<AgentGroup, "agentIds">[];
+  const groups = db.prepare("SELECT id, name, ad_group_dn, saml_group FROM agent_groups ORDER BY name COLLATE NOCASE").all() as unknown as Omit<AgentGroup, "agentIds">[];
   const members = db.prepare("SELECT group_id, agent_id FROM agent_group_members").all() as unknown as { group_id: number; agent_id: number }[];
   return groups.map((g) => ({ ...g, agentIds: members.filter((m) => m.group_id === g.id).map((m) => m.agent_id).sort((a, b) => a - b) }));
 }
 
-export type GroupInput = { id?: number; name: string; adGroupDn: string; agentIds: number[] };
-export type GroupResult = { ok: true; id: number } | { ok: false; error: "err.groupName" | "err.groupDn" | "err.groupDup" | "err.groupLimit" | "err.groupNotFound" };
+export type GroupInput = { id?: number; name: string; adGroupDn: string; samlGroup?: string; agentIds: number[] };
+export type GroupResult = { ok: true; id: number } | { ok: false; error: "err.groupName" | "err.groupDn" | "err.groupSaml" | "err.groupNeedOne" | "err.groupDup" | "err.groupLimit" | "err.groupNotFound" };
 
 /** Creates or updates a group and replaces its agent membership. */
 export function saveGroup(input: GroupInput, db: DatabaseSync = getDb()): GroupResult {
   const name = input.name.trim();
   const dn = input.adGroupDn.trim();
+  const saml = (input.samlGroup ?? "").trim();
   if (!name || name.length > 64 || name.includes("\0")) return { ok: false, error: "err.groupName" };
-  if (!dn || dn.length > 512 || dn.includes("\0")) return { ok: false, error: "err.groupDn" };
+  if (dn.length > 512 || dn.includes("\0")) return { ok: false, error: "err.groupDn" };
+  if (saml.length > 256 || /[\u0000-\u001f\u007f]/.test(saml)) return { ok: false, error: "err.groupSaml" };
+  if (!dn && !saml) return { ok: false, error: "err.groupNeedOne" };
   const dup = db.prepare("SELECT id FROM agent_groups WHERE name = ? COLLATE NOCASE").get(name) as { id: number } | undefined;
   if (dup && dup.id !== input.id) return { ok: false, error: "err.groupDup" };
 
@@ -38,9 +44,9 @@ export function saveGroup(input: GroupInput, db: DatabaseSync = getDb()): GroupR
         db.exec("ROLLBACK");
         return { ok: false, error: "err.groupLimit" };
       }
-      id = Number(db.prepare("INSERT INTO agent_groups (name, ad_group_dn) VALUES (?, ?)").run(name, dn).lastInsertRowid);
+      id = Number(db.prepare("INSERT INTO agent_groups (name, ad_group_dn, saml_group) VALUES (?, ?, ?)").run(name, dn, saml).lastInsertRowid);
     } else {
-      const r = db.prepare("UPDATE agent_groups SET name = ?, ad_group_dn = ? WHERE id = ?").run(name, dn, id);
+      const r = db.prepare("UPDATE agent_groups SET name = ?, ad_group_dn = ?, saml_group = ? WHERE id = ?").run(name, dn, saml, id);
       if (Number(r.changes) === 0) {
         db.exec("ROLLBACK");
         return { ok: false, error: "err.groupNotFound" };

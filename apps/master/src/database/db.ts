@@ -36,12 +36,19 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS agent_groups (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
-  ad_group_dn TEXT NOT NULL
+  ad_group_dn TEXT NOT NULL,
+  saml_group TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS agent_group_members (
   group_id INTEGER NOT NULL REFERENCES agent_groups(id) ON DELETE CASCADE,
   agent_id INTEGER NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
   PRIMARY KEY (group_id, agent_id)
+);
+CREATE TABLE IF NOT EXISTS saml_cache (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
@@ -62,6 +69,10 @@ export function openDb(path: string): DatabaseSync {
   if (!cols.includes("access")) {
     // Sessions created before agent groups existed carry no scope; drop them.
     db.exec("DELETE FROM sessions; ALTER TABLE sessions ADD COLUMN access TEXT; ALTER TABLE sessions ADD COLUMN group_ids TEXT;");
+  }
+  const groupCols = (db.prepare("PRAGMA table_info(agent_groups)").all() as { name: string }[]).map((c) => c.name);
+  if (!groupCols.includes("saml_group")) {
+    db.exec("ALTER TABLE agent_groups ADD COLUMN saml_group TEXT NOT NULL DEFAULT ''");
   }
   return db;
 }

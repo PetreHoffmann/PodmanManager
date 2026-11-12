@@ -3,12 +3,15 @@ import ActionForm from "@/components/ActionForm";
 import { loginAction } from "@/app/actions";
 import LangSelect from "@/components/LangSelect";
 import { getT } from "@/lib/lang";
+import { loadSamlConfig, samlReady } from "@/lib/saml-config";
 import { adminExists } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ sso?: string }> }) {
   const t = await getT();
+  const { sso } = await searchParams;
+  const saml = samlReady(loadSamlConfig());
   if (!adminExists()) redirect("/setup");
   return (
     <div className="mx-auto mt-24 max-w-sm px-4">
@@ -22,6 +25,15 @@ export default async function Page() {
         
         <button className="btn btn-primary w-full justify-center">{t("auth.signIn")}</button>
       </ActionForm>
+      {sso === "failed" && <p role="alert" className="mt-3 text-sm text-red-400">{t("msg.ssoFailed")}</p>}
+      {sso === "denied" && <p role="alert" className="mt-3 text-sm text-amber-300">{t("msg.ssoDenied")}</p>}
+      {saml && (
+        <div className="mt-4 space-y-3">
+          <p className="text-center text-xs text-slate-500">{t("auth.or")}</p>
+          {/* a plain link: the browser must follow the redirect to the identity provider */}
+          <a href="/saml/login" className="btn w-full justify-center">{t("auth.ssoSignIn")}</a>
+        </div>
+      )}
     </div>
   );
 }

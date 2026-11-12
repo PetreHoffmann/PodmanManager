@@ -9,6 +9,7 @@ export interface GroupData {
   id?: number;
   name: string;
   adGroupDn: string;
+  samlGroup: string;
   agentIds: number[];
 }
 
@@ -24,7 +25,11 @@ export default function GroupEditor({ group, agents }: { group: GroupData; agent
           <input name="name" defaultValue={group.name} required maxLength={64} className="input mt-1" />
         </label>
         <label className="block text-sm">{t("groups.adDn")}
-          <input name="adGroupDn" defaultValue={group.adGroupDn} required maxLength={512} placeholder="CN=Team-A,OU=Groups,DC=example,DC=com" className="input mt-1" />
+          <input name="adGroupDn" defaultValue={group.adGroupDn} maxLength={512} placeholder="CN=Team-A,OU=Groups,DC=example,DC=com" className="input mt-1" />
+        </label>
+        <label className="block text-sm sm:col-span-2">{t("groups.samlGroup")}
+          <input name="samlGroup" defaultValue={group.samlGroup} maxLength={256} placeholder="CORP\Team-A" className="input mt-1" />
+          <span className="text-xs text-slate-500">{t("groups.samlHint")}</span>
         </label>
       </div>
       <fieldset>
