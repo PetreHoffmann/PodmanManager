@@ -26,6 +26,7 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 | POST | `/pods/:id/stop` | Pod stoppen (Timeout fest 10 s) |
 | POST | `/pods/:id/restart` | Pod neustarten |
 | GET | `/system/storage` | vom Podman-Speicher belegter Platz (Images, Container, Volumes), 60 s im Agent zwischengespeichert |
+| GET / POST | `/system/update` | Selbst-Update: GET liefert `{possible, reason?, image, tag, state}`, POST (202) zieht das eigene Image neu und beendet den Prozess, damit systemd den Container aus dem neuen Image neu erstellt; 409 `UPDATE_NOT_POSSIBLE` mit Grund (`pinned_tag`, `not_systemd`, `no_container`, `inspect_failed`) |
 | GET | `/agent/logs?tail=<n>` | letzte `n` eigene Log-Zeilen des Agents (1–500, Standard 150), nur lesend |
 
 Andere Pfade → `404`, falsche Methode → `405`.

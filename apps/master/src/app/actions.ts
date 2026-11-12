@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
+import { agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
 import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
 import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
@@ -433,4 +433,34 @@ export async function samlImportAction(_: FormState, fd: FormData): Promise<Form
   saveSamlConfig(merged);
   revalidatePath("/settings");
   return { ok: true, message: t("msg.samlImported", { entity: m.data.entityId, n: String(m.data.certs.length) }) };
+}
+
+const UPDATE_REASONS: Record<string, Key> = {
+  pinned_tag: "update.reason.pinned_tag",
+  not_systemd: "update.reason.not_systemd",
+  no_container: "update.reason.no_container",
+  inspect_failed: "update.reason.inspect_failed",
+};
+
+/** Ask an outdated agent to pull its image and restart itself. Admins only. */
+export async function agentUpdateAction(agentId: number): Promise<{ ok: boolean; message: string }> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  if (!a) return { ok: false, message: t("msg.unknownHost") };
+  if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
+  const tg = targetFor(agentId);
+  if (!tg) return { ok: false, message: t("msg.noCreds") };
+  const r = await agentUpdateStart(tg);
+  if (!r.ok) {
+    if (r.code === "NOT_FOUND") return { ok: false, message: t("update.tooOld") };
+    if (r.code === "UPDATE_NOT_POSSIBLE") {
+      const k = UPDATE_REASONS[r.message];
+      return { ok: false, message: k ? t(k) : errText(t, r.code, r.message) };
+    }
+    return { ok: false, message: errText(t, r.code, r.message) };
+  }
+  revalidatePath("/hosts");
+  return { ok: true, message: t("update.started") };
 }

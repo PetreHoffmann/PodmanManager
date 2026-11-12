@@ -1,3 +1,6 @@
+import AgentUpdate from "@/components/AgentUpdate";
+import { compareSemver } from "@/lib/update-check";
+import { getVersion } from "@/lib/version";
 import { Suspense } from "react";
 import HostStorage from "@/components/HostStorage";
 import ActionForm from "@/components/ActionForm";
@@ -19,6 +22,8 @@ export default async function Hosts() {
   const session = await requireAuth();
   const t = await getT();
   const canManage = session.access === "all";
+  const masterVersion = getVersion();
+  const outdated = (v: string | null | undefined) => !!v && /^\d+\.\d+\.\d+/.test(v) && compareSemver(masterVersion, v) > 0;
   const hosts = await fetchAllContainers(undefined, allowedAgentIds(session), hiddenPatternsFor(session));
   return (
     <div className="space-y-6">
@@ -51,7 +56,7 @@ export default async function Hosts() {
                 </td>
                 <td className="td whitespace-nowrap text-xs" title={fmt(a.last_heartbeat)}>{fmtShort(a.last_heartbeat)}</td>
                 <td className="td text-xs">{a.podman_version ?? "—"}</td>
-                <td className="td font-mono text-xs">{a.agent_version ?? "—"}</td>
+                <td className="td font-mono text-xs">{a.agent_version ?? "—"}{outdated(a.agent_version) && <div className="mt-1 space-y-1 font-sans"><span className="rounded border border-amber-500/40 px-1.5 py-0.5 text-xs text-amber-300">{t("update.outdated")}</span>{canManage && a.enabled && a.status !== "offline" && <AgentUpdate id={a.id} />}</div>}</td>
                 <td className="td">{result.ok ? result.data.length : t("common.na")}</td>
                 <td className="td max-w-[15rem]">
                   {a.enabled && a.status !== "offline" ? <Suspense fallback={<span className="animate-pulse text-slate-500">…</span>}><HostStorage agentId={a.id} /></Suspense> : <span className="text-slate-500">—</span>}
@@ -77,6 +82,7 @@ export default async function Hosts() {
               <div className="text-xs text-slate-500">{t("hosts.storage")}: <Suspense fallback="…"><HostStorage agentId={a.id} compact /></Suspense></div>
             )}
             {a.enabled && a.last_error && a.status !== "online" && <div className="break-all text-xs text-slate-500">{lastErrText(t, a.last_error)}</div>}
+            {outdated(a.agent_version) && <div className="flex flex-wrap items-start gap-2 text-xs"><span className="text-amber-300">{t("update.outdated")}</span>{canManage && a.enabled && a.status !== "offline" && <AgentUpdate id={a.id} />}</div>}
             {canManage && <HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} />}
           </div>
         ))}

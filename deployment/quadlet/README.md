@@ -115,6 +115,12 @@ Der Update-Check im About-Dialog des Masters (und nur er) nutzt `https_proxy`, d
 sudo loginctl enable-linger $USER
 ```
 
+## Agent per Web-UI aktualisieren
+
+In der Host-Ansicht erscheint bei Agenten, die älter als der Master sind, das Label „veraltet“ und (nur für Admins) ein Button „Aktualisieren“. Der Agent zieht dann sein eigenes Image neu und beendet sich; systemd (`Restart=always`) erstellt den Container aus dem neuen Image.
+
+Voraussetzungen: Agent per Quadlet mit `Restart=always`, Image-Tag `:latest` (oder `X` / `X.Y`), nicht fest auf `X.Y.Z` gepinnt. Der Host-Podman muss Docker Hub erreichen (ggf. Proxy). Agenten bis 0.9.2 haben diese Funktion noch nicht und müssen einmalig manuell aktualisiert werden (`podman pull …:latest && systemctl --user restart podmanmanager-agent`).
+
 ## Hinweise
 
 - **cgroup v1** (`podman info --format '{{.Host.CgroupsVersion}}'` zeigt `v1`): Die Units scheitern mit Exit-Code 126 und `mkdir /sys/fs/cgroup/…: permission denied`. Abhilfe: `PodmanArgs=--cgroups=enabled` im `[Container]`-Abschnitt (siehe [deployment/README.md](../README.md#hosts-mit-cgroup-v1-quadlet)). Bestätigt auf einem echten Host mit Podman 4.9.4.
