@@ -24,11 +24,15 @@ export interface SamlConfig {
   groupClaim: string;
   /** group value (e.g. CORP\PodmanAdmins) whose members get access to all agents */
   adminGroup: string;
+  /** text of the SSO button on the login page; empty = default text in the user's language */
+  buttonLabel: string;
 }
+
+export const MAX_BUTTON_LABEL = 60;
 
 export const EMPTY_SAML: SamlConfig = {
   enabled: false, publicUrl: "", idpEntityId: "", idpSsoUrl: "", idpCert: "",
-  usernameClaim: DEFAULT_USERNAME_CLAIM, groupClaim: DEFAULT_GROUP_CLAIM, adminGroup: "",
+  usernameClaim: DEFAULT_USERNAME_CLAIM, groupClaim: DEFAULT_GROUP_CLAIM, adminGroup: "", buttonLabel: "",
 };
 
 export function loadSamlConfig(db: DatabaseSync = getDb()): SamlConfig | null {
@@ -41,7 +45,7 @@ export function loadSamlConfig(db: DatabaseSync = getDb()): SamlConfig | null {
       enabled: o.enabled === true,
       publicUrl: str(o.publicUrl), idpEntityId: str(o.idpEntityId), idpSsoUrl: str(o.idpSsoUrl), idpCert: str(o.idpCert),
       usernameClaim: typeof o.usernameClaim === "string" ? o.usernameClaim : DEFAULT_USERNAME_CLAIM,
-      groupClaim: str(o.groupClaim) || DEFAULT_GROUP_CLAIM, adminGroup: str(o.adminGroup),
+      groupClaim: str(o.groupClaim) || DEFAULT_GROUP_CLAIM, adminGroup: str(o.adminGroup), buttonLabel: normalizeButtonLabel(str(o.buttonLabel)),
     };
   } catch {
     return null;
@@ -109,9 +113,17 @@ function cleanUrl(input: string, opts: { httpsOnly: boolean; noPath?: boolean })
   return opts.noPath ? u.origin : u.toString();
 }
 
+// eslint-disable-next-line no-control-regex
+const CTRL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
+
+/** Whitespace collapsed, control characters removed; may be longer than allowed (the caller checks). */
+export function normalizeButtonLabel(s: string): string {
+  return s.replace(CTRL, " ").replace(/\s+/g, " ").trim();
+}
+
 const bounded = (s: string, max: number) => s.length <= max && !/[\u0000-\u001f\u007f]/.test(s);
 
-export type SamlParseError = "err.samlPublicUrl" | "err.samlSsoUrl" | "err.samlEntityId" | "err.samlCert" | "err.samlClaim" | "err.samlGroupValue";
+export type SamlParseError = "err.samlPublicUrl" | "err.samlSsoUrl" | "err.samlEntityId" | "err.samlCert" | "err.samlClaim" | "err.samlGroupValue" | "err.samlButtonLabel";
 export type SamlParseResult = { ok: true; config: SamlConfig } | { ok: false; error: SamlParseError };
 
 /** Validates form input. */
@@ -130,7 +142,9 @@ export function parseSamlInput(input: SamlConfig): SamlParseResult {
   if (!bounded(usernameClaim, 256) || !bounded(groupClaim, 256) || /\s/.test(usernameClaim) || /\s/.test(groupClaim)) return { ok: false, error: "err.samlClaim" };
   const adminGroup = input.adminGroup.trim();
   if (!bounded(adminGroup, 256)) return { ok: false, error: "err.samlGroupValue" };
-  const config: SamlConfig = { enabled: input.enabled, publicUrl, idpEntityId, idpSsoUrl, idpCert: certs.join("\n"), usernameClaim, groupClaim, adminGroup };
+  const buttonLabel = normalizeButtonLabel(input.buttonLabel);
+  if ([...buttonLabel].length > MAX_BUTTON_LABEL) return { ok: false, error: "err.samlButtonLabel" };
+  const config: SamlConfig = { enabled: input.enabled, publicUrl, idpEntityId, idpSsoUrl, idpCert: certs.join("\n"), usernameClaim, groupClaim, adminGroup, buttonLabel };
   if (config.enabled && !samlReady(config)) return { ok: false, error: !publicUrl ? "err.samlPublicUrl" : !idpSsoUrl ? "err.samlSsoUrl" : !idpEntityId ? "err.samlEntityId" : "err.samlCert" };
   return { ok: true, config };
 }

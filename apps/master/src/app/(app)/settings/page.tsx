@@ -10,7 +10,7 @@ import LogoInput from "@/components/LogoInput";
 import { listAgents } from "@/lib/agents";
 import { groupNames, listGroups } from "@/lib/groups";
 import { loadHiddenPatterns } from "@/lib/hidden";
-import { EMPTY_SAML, loadSamlConfig, spAcsUrl, spEntityId, spMetadataUrl } from "@/lib/saml-config";
+import { EMPTY_SAML, MAX_BUTTON_LABEL, loadSamlConfig, spAcsUrl, spEntityId, spMetadataUrl } from "@/lib/saml-config";
 import { MAX_LOGO_BYTES, MAX_TEXT_CHARS, loadBranding } from "@/lib/branding";
 import { requireAuth } from "@/lib/session";
 
@@ -98,6 +98,10 @@ export default async function Settings() {
             <ActionForm key={`${saml.idpEntityId}|${saml.idpSsoUrl}|${saml.idpCert.length}`} action={samlAction} className="space-y-3">
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" name="samlEnabled" defaultChecked={saml.enabled} /> {t("saml.enabled")}
+              </label>
+              <label className="block text-sm">{t("saml.buttonLabel")}
+                <input name="buttonLabel" defaultValue={saml.buttonLabel} maxLength={MAX_BUTTON_LABEL} placeholder={t("auth.ssoSignIn")} autoComplete="off" className="input mt-1" />
+                <span className="text-xs text-slate-500">{t("saml.buttonHint")}</span>
               </label>
               <label className="block text-sm">{t("saml.publicUrl")}
                 <input name="publicUrl" defaultValue={saml.publicUrl} placeholder="https://master.example.com" className="input mt-1" />

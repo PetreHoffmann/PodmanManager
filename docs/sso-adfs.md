@@ -68,8 +68,9 @@ Unter *Einstellungen → SSO (SAML 2.0 / ADFS)* (als lokaler `admin`):
    (oder den XML-Inhalt einfügen), dann *Importieren*. Das füllt **Entity-ID**, **Anmeldeadresse** und das **Tokensignaturzertifikat**. Hat der Master das ADFS-Zertifikat der Webseite nicht im Vertrauensspeicher (Firmen-CA), siehe `NODE_EXTRA_CA_CERTS` in der [Master-Installation](installation-master.md); oder die XML-Datei einfügen.
 2. **Öffentliche Adresse des Masters** eintragen (`https://master.example.com`, ohne Pfad).
 3. **Administrator-Gruppe** eintragen, z. B. `CORP\PodmanAdmins` (leer lassen, wenn es keine SSO-Administratoren geben soll).
-4. Claim-Namen nur ändern, wenn Ihre Regeln andere Typen senden.
-5. **Prüfen** zeigt Zertifikat (Ablaufdatum), die Werte für ADFS und Hinweise (z. B. wenn die Adresse http statt https nutzt). Dann **SSO aktivieren** und **Speichern**.
+4. Optional die **Beschriftung des SSO-Knopfs** anpassen (bis 60 Zeichen, gilt für alle Sprachen), z. B. „Mit PBeaKK-Konto anmelden“. Leer lassen = Standardtext „Mit SSO anmelden“ (in der jeweiligen Sprache).
+5. Claim-Namen nur ändern, wenn Ihre Regeln andere Typen senden.
+6. **Prüfen** zeigt Zertifikat (Ablaufdatum), die Werte für ADFS und Hinweise (z. B. wenn die Adresse http statt https nutzt). Dann **SSO aktivieren** und **Speichern**.
 
 ## Schritt 4: Agent-Gruppen zuordnen
 
