@@ -15,6 +15,19 @@ Der Browser spricht nur mit dem Master. Der Master fragt Agents serverseitig ab;
 - **Container:** Werden bei jedem Seitenaufruf live von den Agents geladen. Die DB ist dafür nicht maßgeblich. Nicht abfragbare Hosts werden separat ausgewiesen, nie als „0 Container".
 - **Aktionen:** UI → Server Action (Login geprüft) → Agent `POST /containers/:id/{start|stop|restart}` → Podman. Danach liefert der Agent den frischen Containerzustand zurück.
 
+## Anmeldung
+Der Master kennt drei Arten, sich anzumelden. Welche verfügbar sind, legt der lokale `admin` in den Einstellungen fest:
+
+| Art | Zugangsdaten | Wer pflegt Benutzer und Gruppen |
+|---|---|---|
+| **Lokal** | Konto `admin` (Notzugang, immer vorhanden), Passwort in der Datenbank (gehasht) | Master |
+| **LDAP / Active Directory** (optional) | Benutzername und Passwort, gegen das Verzeichnis geprüft | Verzeichnis (Gruppen → Agent-Gruppen) |
+| **SSO per SAML 2.0 mit ADFS** (optional) | Button auf der Anmeldeseite; die Anmeldung erfolgt beim Identitätsanbieter, der Master bekommt eine **signierte Assertion** mit Benutzername und Gruppen | ADFS / Active Directory (Gruppen-Claim → Agent-Gruppen) |
+
+Ablauf bei SSO: `/saml/login` legt eine einmalige Anfrage an und leitet zu ADFS weiter → ADFS authentifiziert den Benutzer (bei Domänen-Rechnern meist ohne Eingabe) → der Browser schickt die Antwort per POST an `/saml/acs` → der Master prüft Signatur, Aussteller, Empfänger und Zeitfenster, verbraucht die Anfrage (keine Wiederverwendung) und liest Benutzername und Gruppen → Sitzung. `/saml/metadata` liefert die Master-Seite für die ADFS-Einrichtung. Einrichtung, Claims und Fehlersuche: [SSO mit SAML 2.0 und ADFS](sso-adfs.md).
+
+Nach der Anmeldung sind alle Arten gleich: Die Sitzung (Cookie, 8 Stunden) hat `access = all` (lokaler `admin`, Mitglieder der Administratoren-Gruppe) oder `access = groups` (nur die Agents der zugeordneten Gruppen; Mitglieder ohne Gruppe werden abgewiesen). Der Zugriffsbereich wird serverseitig bei jeder Seite und jeder Aktion geprüft. Einstellungen, Host-Verwaltung, Logs, Updates und das Löschen von Images sind nur mit `access = all` möglich; die Einstellungen (Passwort, LDAP, SSO, Gruppen, Branding) zusätzlich nur für den lokalen `admin`. SSO meldet beim Abmelden nur die Master-Sitzung ab (kein Single Logout).
+
 ## Host-Status
 `unknown` (noch nicht geprüft) · `online` · `degraded` (Agent erreichbar, Podman-Socket/API defekt) · `offline` · `disabled` (kein Zugriff, keine Aktionen).
 
