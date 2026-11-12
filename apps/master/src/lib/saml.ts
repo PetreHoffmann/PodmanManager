@@ -6,7 +6,7 @@ import type { MappedSamlGroup } from "./saml-access";
 /** Tolerated difference between the clocks of ADFS and this master. */
 export const CLOCK_SKEW_MS = 120_000;
 
-/** SAML client configured for ADFS: assertion must be signed, requests are single use, assertions cannot be replayed. */
+/** SAML client (ADFS, Entra ID, Okta, Keycloak, ...): assertion must be signed, requests are single use, assertions cannot be replayed. */
 export function createSaml(cfg: SamlConfig, cache: CacheProvider = new DbCacheProvider(), opts: { forceAuthn?: boolean } = {}): SAML {
   return new SAML({
     callbackUrl: spAcsUrl(cfg),
@@ -15,10 +15,11 @@ export function createSaml(cfg: SamlConfig, cache: CacheProvider = new DbCachePr
     entryPoint: cfg.idpSsoUrl,
     idpCert: splitCerts(cfg.idpCert),
     idpIssuer: cfg.idpEntityId,
-    // ADFS rejects a NameID policy it cannot satisfy and a requested authentication context (Kerberos/WIA logins).
-    identifierFormat: null,
+    // ADFS rejects a NameID policy it cannot satisfy and a requested authentication context (Kerberos/WIA logins);
+    // other providers can be asked for a format explicitly (settings).
+    identifierFormat: cfg.nameIdFormat || null,
     disableRequestedAuthnContext: true,
-    // ADFS signs the assertion by default; the response itself only if configured.
+    // The assertion must be signed (ADFS and Okta do by default; Keycloak: enable "Sign assertions"); the response itself need not be.
     wantAssertionsSigned: true,
     wantAuthnResponseSigned: false,
     validateInResponseTo: ValidateInResponseTo.always,
@@ -53,14 +54,14 @@ const STATUS_PREFIX = "urn:oasis:names:tc:SAML:2.0:status:";
 
 const STATUS_HINTS: Record<string, string> = {
   RequestDenied:
-    "ADFS refused the request and does not say why. Typical causes on the ADFS side: the access control policy / issuance authorization rules of the relying party trust do not permit this user, " +
-    "or the trust's identifier or endpoint does not match what this master sends (see below). The reason is in ADFS: Event Viewer > Applications and Services Logs > AD FS > Admin",
-  AuthnFailed: "the user could not be authenticated at ADFS",
-  NoPassive: "ADFS cannot sign in without user interaction",
-  InvalidNameIDPolicy: "ADFS does not support the requested NameID policy",
-  UnsupportedBinding: "ADFS does not support the requested binding",
-  RequestUnsupported: "ADFS does not support this kind of request",
-  RequestVersionTooLow: "ADFS does not support this SAML version",
+    "The identity provider refused the request and does not say why. Typical causes on its side: the access control policy / authorization rules of the relying party trust or application do not permit this user, " +
+    "or the trust's identifier or endpoint does not match what this master sends (see below). The reason is in the provider's own log (ADFS: Event Viewer > Applications and Services Logs > AD FS > Admin; Entra ID: sign-in logs; Okta: System Log; Keycloak: Events)",
+  AuthnFailed: "the user could not be authenticated at the identity provider",
+  NoPassive: "the identity provider cannot sign in without user interaction",
+  InvalidNameIDPolicy: "the identity provider does not support the requested NameID format (change or clear it in the SSO settings)",
+  UnsupportedBinding: "the identity provider does not support the requested binding",
+  RequestUnsupported: "the identity provider does not support this kind of request",
+  RequestVersionTooLow: "the identity provider does not support this SAML version",
 };
 
 /** A failure status of the identity provider, with what this master sent so it can be compared with the relying party trust. */
@@ -70,7 +71,7 @@ export function describeStatusError(e: SamlStatusError, cfg: Pick<SamlConfig, "p
   const detail = /<StatusDetail>([\s\S]*?)<\/StatusDetail>/.exec(e.xmlStatus)?.[1]?.replace(/<[^>]+>/g, " ").trim();
   const hint = codes.map((c) => STATUS_HINTS[c]).find((h) => h !== undefined);
   return (
-    `ADFS answered with an error: ${codes.join(" > ") || "unknown status"}${message ? `; message: ${message}` : ""}${detail ? `; detail: ${detail}` : ""}` +
+    `The identity provider answered with an error: ${codes.join(" > ") || "unknown status"}${message ? `; message: ${message}` : ""}${detail ? `; detail: ${detail}` : ""}` +
       `${hint ? `. ${hint}` : ""}. This master sent: identifier ${spEntityId(cfg)}, sign-in endpoint ${spAcsUrl(cfg)}`
   ).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 800);
 }
@@ -116,9 +117,9 @@ export async function completeLogin(cfg: SamlConfig, samlResponse: string, cache
   return { ok: true, username, groups: claimValues(profile, cfg.groupClaim).map(clean) };
 }
 
-/** Service provider metadata for the ADFS relying party trust. */
+/** Service provider metadata for the identity provider (ADFS relying party trust, Entra/Okta/Keycloak application). */
 export function spMetadataXml(cfg: SamlConfig): string {
-  return generateServiceProviderMetadata({ issuer: spEntityId(cfg), callbackUrl: spAcsUrl(cfg), wantAssertionsSigned: true, identifierFormat: null });
+  return generateServiceProviderMetadata({ issuer: spEntityId(cfg), callbackUrl: spAcsUrl(cfg), wantAssertionsSigned: true, identifierFormat: cfg.nameIdFormat || null });
 }
 
 export type { MappedSamlGroup };

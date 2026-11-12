@@ -4,9 +4,16 @@ import { getDb } from "../database/db";
 
 const KEY = "saml";
 
-/** Claim types ADFS uses by default. */
-export const DEFAULT_USERNAME_CLAIM = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn";
-export const DEFAULT_GROUP_CLAIM = "http://schemas.xmlsoap.org/claims/Group";
+import { DEFAULT_GROUP_CLAIM, DEFAULT_USERNAME_CLAIM } from "./saml-presets";
+export { DEFAULT_GROUP_CLAIM, DEFAULT_USERNAME_CLAIM };
+
+/** NameID formats a provider may be asked for; empty = no format requested (what ADFS needs for Windows sign-in). */
+export const NAMEID_FORMATS = [
+  "",
+  "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified",
+  "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+  "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",
+] as const;
 
 export interface SamlConfig {
   enabled: boolean;
@@ -26,13 +33,15 @@ export interface SamlConfig {
   adminGroup: string;
   /** text of the SSO button on the login page; empty = default text in the user's language */
   buttonLabel: string;
+  /** NameID format to request (one of NAMEID_FORMATS); empty = none */
+  nameIdFormat: string;
 }
 
 export const MAX_BUTTON_LABEL = 60;
 
 export const EMPTY_SAML: SamlConfig = {
   enabled: false, publicUrl: "", idpEntityId: "", idpSsoUrl: "", idpCert: "",
-  usernameClaim: DEFAULT_USERNAME_CLAIM, groupClaim: DEFAULT_GROUP_CLAIM, adminGroup: "", buttonLabel: "",
+  usernameClaim: DEFAULT_USERNAME_CLAIM, groupClaim: DEFAULT_GROUP_CLAIM, adminGroup: "", buttonLabel: "", nameIdFormat: "",
 };
 
 export function loadSamlConfig(db: DatabaseSync = getDb()): SamlConfig | null {
@@ -46,6 +55,7 @@ export function loadSamlConfig(db: DatabaseSync = getDb()): SamlConfig | null {
       publicUrl: str(o.publicUrl), idpEntityId: str(o.idpEntityId), idpSsoUrl: str(o.idpSsoUrl), idpCert: str(o.idpCert),
       usernameClaim: typeof o.usernameClaim === "string" ? o.usernameClaim : DEFAULT_USERNAME_CLAIM,
       groupClaim: str(o.groupClaim) || DEFAULT_GROUP_CLAIM, adminGroup: str(o.adminGroup), buttonLabel: normalizeButtonLabel(str(o.buttonLabel)),
+      nameIdFormat: (NAMEID_FORMATS as readonly string[]).includes(str(o.nameIdFormat)) ? str(o.nameIdFormat) : "",
     };
   } catch {
     return null;
@@ -123,7 +133,7 @@ export function normalizeButtonLabel(s: string): string {
 
 const bounded = (s: string, max: number) => s.length <= max && !/[\u0000-\u001f\u007f]/.test(s);
 
-export type SamlParseError = "err.samlPublicUrl" | "err.samlSsoUrl" | "err.samlEntityId" | "err.samlCert" | "err.samlClaim" | "err.samlGroupValue" | "err.samlButtonLabel";
+export type SamlParseError = "err.samlPublicUrl" | "err.samlSsoUrl" | "err.samlEntityId" | "err.samlCert" | "err.samlClaim" | "err.samlGroupValue" | "err.samlButtonLabel" | "err.samlNameId";
 export type SamlParseResult = { ok: true; config: SamlConfig } | { ok: false; error: SamlParseError };
 
 /** Validates form input. */
@@ -144,7 +154,9 @@ export function parseSamlInput(input: SamlConfig): SamlParseResult {
   if (!bounded(adminGroup, 256)) return { ok: false, error: "err.samlGroupValue" };
   const buttonLabel = normalizeButtonLabel(input.buttonLabel);
   if ([...buttonLabel].length > MAX_BUTTON_LABEL) return { ok: false, error: "err.samlButtonLabel" };
-  const config: SamlConfig = { enabled: input.enabled, publicUrl, idpEntityId, idpSsoUrl, idpCert: certs.join("\n"), usernameClaim, groupClaim, adminGroup, buttonLabel };
+  const nameIdFormat = (input.nameIdFormat ?? "").trim();
+  if (!(NAMEID_FORMATS as readonly string[]).includes(nameIdFormat)) return { ok: false, error: "err.samlNameId" };
+  const config: SamlConfig = { enabled: input.enabled, publicUrl, idpEntityId, idpSsoUrl, idpCert: certs.join("\n"), usernameClaim, groupClaim, adminGroup, buttonLabel, nameIdFormat };
   if (config.enabled && !samlReady(config)) return { ok: false, error: !publicUrl ? "err.samlPublicUrl" : !idpSsoUrl ? "err.samlSsoUrl" : !idpEntityId ? "err.samlEntityId" : "err.samlCert" };
   return { ok: true, config };
 }
