@@ -116,6 +116,14 @@ describe("SAML response validation (ADFS-shaped, signed assertion)", () => {
     const xml = (await import("node:zlib")).inflateRawSync(Buffer.from(url.searchParams.get("SAMLRequest")!, "base64")).toString("utf8");
     assert.ok(xml.includes(`AssertionConsumerServiceURL="${spAcsUrl(cfg)}"`));
     assert.ok(!/NameIDPolicy[^>]*Format=/.test(xml) && !xml.includes("RequestedAuthnContext"), xml);
+    assert.ok(!xml.includes("ForceAuthn"), "a normal login lets the identity provider reuse its session");
+  });
+
+  it("after a logout the login request carries ForceAuthn=\"true\" (the identity provider must ask for credentials again)", async () => {
+    const url = new URL(await startLogin(cfg, "n./x", new DbCacheProvider(openDb(":memory:")), { forceAuthn: true }));
+    const xml = (await import("node:zlib")).inflateRawSync(Buffer.from(url.searchParams.get("SAMLRequest")!, "base64")).toString("utf8");
+    assert.ok(/ForceAuthn="true"/.test(xml), xml);
+    assert.ok(!/NameIDPolicy[^>]*Format=/.test(xml) && !xml.includes("RequestedAuthnContext"), "still no NameID format / authn context (ADFS)");
   });
 });
 

@@ -3,6 +3,8 @@ import { safeNext } from "./saml-access";
 
 /** Name of the cookie that ties the response to the browser that started the login. */
 export const NONCE_COOKIE = "pm_saml_nonce";
+/** Set when a SAML user logs out: the next SSO login makes the identity provider ask for credentials again (ForceAuthn). */
+export const REAUTH_COOKIE = "pm_saml_reauth";
 /** RelayState is limited to 80 bytes by the SAML specification: 22 characters nonce + "." + path. */
 export const MAX_NEXT = 40;
 

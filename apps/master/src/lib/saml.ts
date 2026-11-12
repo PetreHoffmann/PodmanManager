@@ -7,7 +7,7 @@ import type { MappedSamlGroup } from "./saml-access";
 export const CLOCK_SKEW_MS = 120_000;
 
 /** SAML client configured for ADFS: assertion must be signed, requests are single use, assertions cannot be replayed. */
-export function createSaml(cfg: SamlConfig, cache: CacheProvider = new DbCacheProvider()): SAML {
+export function createSaml(cfg: SamlConfig, cache: CacheProvider = new DbCacheProvider(), opts: { forceAuthn?: boolean } = {}): SAML {
   return new SAML({
     callbackUrl: spAcsUrl(cfg),
     issuer: spEntityId(cfg),
@@ -26,12 +26,14 @@ export function createSaml(cfg: SamlConfig, cache: CacheProvider = new DbCachePr
     rejectReplayedAssertions: true,
     cacheProvider: cache,
     acceptedClockSkewMs: CLOCK_SKEW_MS,
+    // after a logout in this master: the identity provider must authenticate the user again instead of reusing its session
+    forceAuthn: opts.forceAuthn === true,
   });
 }
 
 /** Address to send the browser to (HTTP-Redirect binding); `relayState` comes back unchanged with the response. */
-export async function startLogin(cfg: SamlConfig, relayState: string, cache?: CacheProvider): Promise<string> {
-  return createSaml(cfg, cache).getAuthorizeUrlAsync(relayState, undefined, {});
+export async function startLogin(cfg: SamlConfig, relayState: string, cache?: CacheProvider, opts: { forceAuthn?: boolean } = {}): Promise<string> {
+  return createSaml(cfg, cache, opts).getAuthorizeUrlAsync(relayState, undefined, {});
 }
 
 export type SamlLoginResult = { ok: true; username: string; groups: string[] } | { ok: false; reason: string };

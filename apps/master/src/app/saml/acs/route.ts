@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { listGroups } from "@/lib/groups";
 import { resolveSamlAccess, safeNext } from "@/lib/saml-access";
 import { loadSamlConfig, samlReady } from "@/lib/saml-config";
-import { NONCE_COOKIE, htmlRedirect } from "@/lib/saml-http";
+import { NONCE_COOKIE, REAUTH_COOKIE, htmlRedirect } from "@/lib/saml-http";
 import { completeLogin } from "@/lib/saml";
 import { adminExists, startSession } from "@/lib/session";
 
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
     console.warn(`saml login denied: ${r.username}: no matching group (received: ${r.groups.slice(0, 20).join(", ").slice(0, 300) || "none"})`);
     return htmlRedirect("/login?sso=denied");
   }
+  jar.delete({ name: REAUTH_COOKIE, path: "/saml" }); // the identity provider has authenticated the user again
   await startSession({ username: r.username, kind: "saml", access: access.admin ? "all" : "groups", groupIds: access.groupIds });
   return htmlRedirect(next);
 }

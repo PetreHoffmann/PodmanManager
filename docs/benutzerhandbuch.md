@@ -61,7 +61,7 @@ Gut zu wissen:
 
 Öffnen Sie **Einstellungen** und klicken Sie unten auf **Abmelden**. Das sollten Sie tun, wenn Sie einen Rechner mit anderen teilen.
 
-**Hinweis bei SSO:** Das Abmelden beendet nur Ihre Sitzung in PodmanManager. Ihre Anmeldung im Firmennetz bleibt bestehen. Ein Klick auf **Mit SSO anmelden** meldet Sie deshalb **ohne Passwort wieder an**. Auf einem fremden oder gemeinsam genutzten Rechner melden Sie sich daher zusätzlich vom Firmennetz bzw. Ihrem Windows-Konto ab und schließen den Browser.
+**Hinweis bei SSO:** Das Abmelden beendet Ihre Sitzung in PodmanManager; Ihre Anmeldung im Firmennetz bleibt bestehen. Nach dem Abmelden verlangt PodmanManager beim nächsten Klick auf **Mit SSO anmelden**, dass Sie sich **erneut anmelden** (Benutzername und Passwort). Haben Sie einen Firmenrechner mit automatischer Windows-Anmeldung, kann das ohne Eingabe gehen, weil Ihr Windows-Konto die Anmeldung übernimmt. Auf einem fremden oder gemeinsam genutzten Rechner melden Sie sich daher zusätzlich vom Windows-Konto bzw. Firmennetz ab und schließen den Browser.
 
 ## 3. Die Oberfläche im Überblick
 

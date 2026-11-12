@@ -19,9 +19,10 @@ import { loadIdpMetadata } from "@/lib/saml-metadata";
 import { LdapError, authenticateLdap, testLdap, type MappedGroup } from "@/lib/ldap";
 import { allowedAgentIds, deleteGroup, listGroups, mayAccessAgent, saveGroup } from "@/lib/groups";
 import {
-  LOCAL_ADMIN, LOCAL_SESSION, adminExists, checkAdminPassword, endSession, loginBlocked, recordLoginFailure,
+  COOKIE, LOCAL_ADMIN, LOCAL_SESSION, adminExists, checkAdminPassword, endSession, getSession, loginBlocked, recordLoginFailure,
   requireAuth, setAdminPassword, startSession,
 } from "@/lib/session";
+import { REAUTH_COOKIE } from "@/lib/saml-http";
 import { fmtBytes } from "@/components/ui";
 import { isAction, CONTAINER_ID_RE } from "@/lib/validate";
 
@@ -78,7 +79,11 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
 }
 
 export async function logoutAction(): Promise<void> {
+  const jar = await cookies();
+  const kind = getSession(jar.get(COOKIE)?.value)?.kind;
   await endSession();
+  // After an SSO logout the next SSO login must ask for credentials again (otherwise the identity provider logs the user straight back in)
+  if (kind === "saml") jar.set(REAUTH_COOKIE, "1", { httpOnly: true, sameSite: "lax", path: "/saml", maxAge: 30 * 24 * 3600 });
   redirect("/login");
 }
 
