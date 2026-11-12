@@ -27,7 +27,9 @@ describe("agent groups", () => {
     const { db } = setup();
     assert.deepEqual(saveGroup({ name: " ", adGroupDn: "CN=A", agentIds: [] }, db), { ok: false, error: "err.groupName" });
     assert.deepEqual(saveGroup({ name: "x".repeat(65), adGroupDn: "CN=A", agentIds: [] }, db), { ok: false, error: "err.groupName" });
-    assert.deepEqual(saveGroup({ name: "A", adGroupDn: "", agentIds: [] }, db), { ok: false, error: "err.groupDn" });
+    assert.deepEqual(saveGroup({ name: "A", adGroupDn: "", agentIds: [] }, db), { ok: false, error: "err.groupNeedOne" });
+    assert.deepEqual(saveGroup({ name: "A", adGroupDn: "x".repeat(513), agentIds: [] }, db), { ok: false, error: "err.groupDn" });
+    assert.deepEqual(saveGroup({ name: "A", adGroupDn: "", samlGroup: "CORP\\\u0000X", agentIds: [] }, db), { ok: false, error: "err.groupSaml" });
     assert.ok(saveGroup({ name: "A", adGroupDn: "CN=A", agentIds: [] }, db).ok);
     assert.deepEqual(saveGroup({ name: "a", adGroupDn: "CN=B", agentIds: [] }, db), { ok: false, error: "err.groupDup" });
     assert.deepEqual(saveGroup({ id: 999, name: "Z", adGroupDn: "CN=Z", agentIds: [] }, db), { ok: false, error: "err.groupNotFound" });

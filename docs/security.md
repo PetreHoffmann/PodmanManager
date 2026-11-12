@@ -35,6 +35,9 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Gruppen-IDs stehen in der Sitzung; welche Agents dazugehören, wird bei jedem Zugriff aus der Datenbank gelesen (Änderungen und Löschen wirken sofort). Unbekannte oder fehlende Zugriffswerte erweitern nie die Rechte.
 - Zusätzliche Laufzeit-Abhängigkeit: `ldapts` (reines TypeScript, nur im Master).
 
+**SSO (SAML 2.0 / ADFS, optional)**
+- Antworten werden nur mit **gültiger Signatur der Assertion** (konfiguriertes ADFS-Zertifikat), passendem Aussteller, Empfänger und Zeitfenster akzeptiert; jede Antwort gehört zu einer **einmaligen Anfrage** (8 Minuten) und lässt sich **nicht wiederverwenden**. Bei https bindet ein `SameSite=None`-Cookie die Antwort an den auslösenden Browser. Rechte wie bei LDAP (Administrator-Gruppe, Agent-Gruppen, sonst abgewiesen). Die SSO-Einstellungen sind nur für das lokale `admin`-Konto sichtbar. Details und Grenzen: [SSO mit SAML 2.0 und ADFS](sso-adfs.md#sicherheit).
+
 **Container-Logs**
 - Die Detailseite zeigt auf Knopfdruck die letzten 150 Zeilen. Der Abruf folgt denselben Regeln wie Container-Aktionen: Benutzer müssen den Agent sehen dürfen (Agent-Gruppen) und **versteckte Container sind gesperrt** (aktueller Name wird vor dem Abruf geprüft). Wer einen Container bedienen darf, darf also auch seine Logs lesen.
 - **Logs können Geheimnisse enthalten** (Passwörter in Debug-Ausgaben, Tokens, interne Adressen). Wer das nicht möchte, sollte den Container mit einem Muster verstecken oder die betroffenen Benutzer nicht in die Agent-Gruppe aufnehmen.

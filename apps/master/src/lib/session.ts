@@ -47,7 +47,7 @@ export function getSession(token: string | undefined, db: DatabaseSync = getDb()
   } catch {
     /* ignore */
   }
-  const kind = r.kind === "ldap" ? "ldap" : "local";
+  const kind = r.kind === "ldap" ? "ldap" : r.kind === "saml" ? "saml" : "local";
   // Unknown or missing access values never widen permissions: only local sessions default to "all".
   const access = r.access === "all" || (r.access === null && kind === "local") ? "all" : "groups";
   return { username: r.username, kind, access, groupIds };

@@ -14,6 +14,8 @@ import { loadLdapConfig, parseLdapInput, saveLdapConfig } from "@/lib/ldap-confi
 import { MAX_PATTERNS, hiddenPatternsFor, isHidden, isPodHidden, parsePatterns, saveHiddenPatterns } from "@/lib/hidden";
 import { checkForUpdate, type UpdateInfo } from "@/lib/update-check";
 import { getVersion } from "@/lib/version";
+import { EMPTY_SAML, certInfo, loadSamlConfig, parseSamlInput, saveSamlConfig, spAcsUrl, spEntityId, splitCerts, type SamlConfig } from "@/lib/saml-config";
+import { loadIdpMetadata } from "@/lib/saml-metadata";
 import { LdapError, authenticateLdap, testLdap, type MappedGroup } from "@/lib/ldap";
 import { allowedAgentIds, deleteGroup, listGroups, mayAccessAgent, saveGroup } from "@/lib/groups";
 import {
@@ -27,7 +29,7 @@ export type FormState = { ok: boolean; message: string } | null;
 const s = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? (fd.get(k) as string) : "");
 const MIN_PW = 10;
 
-const mappedGroups = (): MappedGroup[] => listGroups().map((g) => ({ id: g.id, name: g.name, dn: g.ad_group_dn }));
+const mappedGroups = (): MappedGroup[] => listGroups().filter((g) => g.ad_group_dn).map((g) => ({ id: g.id, name: g.name, dn: g.ad_group_dn }));
 
 export async function setLangAction(fd: FormData): Promise<void> {
   const l = s(fd, "lang");
@@ -232,7 +234,7 @@ export async function groupAction(_: FormState, fd: FormData): Promise<FormState
   }
 
   const agentIds = fd.getAll("agents").map((v) => Number(v)).filter((n) => Number.isInteger(n) && n > 0);
-  const r = saveGroup({ id, name: s(fd, "name"), adGroupDn: s(fd, "adGroupDn"), agentIds });
+  const r = saveGroup({ id, name: s(fd, "name"), adGroupDn: s(fd, "adGroupDn"), samlGroup: s(fd, "samlGroup"), agentIds });
   if (!r.ok) return { ok: false, message: t(r.error as Key) };
   revalidatePath("/settings");
   revalidatePath("/hosts");
@@ -377,4 +379,58 @@ export async function brandingAction(_: FormState, fd: FormData): Promise<FormSt
   saveText(normalizeText(s(fd, "text")));
   revalidatePath("/", "layout");
   return { ok: true, message: t("msg.brandSaved") };
+}
+
+const samlInput = (fd: FormData, enabled: boolean): SamlConfig => ({
+  enabled, publicUrl: s(fd, "publicUrl"), idpEntityId: s(fd, "idpEntityId"), idpSsoUrl: s(fd, "idpSsoUrl"), idpCert: s(fd, "idpCert"),
+  usernameClaim: s(fd, "usernameClaim"), groupClaim: s(fd, "groupClaim"), adminGroup: s(fd, "adminGroup"),
+});
+
+/** SSO (SAML 2.0 / ADFS) settings: save or check. Local administrator only. */
+export async function samlAction(_: FormState, fd: FormData): Promise<FormState> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+  const parsed = parseSamlInput(samlInput(fd, s(fd, "samlEnabled") === "on"));
+  if (!parsed.ok) return { ok: false, message: t(parsed.error as Key) };
+  const cfg = parsed.config;
+
+  const lines: { ok: boolean; text: string }[] = [];
+  if (cfg.publicUrl) {
+    lines.push({ ok: true, text: t("msg.samlCheckEndpoints", { entity: spEntityId(cfg), acs: spAcsUrl(cfg) }) });
+    if (cfg.publicUrl.startsWith("http://")) lines.push({ ok: false, text: t("msg.samlCheckHttp") });
+  }
+  for (const pem of splitCerts(cfg.idpCert)) {
+    const c = certInfo(pem);
+    if (c) lines.push({ ok: !c.expired, text: t(c.expired ? "msg.samlCheckCertExpired" : "msg.samlCheckCert", { subject: c.subject, date: c.validTo.toISOString().slice(0, 10) }) });
+  }
+  if (cfg.enabled && !cfg.adminGroup && listGroups().every((g) => !g.saml_group)) lines.push({ ok: false, text: t("msg.samlCheckNoGroups") });
+
+  if (s(fd, "intent") === "check") {
+    return { ok: lines.every((l) => l.ok), message: lines.map((l) => `${l.ok ? "✓" : "✗"} ${l.text}`).join("\n") || t("msg.samlCheckEmpty") };
+  }
+  saveSamlConfig(cfg);
+  revalidatePath("/settings");
+  revalidatePath("/login");
+  const warn = lines.filter((l) => !l.ok).map((l) => `✗ ${l.text}`);
+  return { ok: true, message: [t("msg.samlSaved"), ...warn].join("\n") };
+}
+
+/** Takes entity id, SSO address and signing certificates from IdP metadata (address or pasted XML). */
+export async function samlImportAction(_: FormState, fd: FormData): Promise<FormState> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+  const input = s(fd, "metadata").trim();
+  if (!input) return { ok: false, message: t("err.samlMetaParse") };
+  const m = await loadIdpMetadata(input);
+  if (!m.ok) return { ok: false, message: t(m.error as Key) };
+  const existing = loadSamlConfig() ?? EMPTY_SAML;
+  const parsed = parseSamlInput({ ...existing, idpEntityId: m.data.entityId, idpSsoUrl: m.data.ssoUrl, idpCert: m.data.certs.join("\n"), enabled: false });
+  if (!parsed.ok) return { ok: false, message: t(parsed.error as Key) };
+  // Stays switched off if it was off; a complete configuration keeps its state.
+  const merged = { ...parsed.config, enabled: existing.enabled };
+  saveSamlConfig(merged);
+  revalidatePath("/settings");
+  return { ok: true, message: t("msg.samlImported", { entity: m.data.entityId, n: String(m.data.certs.length) }) };
 }
