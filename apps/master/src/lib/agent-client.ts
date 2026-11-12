@@ -1,4 +1,4 @@
-import type { UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
+import type { ImageDeleteResult, ImageInfo, ImagePruneResult, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { CONTAINER_ID_RE } from "./validate";
 
@@ -12,7 +12,7 @@ export type CallResult<T> =
   | { ok: true; data: T }
   | { ok: false; code: string; message: string; unreachable: boolean };
 
-async function call<T>(t: AgentTarget, method: "GET" | "POST", path: string, timeoutSec: number): Promise<CallResult<T>> {
+async function call<T>(t: AgentTarget, method: "GET" | "POST" | "DELETE", path: string, timeoutSec: number): Promise<CallResult<T>> {
   try {
     const res = await fetch(`http://${t.address}:${t.port}${path}`, {
       method,
@@ -96,3 +96,10 @@ export const agentStorage = (t: AgentTarget) => call<StorageInfo>(t, "GET", "/ap
 export const agentUpdateStart = (t: AgentTarget) => call<UpdateInfo>(t, "POST", "/api/v1/system/update", 20);
 export const agentPeerInfo = (t: AgentTarget) => call<UpdateInfo>(t, "GET", "/api/v1/system/update-peer", 15);
 export const agentPeerStart = (t: AgentTarget) => call<UpdateInfo>(t, "POST", "/api/v1/system/update-peer", 20);
+
+export const agentImages = (t: AgentTarget) => call<ImageInfo[]>(t, "GET", "/api/v1/images", 40);
+export function agentImageDelete(t: AgentTarget, id: string, tag: string | null) {
+  if (!CONTAINER_ID_RE.test(id)) return Promise.resolve<CallResult<ImageDeleteResult>>({ ok: false, code: "INVALID_ID", message: "Invalid image id", unreachable: false });
+  return call<ImageDeleteResult>(t, "DELETE", `/api/v1/images/${id}${tag ? `?tag=${encodeURIComponent(tag)}` : ""}`, 60);
+}
+export const agentImagePrune = (t: AgentTarget) => call<ImagePruneResult>(t, "POST", "/api/v1/images/prune", 130);

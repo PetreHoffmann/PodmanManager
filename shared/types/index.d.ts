@@ -119,3 +119,26 @@ export interface UpdateInfo {
   state: UpdateState;
   message?: string;
 }
+
+export interface ImageInfo {
+  id: string;
+  /** repository:tag names; empty for a dangling image */
+  tags: string[];
+  size: number;
+  createdAt: string | null;
+  /** containers (running or not) that use the image */
+  containers: number;
+  dangling: boolean;
+  /** the agent's own image and the image of the unit it may update cannot be deleted */
+  protected: boolean;
+}
+
+export interface ImageDeleteResult {
+  /** "removed": the image is gone; "untagged": only the given tag was removed */
+  result: "removed" | "untagged";
+}
+
+export interface ImagePruneResult {
+  removed: number;
+  reclaimed: number;
+}

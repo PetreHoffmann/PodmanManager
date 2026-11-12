@@ -41,7 +41,10 @@ try {
 
 const client = new PodmanClient(cfg.podmanSocket, cfg.podmanTimeoutMs);
 const podman = new PodmanService(client, cfg.stopTimeoutSec);
-const server = createAgentServer(cfg, podman, log, logs, new SelfUpdater(podman, { log }), cfg.updateUnit ? new PeerUpdater(podman, cfg.updateUnit, { log }) : undefined);
+const selfUpdater = new SelfUpdater(podman, { log });
+const peerUpdater = cfg.updateUnit ? new PeerUpdater(podman, cfg.updateUnit, { log }) : undefined;
+podman.imageGuard = async () => (await Promise.all([selfUpdater.ownImageId(), peerUpdater?.targetImageId() ?? null])).filter((x): x is string => !!x);
+const server = createAgentServer(cfg, podman, log, logs, selfUpdater, peerUpdater);
 
 server.listen(cfg.port, cfg.host, () => {
   log.info(`agent ${cfg.agentId} v${AGENT_VERSION} listening on http://${cfg.host}:${cfg.port}`);

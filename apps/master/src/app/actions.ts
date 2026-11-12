@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentPeerInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
+import { agentImageDelete, agentImagePrune, agentPeerInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
 import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
 import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
@@ -22,6 +22,7 @@ import {
   LOCAL_ADMIN, LOCAL_SESSION, adminExists, checkAdminPassword, endSession, loginBlocked, recordLoginFailure,
   requireAuth, setAdminPassword, startSession,
 } from "@/lib/session";
+import { fmtBytes } from "@/components/ui";
 import { isAction, CONTAINER_ID_RE } from "@/lib/validate";
 
 export type FormState = { ok: boolean; message: string } | null;
@@ -500,4 +501,43 @@ export async function masterUpdateStartAction(agentId: number): Promise<{ ok: bo
     return { ok: false, message: errText(t, r.code, r.message) };
   }
   return { ok: true, message: t("mupdate.started") };
+}
+
+const IMAGE_TAG_RE = /^[A-Za-z0-9._\-/:@]{1,255}$/;
+
+async function imageAdminTarget(agentId: number): Promise<{ err: string; t: Awaited<ReturnType<typeof getT>> } | { err?: undefined; tg: NonNullable<ReturnType<typeof targetFor>>; t: Awaited<ReturnType<typeof getT>> }> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { err: t("msg.forbidden"), t };
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  if (!a) return { err: t("msg.unknownHost"), t };
+  if (!a.enabled) return { err: t("msg.hostDisabled"), t };
+  const tg = targetFor(agentId);
+  if (!tg) return { err: t("msg.noCreds"), t };
+  return { tg, t };
+}
+
+/** Delete an image or, with `tag`, only that tag. Admins only; the agent refuses images in use and its own images. */
+export async function imageDeleteAction(agentId: number, imageId: string, tag: string | null): Promise<{ ok: boolean; message: string }> {
+  const x = await imageAdminTarget(agentId);
+  if (x.err !== undefined) return { ok: false, message: x.err };
+  const { tg, t } = x;
+  if (!CONTAINER_ID_RE.test(imageId) || (tag !== null && !IMAGE_TAG_RE.test(tag))) return { ok: false, message: t("errc.INVALID_PARAM") };
+  const r = await agentImageDelete(tg, imageId, tag);
+  revalidatePath("/images");
+  revalidatePath("/hosts");
+  if (!r.ok) return { ok: false, message: errText(t, r.code, r.message) };
+  return { ok: true, message: r.data.result === "untagged" ? t("images.untagged") : t("images.deleted") };
+}
+
+/** Remove dangling images of one host. Admins only. */
+export async function imagePruneAction(agentId: number): Promise<{ ok: boolean; message: string }> {
+  const x = await imageAdminTarget(agentId);
+  if (x.err !== undefined) return { ok: false, message: x.err };
+  const { tg, t } = x;
+  const r = await agentImagePrune(tg);
+  revalidatePath("/images");
+  revalidatePath("/hosts");
+  if (!r.ok) return { ok: false, message: errText(t, r.code, r.message) };
+  return { ok: true, message: t("images.pruned", { n: r.data.removed, size: fmtBytes(r.data.reclaimed) }) };
 }

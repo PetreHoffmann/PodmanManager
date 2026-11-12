@@ -1,7 +1,7 @@
-import type { ContainerInfo, PodInfo } from "../../../../shared/types/index.js";
+import type { ContainerInfo, ImageInfo, PodInfo } from "../../../../shared/types/index.js";
 import type { DatabaseSync } from "node:sqlite";
 import { getDb } from "../database/db";
-import { agentHealth, agentList, agentPods, type AgentTarget, type CallResult } from "./agent-client";
+import { agentHealth, agentImages, agentList, agentPods, type AgentTarget, type CallResult } from "./agent-client";
 import { getConfig } from "./config";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { isHidden, isPodHidden } from "./hidden";
@@ -158,6 +158,28 @@ export async function fetchAllPods(
         const result = await agentPods(t);
         if (result.ok && hidden.length > 0) return { agent, result: { ok: true, data: result.data.filter((p) => !isPodHidden(p, hidden)) } };
         return { agent, result };
+      } catch {
+        return skipped;
+      }
+    }),
+  );
+}
+
+export interface HostImages {
+  agent: AgentRow;
+  result: CallResult<ImageInfo[]> | { ok: false; code: "SKIPPED"; message: string; unreachable: true };
+}
+
+/** Live image query for all enabled agents (within the allowed set), in parallel; never throws. */
+export async function fetchAllImages(db: DatabaseSync = getDb(), allowed: ReadonlySet<number> | null = null): Promise<HostImages[]> {
+  const agents = listAgents(db).filter((a) => allowed === null || allowed.has(a.id));
+  return Promise.all(
+    agents.map(async (agent): Promise<HostImages> => {
+      const skipped: HostImages = { agent, result: { ok: false, code: "SKIPPED", message: "", unreachable: true } };
+      if (!agent.enabled) return skipped;
+      try {
+        const t = targetFor(agent.id, db);
+        return t ? { agent, result: await agentImages(t) } : skipped;
       } catch {
         return skipped;
       }
