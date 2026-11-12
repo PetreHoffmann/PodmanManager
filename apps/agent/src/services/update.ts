@@ -114,3 +114,66 @@ export class SelfUpdater {
     }
   }
 }
+
+/**
+ * Update of another Quadlet container on the same host (the master): pull its image again and, if it changed, stop the
+ * container so that systemd (Restart=always) recreates it from the new image. Only the container of the configured
+ * unit is touched; the image reference comes from that container, never from a caller.
+ */
+export class PeerUpdater {
+  private state: UpdateState = "idle";
+  private message: string | undefined;
+  private readonly pullTimeoutMs: number;
+
+  constructor(private readonly podman: PodmanService, private readonly unit: string, private readonly opts: { log?: UpdaterOptions["log"]; pullTimeoutMs?: number } = {}) {
+    this.pullTimeoutMs = opts.pullTimeoutMs ?? 10 * 60 * 1000;
+  }
+
+  private async eligibility(): Promise<{ info: UpdateInfo; target?: { id: string; imageId: string } }> {
+    const base = { state: this.state, ...(this.message ? { message: this.message } : {}) };
+    let t: Awaited<ReturnType<PodmanService["findUnitContainer"]>>;
+    try {
+      t = await this.podman.findUnitContainer(this.unit);
+    } catch {
+      return { info: { possible: false, reason: "inspect_failed", ...base } };
+    }
+    if (!t) return { info: { possible: false, reason: "no_container", ...base } };
+    const { tag, floating } = classifyImage(t.imageName);
+    const common = { image: t.imageName, ...(tag ? { tag } : {}), ...base };
+    if (!floating) return { info: { possible: false, reason: "pinned_tag", ...common } };
+    return { info: { possible: true, ...common }, target: { id: t.id, imageId: t.imageId } };
+  }
+
+  async info(): Promise<UpdateInfo> {
+    return (await this.eligibility()).info;
+  }
+
+  async start(): Promise<UpdateInfo> {
+    const { info, target } = await this.eligibility();
+    if (!info.possible || !target || this.state === "pulling" || this.state === "restarting") return info;
+    this.state = "pulling";
+    this.message = undefined;
+    this.opts.log?.info(`update of unit ${this.unit}: pulling ${info.image}`);
+    void this.run(info.image!, target);
+    return { ...info, state: "pulling", message: undefined };
+  }
+
+  private async run(image: string, target: { id: string; imageId: string }): Promise<void> {
+    try {
+      const newId = await this.podman.pullImage(image, this.pullTimeoutMs);
+      if (newId === target.imageId) {
+        this.state = "current";
+        this.message = "Already up to date";
+        this.opts.log?.info(`update of unit ${this.unit}: image unchanged`);
+        return;
+      }
+      this.state = "restarting";
+      this.opts.log?.info(`update of unit ${this.unit}: new image ${newId.slice(0, 12)}; stopping the container so systemd recreates it`);
+      await this.podman.act(target.id, "stop");
+    } catch (e) {
+      this.state = "error";
+      this.message = (e instanceof Error ? e.message : String(e)).slice(0, 300);
+      this.opts.log?.error(`update of unit ${this.unit} failed: ${this.message}`);
+    }
+  }
+}

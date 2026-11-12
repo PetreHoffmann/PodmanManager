@@ -5,7 +5,7 @@ import { PodmanClient } from "./podman/client.js";
 import { PodmanService } from "./podman/service.js";
 import { AGENT_VERSION } from "./services/health.js";
 import { LogBuffer } from "./logbuffer.js";
-import { SelfUpdater } from "./services/update.js";
+import { PeerUpdater, SelfUpdater } from "./services/update.js";
 
 const logs = new LogBuffer(500);
 const log: Logger = {
@@ -41,7 +41,7 @@ try {
 
 const client = new PodmanClient(cfg.podmanSocket, cfg.podmanTimeoutMs);
 const podman = new PodmanService(client, cfg.stopTimeoutSec);
-const server = createAgentServer(cfg, podman, log, logs, new SelfUpdater(podman, { log }));
+const server = createAgentServer(cfg, podman, log, logs, new SelfUpdater(podman, { log }), cfg.updateUnit ? new PeerUpdater(podman, cfg.updateUnit, { log }) : undefined);
 
 server.listen(cfg.port, cfg.host, () => {
   log.info(`agent ${cfg.agentId} v${AGENT_VERSION} listening on http://${cfg.host}:${cfg.port}`);

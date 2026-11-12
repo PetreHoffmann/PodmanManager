@@ -27,6 +27,9 @@ SecurityLabelDisable=true
 
 Environment=AGENT_ID=host-1
 Environment=PODMAN_SOCKET=/run/podman/podman.sock
+# Nur auf dem Master-Host: erlaubt dem Agent, den Master per Button in "Über" zu aktualisieren
+# (Name der Master-Quadlet-Unit ohne .service):
+# Environment=UPDATE_UNIT=podmanmanager-master
 # SHA-256-Hash des Agent-Tokens als Podman-Secret (Anleitung in README.md):
 Secret=podmanmanager-agent-hash,type=env,target=AGENT_TOKEN_HASH
 # Alternative ohne Secret (Hash steht dann in dieser Datei, chmod 600): obige Zeile ersetzen durch

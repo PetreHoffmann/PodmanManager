@@ -3,11 +3,11 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
+import { agentPeerInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
 import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
 import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
-import { checkAgent, getAgent, registerAgent, removeAgent, setEnabled, targetFor } from "@/lib/agents";
+import { checkAgent, getAgent, listAgents, registerAgent, removeAgent, setEnabled, targetFor } from "@/lib/agents";
 import { LANG_COOKIE, errText, isLang, lastErrText, statusLabel, type Key } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
 import { loadLdapConfig, parseLdapInput, saveLdapConfig } from "@/lib/ldap-config";
@@ -463,4 +463,41 @@ export async function agentUpdateAction(agentId: number): Promise<{ ok: boolean;
   }
   revalidatePath("/hosts");
   return { ok: true, message: t("update.started") };
+}
+
+export type MasterUpdateAgents = { ok: true; agents: { id: number; label: string }[] } | { ok: false };
+
+/** Agents that are set up (UPDATE_UNIT) to update this master. Admins only. */
+export async function masterUpdateAgentsAction(): Promise<MasterUpdateAgents> {
+  const session = await requireAuth();
+  if (session.access !== "all") return { ok: false };
+  const found = await Promise.all(
+    listAgents().filter((a) => a.enabled && a.status !== "offline").map(async (a) => {
+      const tg = targetFor(a.id);
+      const r = tg ? await agentPeerInfo(tg) : null;
+      return r && r.ok && r.data.possible ? { id: a.id, label: `${a.agent_id} (${a.hostname})` } : null;
+    }),
+  );
+  return { ok: true, agents: found.filter((x): x is { id: number; label: string } => x !== null) };
+}
+
+/** Let the given agent pull the master image and restart the master unit. Admins only. */
+export async function masterUpdateStartAction(agentId: number): Promise<{ ok: boolean; message: string }> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  if (!a) return { ok: false, message: t("msg.unknownHost") };
+  if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
+  const tg = targetFor(agentId);
+  if (!tg) return { ok: false, message: t("msg.noCreds") };
+  const r = await agentPeerStart(tg);
+  if (!r.ok) {
+    if (r.code === "UPDATE_NOT_POSSIBLE") {
+      const k = UPDATE_REASONS[r.message];
+      return { ok: false, message: k ? t(k) : errText(t, r.code, r.message) };
+    }
+    return { ok: false, message: errText(t, r.code, r.message) };
+  }
+  return { ok: true, message: t("mupdate.started") };
 }

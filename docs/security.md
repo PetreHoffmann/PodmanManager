@@ -71,6 +71,8 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 
 - **Agent-Selbst-Update:** `POST /system/update` (Bearer-Token wie alle Routen) löst nur Pull des *eigenen* Image-Verweises (validiert, nur schwebende Tags, nur systemd-verwaltet) und Neustart aus; es nimmt keine Image-Angaben vom Master entgegen. Im Master nur für Admins.
 
+- **Master-Update über den Agent:** nur wenn der Agent mit `UPDATE_UNIT` konfiguriert ist; er berührt ausschließlich den Container dieser Unit (per Label gefunden), das Image stammt aus diesem Container, nicht vom Aufrufer. Der Master bekommt weiterhin keinen Podman-Zugriff; Auslösen nur durch Admins.
+
 ## Restrisiken
 - Aktiver Angreifer im Netz kann Token/Cookie abgreifen oder Traffic manipulieren (kein TLS).
 - Wer den Agent-Token kennt, kann Container dieses Benutzers starten/stoppen/neustarten (nur das).
