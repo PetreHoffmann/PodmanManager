@@ -40,10 +40,13 @@ PodmanManager **löscht, ändert und legt keine Anwendungen an**. Für Sie gibt 
 **Anmelden**
 
 1. Öffnen Sie die Adresse im Browser, die Ihnen Ihr Administrator genannt hat (zum Beispiel `http://master.firma.example:8080`).
-2. Geben Sie Ihren **Benutzernamen** und Ihr **Passwort** ein. Es sind dieselben Zugangsdaten wie bei Ihrer normalen Anmeldung im Firmennetz.
-3. Klicken Sie auf **Anmelden**.
+2. Melden Sie sich an, auf **einem von zwei Wegen**:
+   - **Mit Benutzername und Passwort:** Geben Sie Ihren **Benutzernamen** und Ihr **Passwort** ein und klicken Sie auf **Anmelden**. Es sind dieselben Zugangsdaten wie bei Ihrer normalen Anmeldung im Firmennetz.
+   - **Mit SSO (Einmalanmeldung):** Klicken Sie auf **Mit SSO anmelden** (Ihr Unternehmen kann den Text geändert haben). Sie werden zur Anmeldung Ihres Unternehmens weitergeleitet und danach automatisch zurückgebracht. Sind Sie am Firmenrechner bereits angemeldet, geht das meist **ohne erneute Eingabe**.
 
 ![Anmeldeseite](screenshots/handbuch/01-anmeldung.png)
+
+Der SSO-Knopf erscheint nur, wenn Ihr Administrator SSO eingerichtet hat. Welchen Weg Sie nutzen, ist egal; Sie sehen danach dieselben Rechner und Anwendungen, nämlich die Ihrer Gruppen.
 
 Oben rechts können Sie schon hier die **Sprache** wählen (Flaggen).
 
@@ -51,11 +54,14 @@ Gut zu wissen:
 
 - Nach **mehreren falschen Eingaben innerhalb einer Minute** erscheint „Zu viele Fehlversuche. Bitte in einer Minute erneut versuchen.“ Warten Sie kurz und versuchen Sie es noch einmal.
 - Wenn „Benutzername oder Passwort ungültig“ erscheint, obwohl Sie sicher sind: Fragen Sie Ihren Administrator, ob Ihr Konto für PodmanManager freigeschaltet ist.
+- Wenn Sie sich per **SSO** erfolgreich anmelden, aber eine Meldung wie „Ihr Konto gehört zu keiner Gruppe“ erscheint, ist Ihr Konto noch keiner Gruppe zugeordnet. Der Administrator muss das einrichten. Erscheint stattdessen eine Fehlerseite des Unternehmens, melden Sie dem Administrator die genaue Meldung und die Uhrzeit.
 - Aus Sicherheitsgründen werden Sie nach **8 Stunden automatisch abgemeldet** und müssen sich neu anmelden.
 
 **Abmelden**
 
 Öffnen Sie **Einstellungen** und klicken Sie unten auf **Abmelden**. Das sollten Sie tun, wenn Sie einen Rechner mit anderen teilen.
+
+**Hinweis bei SSO:** Das Abmelden beendet nur Ihre Sitzung in PodmanManager. Ihre Anmeldung im Firmennetz bleibt bestehen. Ein Klick auf **Mit SSO anmelden** meldet Sie deshalb **ohne Passwort wieder an**. Auf einem fremden oder gemeinsam genutzten Rechner melden Sie sich daher zusätzlich vom Firmennetz bzw. Ihrem Windows-Konto ab und schließen den Browser.
 
 ## 3. Die Oberfläche im Überblick
 
@@ -251,7 +257,7 @@ Fehlt Ihnen etwas davon, wenden Sie sich an Ihren Administrator.
 
 | Problem | Was Sie tun können |
 |---|---|
-| Ich kann mich nicht anmelden | Benutzernamen und Passwort wie im Firmennetz verwenden. Bei „Zu viele Fehlversuche“ eine Minute warten. Hilft das nicht: Administrator fragen, ob Ihr Konto freigeschaltet ist. |
+| Ich kann mich nicht anmelden | Benutzernamen und Passwort wie im Firmennetz verwenden, oder **Mit SSO anmelden** versuchen, falls vorhanden. Bei „Zu viele Fehlversuche“ eine Minute warten. Hilft das nicht: Administrator fragen, ob Ihr Konto freigeschaltet ist. |
 | Ich sehe einen Rechner nicht, den ich erwarte | Er ist nicht für Ihre Gruppe freigegeben. Administrator bitten, Ihre Gruppe zu erweitern. Danach neu anmelden oder die Seite neu laden. |
 | Ich sehe eine Anwendung nicht | Sie kann für Sie ausgeblendet sein. Wenden Sie sich an den Administrator. |
 | Die Anzeige ist nicht aktuell | Seite neu laden (**F5**). Die Seiten aktualisieren sich nicht von selbst. |
