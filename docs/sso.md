@@ -21,7 +21,7 @@ Zusätzlich zur Anmeldung per LDAP kann der Master Benutzer per **SAML 2.0** üb
 
 ## Die Werte für den Anbieter
 
-Diese Werte zeigt der Master unter *Einstellungen → Registerkarte „SSO“*, sobald die öffentliche Adresse gespeichert ist; Sie tragen sie beim Anbieter ein (oder der Anbieter importiert die Metadaten-Adresse):
+Diese Werte zeigt der Master unter *Einstellungen → Registerkarte „SAML“*, sobald die öffentliche Adresse gespeichert ist; Sie tragen sie beim Anbieter ein (oder der Anbieter importiert die Metadaten-Adresse):
 
 | Wert | Beispiel |
 |---|---|
@@ -45,7 +45,7 @@ Im Master werden die Gruppenwerte **genau so verglichen, wie der Anbieter sie se
 
 ## Einrichtung im Master (für alle Anbieter gleich)
 
-Unter *Einstellungen → Registerkarte „SSO“* (als lokaler `admin`):
+Unter *Einstellungen → Registerkarte „SAML“* (als lokaler `admin`):
 
 1. **Metadaten importieren:** Adresse oder XML des Anbieters eintragen, dann *Importieren*. Das füllt **Entity-ID**, **Anmeldeadresse** und das **Signaturzertifikat**. Hat der Master das Zertifikat der Anbieter-Webseite nicht im Vertrauensspeicher (Firmen-CA), siehe `NODE_EXTRA_CA_CERTS` in der [Master-Installation](installation-master.md), oder die XML-Datei einfügen. Ohne Import tragen Sie die drei Werte von Hand ein.
 2. **Öffentliche Adresse des Masters** eintragen (`https://master.example.com`, ohne Pfad).
@@ -59,7 +59,7 @@ Unter *Einstellungen → Registerkarte „SSO“* (als lokaler `admin`):
 
 ### Vertrauensstellung anlegen
 
-Die Werte für ADFS zeigt der Master unter *Einstellungen → Registerkarte „SSO“*, sobald die öffentliche Adresse gespeichert ist:
+Die Werte für ADFS zeigt der Master unter *Einstellungen → Registerkarte „SAML“*, sobald die öffentliche Adresse gespeichert ist:
 
 | Wert | Beispiel |
 |---|---|
