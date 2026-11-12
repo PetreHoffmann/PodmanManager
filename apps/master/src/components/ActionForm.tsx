@@ -9,7 +9,7 @@ import type { FormState } from "@/app/actions";
  * (e.g. after a failed login or an LDAP connection test).
  */
 export default function ActionForm({
-  action, children, className, inline, resetOnSuccess,
+  action, children, className, inline, resetOnSuccess, bar,
 }: {
   action: (s: FormState, fd: FormData) => Promise<FormState>;
   children: React.ReactNode;
@@ -17,6 +17,8 @@ export default function ActionForm({
   inline?: boolean;
   /** Clears the fields after a successful submit (e.g. a "new item" form). */
   resetOnSuccess?: boolean;
+  /** Buttons that stay at the bottom of the screen on phones (long forms); the status message is shown with them. */
+  bar?: React.ReactNode;
 }) {
   const [state, run, actionPending] = useActionState(action, null);
   const [transitionPending, startTransition] = useTransition();
@@ -25,6 +27,11 @@ export default function ActionForm({
   useEffect(() => {
     if (resetOnSuccess && state?.ok) ref.current?.reset();
   }, [state, resetOnSuccess]);
+  const status = state && (
+    <p role="status" className={`${inline ? "ml-2 inline" : "mt-2"} whitespace-pre-line text-xs ${state.ok ? "text-emerald-400" : "text-red-400"}`}>
+      {state.message}
+    </p>
+  );
   return (
     <form
       ref={ref}
@@ -37,10 +44,13 @@ export default function ActionForm({
       }}
     >
       {children}
-      {state && (
-        <p role="status" className={`${inline ? "ml-2 inline" : "mt-2"} whitespace-pre-line text-xs ${state.ok ? "text-emerald-400" : "text-red-400"}`}>
-          {state.message}
-        </p>
+      {bar !== undefined ? (
+        <div className="sticky bottom-0 -mx-4 mt-3 -mb-4 space-y-2 rounded-b-xl border-t border-slate-800 bg-slate-950/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:mb-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+          <div className="flex flex-wrap gap-2">{bar}</div>
+          {status}
+        </div>
+      ) : (
+        status
       )}
     </form>
   );

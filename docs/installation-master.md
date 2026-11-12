@@ -98,13 +98,13 @@ Die Einstellung liegt in der Master-Datenbank (Backup wie sonst) und gilt für a
 
 ## SSO mit SAML 2.0 / ADFS (optional)
 
-Zusätzlich zu LDAP kann die Anmeldung per SAML 2.0 über ADFS erfolgen (Single Sign-on). Einrichtung unter *Einstellungen → SSO (SAML 2.0 / ADFS)*, Schritt für Schritt für ADFS 2022 in [SSO mit SAML 2.0 und ADFS](sso-adfs.md). Voraussetzung ist eine öffentliche https-Adresse des Masters (Reverse Proxy). Agent-Gruppen bekommen ein Feld *SAML-Gruppe* (z. B. `CORP\Team-A`).
+Zusätzlich zu LDAP kann die Anmeldung per SAML 2.0 über ADFS erfolgen (Single Sign-on). Einrichtung unter *Einstellungen → Registerkarte „SSO“*, Schritt für Schritt für ADFS 2022 in [SSO mit SAML 2.0 und ADFS](sso-adfs.md). Voraussetzung ist eine öffentliche https-Adresse des Masters (Reverse Proxy). Agent-Gruppen bekommen ein Feld *SAML-Gruppe* (z. B. `CORP\Team-A`).
 
 ## Erster Start
 `http://<master>:8080` öffnen → Passwort für das lokale Konto **`admin`** anlegen (mind. 10 Zeichen). Anmeldung danach mit Benutzername `admin`. **Direkt nach dem Start setzen:** solange kein Passwort existiert, kann es jeder mit Netzwerkzugriff anlegen. Danach unter **Hosts** die Agents hinzufügen (Adresse `http://<ip>:9126` + Token des Agents).
 
 ## LDAP / Active Directory (optional)
-Unter **Settings → LDAP / Active Directory login** (nur als lokaler `admin` sichtbar) können AD-Benutzer zur Anmeldung berechtigt werden. Es gibt zwei Arten von Zugriff:
+Unter **Einstellungen → Registerkarte „LDAP“** (nur als lokaler `admin` sichtbar) können AD-Benutzer zur Anmeldung berechtigt werden. Es gibt zwei Arten von Zugriff:
 
 - **Administratoren-Gruppe** (optional, ein AD-Gruppen-DN): Mitglieder sehen und verwalten **alle** Agents und dürfen Hosts hinzufügen/entfernen/aktivieren/testen – aber **keine** Passwort-, LDAP- oder Gruppen-Einstellungen ändern.
 - **Agent-Gruppen** (siehe unten): Mitglieder einer zugeordneten AD-Gruppe sehen und bedienen **nur** die Agents ihrer Gruppen.
@@ -135,7 +135,7 @@ Hinweise:
 - Ist das Verzeichnis nicht erreichbar, erscheint „Directory login is currently unavailable"; die lokale Anmeldung bleibt möglich.
 
 ### Agent-Gruppen
-Unter **Settings → Agent groups** (nur lokaler `admin`); auf einem echten Active Directory bestätigt:
+Unter **Einstellungen → Registerkarte „Zugriff“ (Agent-Gruppen)** (nur lokaler `admin`); auf einem echten Active Directory bestätigt:
 
 1. Gruppe anlegen: Name (z. B. „Team A“) und **AD-Gruppen-DN** (z. B. `CN=Team-A,OU=Groups,DC=example,DC=com`).
 2. Die Agents ankreuzen, die diese Gruppe verwalten darf. Ein Agent darf in **mehreren** Gruppen sein; ein Benutzer in mehreren Gruppen erhält die **Vereinigung** ihrer Agents.
@@ -149,7 +149,7 @@ Was Gruppenmitglieder (ohne Administratoren-Gruppe) sehen und dürfen:
 Ein Benutzer, der weder in der Administratoren-Gruppe noch in einer zugeordneten Gruppe ist, kann sich nicht anmelden. Eine Gruppe ohne Agents gewährt Anmeldung, aber keine Hosts.
 
 ### Container verstecken
-Unter **Settings → Hidden containers** (nur lokaler `admin`) lassen sich Container per Namensmuster vor Benutzern **ohne vollen Zugriff** (Mitglieder von Agent-Gruppen) verbergen, zum Beispiel die Container von PodmanManager selbst. Auf einem echten Active Directory mit eingeschränkten Benutzern bestätigt.
+Unter **Einstellungen → Registerkarte „Zugriff“ (versteckte Container)** (nur lokaler `admin`) lassen sich Container per Namensmuster vor Benutzern **ohne vollen Zugriff** (Mitglieder von Agent-Gruppen) verbergen, zum Beispiel die Container von PodmanManager selbst. Auf einem echten Active Directory mit eingeschränkten Benutzern bestätigt.
 
 - **Muster:** ein Eintrag pro Zeile, `*` und `?` als Platzhalter, Groß-/Kleinschreibung egal. Erlaubt sind Buchstaben, Ziffern und `. _ - * ?`; Zeilen mit `#` sind Kommentare; höchstens 100 Muster. Beispiel: `podmanmanager*` versteckt `podmanmanager-agent` und `podmanmanager-master`; `*-secret` versteckt alles, was auf `-secret` endet.
 - **Wirkung für eingeschränkte Benutzer:** Der Container fehlt in der Container-Liste und **in allen Zahlen** (Dashboard, Spalte „Containers“ in der Hostliste), die Detailseite meldet „nicht gefunden“, und Start/Stopp/Neustart werden abgelehnt (der Master prüft vor jeder Aktion den aktuellen Namen beim Agent). Der lokale `admin` und die LDAP-Administratoren-Gruppe sehen weiterhin alles.

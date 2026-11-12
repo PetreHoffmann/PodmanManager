@@ -20,7 +20,7 @@ Zusätzlich zur Anmeldung per LDAP kann der Master Benutzer per **SAML 2.0** üb
 
 ## Schritt 1: Vertrauensstellung in ADFS anlegen
 
-Die Werte für ADFS zeigt der Master unter *Einstellungen → SSO (SAML 2.0 / ADFS)*, sobald die öffentliche Adresse gespeichert ist:
+Die Werte für ADFS zeigt der Master unter *Einstellungen → Registerkarte „SSO“*, sobald die öffentliche Adresse gespeichert ist:
 
 | Wert | Beispiel |
 |---|---|
@@ -61,7 +61,7 @@ Der Anspruchstyp **Group** hat die Kennung `http://schemas.xmlsoap.org/claims/Gr
 
 ## Schritt 3: Master einrichten
 
-Unter *Einstellungen → SSO (SAML 2.0 / ADFS)* (als lokaler `admin`):
+Unter *Einstellungen → Registerkarte „SSO“* (als lokaler `admin`):
 
 1. **ADFS-Metadaten importieren:** Adresse eintragen, in ADFS 2022 ist das
    `https://adfs.corp.example.com/FederationMetadata/2007-06/FederationMetadata.xml`
@@ -82,7 +82,7 @@ ADFS erneuert sein Tokensignaturzertifikat in der Regel automatisch (*Automatisc
 
 ## Fehlersuche
 
-Schlägt eine SSO-Anmeldung fehl, steht der **Grund im Master-Log** (*Einstellungen → Master-Logs → Logs anzeigen*), Zeilen `saml login started: …` (was der Master an ADFS gesendet hat), `saml login failed: …` und `saml login denied: …`. Dem Benutzer zeigt der Master bewusst nur eine kurze Meldung.
+Schlägt eine SSO-Anmeldung fehl, steht der **Grund im Master-Log** (*Einstellungen → Registerkarte „Logs“ → Logs anzeigen*), Zeilen `saml login started: …` (was der Master an ADFS gesendet hat), `saml login failed: …` und `saml login denied: …`. Dem Benutzer zeigt der Master bewusst nur eine kurze Meldung.
 
 | Meldung im Master-Log | Ursache und Lösung |
 |---|---|
