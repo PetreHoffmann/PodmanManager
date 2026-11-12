@@ -8,6 +8,8 @@ export interface AgentConfig {
   podmanSocket: string;
   podmanTimeoutMs: number;
   stopTimeoutSec: number;
+  /** Quadlet unit (without .service) of another container this agent may update, e.g. the master */
+  updateUnit?: string;
   rateLimitMax: number;
   rateLimitWindowMs: number;
 }
@@ -49,6 +51,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AgentConfig {
   if (!podmanSocket.startsWith("/")) {
     throw new ConfigError("PODMAN_SOCKET must be an absolute path");
   }
+  const unit = (env.UPDATE_UNIT ?? "").trim().replace(/\.service$/, "");
+  if (unit !== "" && !/^[A-Za-z0-9_.@-]{1,64}$/.test(unit)) throw new ConfigError("UPDATE_UNIT invalid (A-Z a-z 0-9 . _ @ -, max 64)");
   return {
     agentId,
     host: env.AGENT_HOST || "0.0.0.0",
@@ -57,6 +61,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AgentConfig {
     podmanSocket,
     podmanTimeoutMs: int(env, "PODMAN_TIMEOUT_MS", 30000, 1000, 120000),
     stopTimeoutSec: 10,
+    ...(unit ? { updateUnit: unit } : {}),
     rateLimitMax: int(env, "RATE_LIMIT_MAX", 10, 1, 1000),
     rateLimitWindowMs: int(env, "RATE_LIMIT_WINDOW_MS", 60000, 1000, 3600000),
   };

@@ -94,3 +94,5 @@ export function agentPodLogs(t: AgentTarget, id: string) {
 export const agentStorage = (t: AgentTarget) => call<StorageInfo>(t, "GET", "/api/v1/system/storage", 40);
 
 export const agentUpdateStart = (t: AgentTarget) => call<UpdateInfo>(t, "POST", "/api/v1/system/update", 20);
+export const agentPeerInfo = (t: AgentTarget) => call<UpdateInfo>(t, "GET", "/api/v1/system/update-peer", 15);
+export const agentPeerStart = (t: AgentTarget) => call<UpdateInfo>(t, "POST", "/api/v1/system/update-peer", 20);

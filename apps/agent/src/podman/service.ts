@@ -286,6 +286,21 @@ export class PodmanService {
     return { imageName: str(o.ImageName), imageId: str(o.Image), labels };
   }
 
+  /** The container started by the given systemd unit (label PODMAN_SYSTEMD_UNIT), with image name/id; null if none exists. */
+  async findUnitContainer(unit: string): Promise<{ id: string; imageName: string; imageId: string } | null> {
+    if (!/^[A-Za-z0-9_.@-]{1,64}$/.test(unit)) return null;
+    await this.client.checkSocket();
+    const filters = encodeURIComponent(JSON.stringify({ label: [`PODMAN_SYSTEMD_UNIT=${unit}.service`] }));
+    const res = await this.client.call("GET", `${await this.libpod()}/containers/json?all=true&filters=${filters}`);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const arr = json(res);
+    const first = Array.isArray(arr) ? rec(arr[0]) : {};
+    const id = str(first.Id);
+    if (!/^[a-f0-9]{64}$/.test(id)) return null;
+    const s = await this.inspectSelf(id);
+    return { id, imageName: s.imageName, imageId: s.imageId };
+  }
+
   /** Pulls an image (the registry is reached by the host's Podman) and returns its image id. */
   async pullImage(reference: string, timeoutMs: number): Promise<string> {
     if (!/^[A-Za-z0-9._\-/:@]{1,255}$/.test(reference)) throw new PodmanError("PODMAN_API_ERROR", "Invalid image reference");

@@ -121,6 +121,12 @@ In der Host-Ansicht erscheint bei Agenten, die älter als der Master sind, das L
 
 Voraussetzungen: Agent per Quadlet mit `Restart=always`, Image-Tag `:latest` (oder `X` / `X.Y`), nicht fest auf `X.Y.Z` gepinnt. Der Host-Podman muss Docker Hub erreichen (ggf. Proxy). Agenten bis 0.9.2 haben diese Funktion noch nicht und müssen einmalig manuell aktualisiert werden (`podman pull …:latest && systemctl --user restart podmanmanager-agent`).
 
+## Master per Web-UI aktualisieren
+
+Läuft auf dem Master-Host ein Agent, kann der Master über „Über“ → „Jetzt aktualisieren“ (nur Admins, nur wenn eine neuere Version existiert) aktualisiert werden. Der Master selbst hat keinen Podman-Zugriff: der Agent zieht das Master-Image neu und stoppt den Master-Container, systemd (`Restart=always`) erstellt ihn aus dem neuen Image. Die Seite lädt nach dem Neustart selbst neu (Master ca. 30–60 s nicht erreichbar).
+
+Einrichtung im Agent-Quadlet: `Environment=UPDATE_UNIT=podmanmanager-master` (Name der Master-Unit ohne `.service`). Der Master muss per Quadlet mit `:latest` (oder `X` / `X.Y`) laufen. Der Agent muss selbst mindestens v0.11.0 sein (Update vorher per Host-Ansicht).
+
 ## Hinweise
 
 - **cgroup v1** (`podman info --format '{{.Host.CgroupsVersion}}'` zeigt `v1`): Die Units scheitern mit Exit-Code 126 und `mkdir /sys/fs/cgroup/…: permission denied`. Abhilfe: `PodmanArgs=--cgroups=enabled` im `[Container]`-Abschnitt (siehe [deployment/README.md](../README.md#hosts-mit-cgroup-v1-quadlet)). Bestätigt auf einem echten Host mit Podman 4.9.4.
