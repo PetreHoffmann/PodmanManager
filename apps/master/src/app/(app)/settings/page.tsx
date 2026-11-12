@@ -18,7 +18,7 @@ import { requireAuth } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-const TABS = ["general", "access", "sso", "ldap", "logs"] as const;
+const TABS = ["general", "access", "saml", "ldap", "logs"] as const;
 type Tab = (typeof TABS)[number];
 type SP = Promise<{ tab?: string }>;
 
@@ -38,7 +38,9 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
   const admin = session.access === "all";
   // the local administrator manages everything; other administrators only read the logs; everybody else sees the general page
   const tabs: Tab[] = local ? [...TABS] : admin ? ["general", "logs"] : [];
-  const q = (await searchParams).tab;
+  // `sso` was the name of the SAML tab before OIDC could be added next to it
+  const raw = (await searchParams).tab;
+  const q = raw === "sso" ? "saml" : raw;
   const tab: Tab = tabs.find((x) => x === q) ?? "general";
   const l = (local ? loadLdapConfig() : null) ?? EMPTY_LDAP;
   const agentOptions = local ? listAgents().map((a) => ({ id: a.id, label: `${a.agent_id} (${a.hostname})` })) : [];
@@ -47,7 +49,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
   const brand = loadBranding();
   const saml = (local ? loadSamlConfig() : null) ?? EMPTY_SAML;
   const insecure = l.enabled && l.url.startsWith("ldap://") && !l.startTls;
-  const label: Record<Tab, string> = { general: t("set.tabGeneral"), access: t("set.tabAccess"), sso: t("set.tabSso"), ldap: t("set.tabLdap"), logs: t("set.tabLogs") };
+  const label: Record<Tab, string> = { general: t("set.tabGeneral"), access: t("set.tabAccess"), saml: t("set.tabSaml"), ldap: t("set.tabLdap"), logs: t("set.tabLogs") };
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -166,7 +168,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
         </div>
       )}
 
-      {tab === "sso" && local && (
+      {tab === "saml" && local && (
         <section className="card">
           <h2 className="mb-1 flex items-center gap-2 font-medium">{t("saml.title")} <StatusPill on={saml.enabled} text={saml.enabled ? t("set.statusOn") : t("set.statusOff")} /></h2>
           <p className="mb-3 text-xs text-slate-400">{t("saml.intro")}</p>
