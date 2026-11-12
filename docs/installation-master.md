@@ -96,9 +96,9 @@ Unter *Einstellungen* → *Darstellung* (nur lokales Konto `admin`) lässt sich 
 
 Die Einstellung liegt in der Master-Datenbank (Backup wie sonst) und gilt für alle Benutzer. Auf der Login- und der Setup-Seite bleibt der Standardname.
 
-## SSO mit SAML 2.0 / ADFS (optional)
+## SSO mit SAML 2.0 (optional)
 
-Zusätzlich zu LDAP kann die Anmeldung per SAML 2.0 über ADFS erfolgen (Single Sign-on). Einrichtung unter *Einstellungen → Registerkarte „SSO“*, Schritt für Schritt für ADFS 2022 in [SSO mit SAML 2.0 und ADFS](sso-adfs.md). Voraussetzung ist eine öffentliche https-Adresse des Masters (Reverse Proxy). Agent-Gruppen bekommen ein Feld *SAML-Gruppe* (z. B. `CORP\Team-A`).
+Zusätzlich zu LDAP kann die Anmeldung per SAML 2.0 über einen Identitätsanbieter erfolgen (ADFS, Microsoft Entra ID, Okta, Keycloak oder eigener Anbieter; Single Sign-on). Einrichtung unter *Einstellungen → Registerkarte „SSO“*, Schritt für Schritt je Anbieter (ADFS 2022, Entra ID, Okta, Keycloak, eigener) in [SSO mit SAML 2.0](sso.md). Voraussetzung ist eine öffentliche https-Adresse des Masters (Reverse Proxy). Agent-Gruppen bekommen ein Feld *SAML-Gruppe* (z. B. `CORP\Team-A`).
 
 ## Erster Start
 `http://<master>:8080` öffnen → Passwort für das lokale Konto **`admin`** anlegen (mind. 10 Zeichen). Anmeldung danach mit Benutzername `admin`. **Direkt nach dem Start setzen:** solange kein Passwort existiert, kann es jeder mit Netzwerkzugriff anlegen. Danach unter **Hosts** die Agents hinzufügen (Adresse `http://<ip>:9126` + Token des Agents).

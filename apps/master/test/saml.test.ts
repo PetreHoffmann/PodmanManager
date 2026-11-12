@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import { openDb } from "../src/database/db";
 import { DbCacheProvider, REQUEST_TTL_MS } from "../src/lib/saml-cache";
-import { DEFAULT_GROUP_CLAIM, DEFAULT_USERNAME_CLAIM, EMPTY_SAML, certInfo, loadSamlConfig, parseSamlInput, samlReady, saveSamlConfig, spAcsUrl, spEntityId, splitCerts, type SamlConfig } from "../src/lib/saml-config";
+import { SAML_PRESETS } from "../src/lib/saml-presets";
+import { DEFAULT_GROUP_CLAIM, DEFAULT_USERNAME_CLAIM, EMPTY_SAML, NAMEID_FORMATS, certInfo, loadSamlConfig, parseSamlInput, samlReady, saveSamlConfig, spAcsUrl, spEntityId, splitCerts, type SamlConfig } from "../src/lib/saml-config";
 import { parseIdpMetadata } from "../src/lib/saml-metadata";
 import { resolveSamlAccess, safeNext } from "../src/lib/saml-access";
 import { completeLogin, spMetadataXml, startLogin } from "../src/lib/saml";
@@ -244,5 +245,68 @@ describe("request cache", () => {
     assert.equal(await c.saveIfAbsentAsync("as1", "1", now + 1000), false);
     now += 2000;
     assert.equal(await c.saveIfAbsentAsync("as1", "1", now + 1000), true, "free again after it expired");
+  });
+});
+
+describe("other identity providers (Entra ID, Okta, Keycloak): presets, claims and NameID format", () => {
+  const login = async (c: SamlConfig, o: Parameters<typeof resp>[0] extends infer T ? Partial<T> : never) => {
+    const cache = new DbCacheProvider(openDb(":memory:"));
+    const id = requestIdFrom(await startLogin(c, "n./x", cache));
+    return completeLogin(c, resp({ inResponseTo: id, ...(o as object) }), cache);
+  };
+  const GUID_A = "3b1d2f6e-1c11-4a7e-9a55-0d6a5b7e8f10", GUID_B = "9f0a1c22-77aa-4c1b-8e13-2e4c6d8a0b11";
+
+  it("Entra ID: user name from the name claim, groups arrive as object IDs and map like any other group value", async () => {
+    const entra = { ...cfg, ...SAML_PRESETS.entra, idpEntityId: "https://sts.windows.net/11111111-2222-3333-4444-555555555555/", adminGroup: GUID_A };
+    const r = await login(entra, { idpEntityId: entra.idpEntityId, upn: "dana@acme.example", userClaim: SAML_PRESETS.entra.usernameClaim, groupClaim: SAML_PRESETS.entra.groupClaim, groups: [GUID_B, GUID_A], nameId: "opaque-persistent-id", nameIdFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent" });
+    assert.deepEqual(r, { ok: true, username: "dana@acme.example", groups: [GUID_B, GUID_A] });
+    assert.deepEqual(resolveSamlAccess(entra, r.ok ? r.groups : [], [{ id: 1, name: "Team B", samlGroup: GUID_B }]), { ok: true, admin: true, groupIds: [1] });
+    assert.deepEqual(resolveSamlAccess({ ...entra, adminGroup: "" }, [GUID_B], [{ id: 1, name: "Team B", samlGroup: GUID_B.toUpperCase() }]), { ok: true, admin: false, groupIds: [1] }, "GUIDs match case-insensitively");
+  });
+
+  it("Okta and Keycloak: the NameID is the user name (empty user name claim), groups come from the attribute named in the settings", async () => {
+    for (const p of ["okta", "keycloak"] as const) {
+      const c = { ...cfg, ...SAML_PRESETS[p], adminGroup: "podman-admins" };
+      const r = await login(c, { userClaim: null, nameId: "erin@acme.example", groupClaim: "groups", groups: ["podman-admins", "staff"] });
+      assert.deepEqual(r, { ok: true, username: "erin@acme.example", groups: ["podman-admins", "staff"] }, p);
+    }
+  });
+
+  it("a wrong group attribute name yields no groups (the user is then turned away, not let in)", async () => {
+    const c = { ...cfg, ...SAML_PRESETS.keycloak };
+    const r = await login(c, { userClaim: null, nameId: "frank@acme.example", groupClaim: "member", groups: ["podman-admins"] });
+    assert.deepEqual(r, { ok: true, username: "frank@acme.example", groups: [] });
+  });
+
+  it("presets only use known claim names and NameID formats", () => {
+    for (const [k, p] of Object.entries(SAML_PRESETS)) {
+      assert.ok(p.groupClaim.length > 0 && !/\s/.test(p.groupClaim + p.usernameClaim), k);
+      assert.ok((NAMEID_FORMATS as readonly string[]).includes(p.nameIdFormat), k);
+    }
+  });
+
+  it("the NameID format is only requested when configured, is validated, and defaults to none", async () => {
+    const xmlOf = async (c: SamlConfig) => (await import("node:zlib")).inflateRawSync(Buffer.from(new URL(await startLogin(c, "n./x", new DbCacheProvider(openDb(":memory:")))).searchParams.get("SAMLRequest")!, "base64")).toString("utf8");
+    assert.ok(!/NameIDPolicy[^>]*Format=/.test(await xmlOf(cfg)), "default: none");
+    const email = "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress";
+    assert.ok((await xmlOf({ ...cfg, nameIdFormat: email })).includes(`Format="${email}"`), "requested when configured");
+    assert.ok(spMetadataXml({ ...cfg, nameIdFormat: email }).includes(email) && !spMetadataXml(cfg).includes("nameid-format"), "metadata follows the setting");
+    const base = { ...EMPTY_SAML, enabled: false };
+    assert.deepEqual(parseSamlInput({ ...base, nameIdFormat: "urn:bogus" }), { ok: false, error: "err.samlNameId" });
+    const ok = parseSamlInput({ ...base, nameIdFormat: email });
+    assert.ok(ok.ok && ok.config.nameIdFormat === email);
+    const db = openDb(":memory:");
+    saveSamlConfig({ ...EMPTY_SAML, nameIdFormat: email }, db);
+    assert.equal(loadSamlConfig(db)?.nameIdFormat, email);
+    db.prepare("UPDATE settings SET value = ? WHERE key = 'saml'").run(JSON.stringify({ nameIdFormat: "junk", buttonLabel: "x" }));
+    assert.equal(loadSamlConfig(db)?.nameIdFormat, "", "stored garbage falls back to none; old configs without the field work");
+  });
+
+  it("an error status from any provider is explained without naming only ADFS", async () => {
+    const cache = new DbCacheProvider(openDb(":memory:"));
+    const id = requestIdFrom(await startLogin(cfg, "n./x", cache));
+    const xml = `<samlp:Response ID="_f" Version="2.0" IssueInstant="${new Date().toISOString()}" InResponseTo="${id}" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"><Issuer xmlns="urn:oasis:names:tc:SAML:2.0:assertion">${IDP}</Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Requester"><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:InvalidNameIDPolicy"/></samlp:StatusCode></samlp:Status></samlp:Response>`;
+    const r = await completeLogin(cfg, Buffer.from(xml).toString("base64"), cache);
+    assert.ok(!r.ok && /identity provider/.test(r.reason) && /NameID format/.test(r.reason), r.ok ? "" : r.reason);
   });
 });

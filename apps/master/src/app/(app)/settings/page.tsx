@@ -8,10 +8,11 @@ import { EMPTY_LDAP, loadLdapConfig } from "@/lib/ldap-config";
 import { getT } from "@/lib/lang";
 import GroupEditor from "@/components/GroupEditor";
 import LogoInput from "@/components/LogoInput";
+import SamlPreset from "@/components/SamlPreset";
 import { listAgents } from "@/lib/agents";
 import { groupNames, listGroups } from "@/lib/groups";
 import { loadHiddenPatterns } from "@/lib/hidden";
-import { EMPTY_SAML, MAX_BUTTON_LABEL, loadSamlConfig, spAcsUrl, spEntityId, spMetadataUrl } from "@/lib/saml-config";
+import { EMPTY_SAML, MAX_BUTTON_LABEL, NAMEID_FORMATS, loadSamlConfig, spAcsUrl, spEntityId, spMetadataUrl } from "@/lib/saml-config";
 import { MAX_LOGO_BYTES, MAX_TEXT_CHARS, loadBranding } from "@/lib/branding";
 import { requireAuth } from "@/lib/session";
 
@@ -199,6 +200,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
               <textarea name="idpCert" defaultValue={saml.idpCert} rows={4} spellCheck={false} placeholder={"-----BEGIN CERTIFICATE-----\n…\n-----END CERTIFICATE-----"} className="input mt-1 font-mono text-xs" />
               <span className="text-xs text-slate-500">{t("saml.certHint")}</span>
             </label>
+            <SamlPreset />
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-sm">{t("saml.usernameClaim")}
                 <input name="usernameClaim" defaultValue={saml.usernameClaim} className="input mt-1 font-mono text-xs" />
@@ -208,6 +210,12 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
               </label>
             </div>
             <p className="-mt-2 text-xs text-slate-500">{t("saml.claimHint")}</p>
+            <label className="block text-sm">{t("saml.nameIdFormat")}
+              <select name="nameIdFormat" defaultValue={saml.nameIdFormat} className="input mt-1 block w-auto">
+                {NAMEID_FORMATS.map((f) => <option key={f} value={f}>{f === "" ? t("saml.nameIdNone") : f.split(":").pop()}</option>)}
+              </select>
+              <span className="block text-xs text-slate-500">{t("saml.nameIdHint")}</span>
+            </label>
             <label className="block text-sm">{t("saml.adminGroup")}
               <input name="adminGroup" defaultValue={saml.adminGroup} placeholder="CORP\PodmanAdmins" autoComplete="off" className="input mt-1" />
               <span className="text-xs text-slate-500">{t("saml.adminHint")}</span>

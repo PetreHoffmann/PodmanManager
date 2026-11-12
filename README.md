@@ -22,7 +22,7 @@ Die *Einstellungen* sind in Registerkarten gegliedert (**Allgemein**, **Zugriff*
 
 Die Navigationsleiste hat **Help** (öffnet dieses Repository) und **About** (Version, Ersteller, Copyright und Hinweis, ob auf Docker Hub eine neuere Version vorliegt; abschaltbar mit `UPDATE_CHECK=off`).
 
-Optional: Anmeldung per LDAP/Active Directory und/oder **SSO per SAML 2.0 mit ADFS** (siehe [SSO mit SAML und ADFS](docs/sso-adfs.md)). Agents lassen sich in **Gruppen** zusammenfassen und AD-Gruppen zuordnen: Mitglieder sehen und bedienen nur die Agents ihrer Gruppen (bestimmte Container, z. B. `podmanmanager*`, lassen sich für sie per Namensmuster **verstecken**); eine optionale Administratoren-Gruppe hat Zugriff auf alle (Settings; siehe [Master-Installation](docs/installation-master.md)). Das lokale Konto `admin` bleibt als Notzugang.
+Optional: Anmeldung per LDAP/Active Directory und/oder **SSO per SAML 2.0** (ADFS, Microsoft Entra ID, Okta, Keycloak oder ein anderer SAML-Anbieter) (siehe [SSO mit SAML 2.0](docs/sso.md)). Agents lassen sich in **Gruppen** zusammenfassen und AD-Gruppen zuordnen: Mitglieder sehen und bedienen nur die Agents ihrer Gruppen (bestimmte Container, z. B. `podmanmanager*`, lassen sich für sie per Namensmuster **verstecken**); eine optionale Administratoren-Gruppe hat Zugriff auf alle (Settings; siehe [Master-Installation](docs/installation-master.md)). Das lokale Konto `admin` bleibt als Notzugang.
 
 Kein Docker, kein Compose, kein HTTPS/TLS, kein Root. **Nur in einem abgeschotteten Netz betreiben** (siehe [Sicherheit](docs/security.md)).
 
@@ -104,7 +104,7 @@ Den Token im Master unter *Hosts* eintragen; Port 9126 nur für die Master-IP fr
 | [Benutzerhandbuch](docs/benutzerhandbuch.md) | Für Benutzer ohne Admin-Rechte, ohne Fachbegriffe, mit Bildern |
 | [Architektur](docs/architecture.md) | Komponenten, Datenfluss, Entscheidungen |
 | [Master-Installation](docs/installation-master.md) | Build, Konfiguration, systemd, Datenbank |
-| [SSO mit SAML/ADFS](docs/sso-adfs.md) | Anmeldung per SAML 2.0 über ADFS 2022: Einrichtung, Claims, Fehlersuche |
+| [SSO mit SAML 2.0](docs/sso.md) | Anmeldung per SAML 2.0 mit ADFS, Entra ID, Okta, Keycloak oder eigenem Anbieter: Einrichtung, Claims, Fehlersuche |
 | [Agent-Installation](docs/installation-agent.md) | install.sh, User-Service, Lingering, Podman-Socket |
 | [Deployment (Schritt für Schritt)](deployment/README.md) | `podman run` und Quadlet für Master und Agent; Agent-Hash als Secret oder Environment-Wert |
 | [Quadlets](deployment/quadlet/README.md) | Rootless-Quadlets für Master und Agent (Podman-Secrets, gemeinsames Netzwerk, Updates per Web-UI) |
