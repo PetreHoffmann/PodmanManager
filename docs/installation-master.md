@@ -160,5 +160,5 @@ Unter **Settings → Hidden containers** (nur lokaler `admin`) lassen sich Conta
 Port 8080 nur für berechtigte Netze freigeben, nie ins Internet (siehe [Sicherheit](security.md)).
 
 ## Update / Backup
-Update: `git pull && npm ci && npm run build -w apps/master && sudo systemctl restart podmanmanager-master`.
+Container-Betrieb (Quadlet, `:latest`): Update per Web-UI, siehe [Quadlets](../deployment/quadlet/README.md#agent-per-web-ui-aktualisieren). Native Installation: `git pull && npm ci && npm run build -w apps/master && sudo systemctl restart podmanmanager-master`.
 Backup: `master.db` (+ `-wal`/`-shm`) und `MASTER_SECRET_KEY`.

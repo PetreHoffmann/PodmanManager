@@ -13,12 +13,12 @@
 5. [Hosts: Ihre Rechner](#5-hosts-ihre-rechner)
 6. [Container: Ihre Anwendungen](#6-container-ihre-anwendungen)
 7. [Pods: zusammengehörende Anwendungen](#7-pods-zusammengehörende-anwendungen)
-8. [Einstellungen, Über, Sprache](#8-einstellungen-über-sprache)
-9. [Mit dem Smartphone](#9-mit-dem-smartphone)
-10. [Was Sie nicht sehen und nicht ändern können](#10-was-sie-nicht-sehen-und-nicht-ändern-können)
-11. [Wenn etwas nicht klappt](#11-wenn-etwas-nicht-klappt)
-12. [Kleines Wörterbuch](#12-kleines-wörterbuch)
-
+8. [Images: die Programmpakete](#8-images-die-programmpakete)
+9. [Einstellungen, Über, Sprache](#9-einstellungen-über-sprache)
+10. [Mit dem Smartphone](#10-mit-dem-smartphone)
+11. [Was Sie nicht sehen und nicht ändern können](#11-was-sie-nicht-sehen-und-nicht-ändern-können)
+12. [Wenn etwas nicht klappt](#12-wenn-etwas-nicht-klappt)
+13. [Kleines Wörterbuch](#13-kleines-wörterbuch)
 ---
 
 ## 1. Wofür gibt es PodmanManager?
@@ -30,9 +30,10 @@ Sie können damit:
 - sehen, welche Rechner und Anwendungen es gibt und ob alles läuft,
 - eine Anwendung starten, stoppen oder neu starten,
 - nachlesen, was eine Anwendung zuletzt gemeldet hat (die sogenannten **Logs**),
-- sehen, wie viel Speicherplatz die Anwendungen auf einem Rechner belegen.
+- sehen, wie viel Speicherplatz die Anwendungen auf einem Rechner belegen,
+- nachsehen, welche **Images** (Programmpakete) auf den Rechnern liegen und welche davon benutzt werden.
 
-PodmanManager **löscht, ändert und legt keine Anwendungen an**. Es gibt nur Starten, Stoppen und Neustarten (und nur für die Rechner Ihrer Gruppe). Bedenken Sie aber, dass ein Stopp die Anwendung für alle Nutzer beendet. Mehr dazu in [Kapitel 6](#6-container-ihre-anwendungen) und [Kapitel 10](#10-was-sie-nicht-sehen-und-nicht-ändern-können).
+PodmanManager **löscht, ändert und legt keine Anwendungen an**. Für Sie gibt es nur Starten, Stoppen und Neustarten (und nur für die Rechner Ihrer Gruppe). Images können Sie nur ansehen; löschen dürfen sie nur Administratoren. Bedenken Sie aber, dass ein Stopp die Anwendung für alle Nutzer beendet. Mehr dazu in [Kapitel 6](#6-container-ihre-anwendungen) und [Kapitel 11](#11-was-sie-nicht-sehen-und-nicht-ändern-können).
 
 ## 2. Anmelden und Abmelden
 
@@ -68,12 +69,13 @@ Oben sehen Sie die **Navigationsleiste**. Von dort erreichen Sie alle Bereiche:
 | **Hosts** | Die Rechner, auf denen Ihre Anwendungen laufen, mit Zustand und Speicherplatz |
 | **Container** | Alle einzelnen Anwendungen. Hier starten, stoppen, neu starten und Logs lesen |
 | **Pods** | Anwendungen, die zusammengehören, als Gruppe |
+| **Images** | Die Programmpakete auf den Rechnern, nur zum Ansehen |
 | **Einstellungen** | Wer Sie sind, was Sie sehen dürfen, Abmelden |
 | **Hilfe** | Öffnet die Projektseite im Internet (in englischer Sprache) |
-| **Über** | Version von PodmanManager |
+| **Über** | Version von PodmanManager und ob eine neuere Version verfügbar ist |
 | **Flaggen** | Sprache wechseln: Englisch, Deutsch, Rumänisch, Spanisch |
 
-**Wichtig:** Sie sehen nur die Rechner, für die Ihre **Gruppe** freigegeben ist. Das steht auf jeder Seite oben, zum Beispiel: *„Sie sehen nur die Agents Ihrer Gruppen: Team A.“* Fehlt ein Rechner, den Sie erwarten, ist er nicht für Ihre Gruppe freigegeben (siehe [Kapitel 11](#11-wenn-etwas-nicht-klappt)).
+**Wichtig:** Sie sehen nur die Rechner, für die Ihre **Gruppe** freigegeben ist. Das steht auf jeder Seite oben, zum Beispiel: *„Sie sehen nur die Agents Ihrer Gruppen: Team A.“* Fehlt ein Rechner, den Sie erwarten, ist er nicht für Ihre Gruppe freigegeben (siehe [Kapitel 12](#12-wenn-etwas-nicht-klappt)).
 
 **Aktualisierung:** Die Seiten aktualisieren sich **nicht von selbst**. Wenn Sie den aktuellen Stand sehen möchten, laden Sie die Seite neu (Taste **F5** oder das Neu-laden-Symbol im Browser). Nach einem Start, Stopp oder Neustart aktualisiert sich die Anzeige automatisch.
 
@@ -100,11 +102,11 @@ Unter **Hosts** sehen Sie jeden Rechner, den Sie sehen dürfen, in einer Zeile:
 | Spalte | Bedeutung |
 |---|---|
 | **Hostname** | Name des Rechners |
-| **Agent-ID** | Kennung des kleinen Hilfsprogramms auf dem Rechner (siehe [Wörterbuch](#12-kleines-wörterbuch)) |
+| **Agent-ID** | Kennung des kleinen Hilfsprogramms auf dem Rechner (siehe [Wörterbuch](#13-kleines-wörterbuch)) |
 | **Adresse** | Netzwerkadresse des Hilfsprogramms (für Sie meist uninteressant) |
 | **Status** | **online** = alles in Ordnung, **eingeschränkt** = Rechner erreichbar, aber es gibt ein Problem mit der Anwendungs-Verwaltung, **offline** = nicht erreichbar, **deaktiviert** = vom Administrator abgeschaltet |
 | **Letzter Heartbeat** | Wann der Rechner zuletzt geantwortet hat („Herzschlag“). Fahren Sie mit der Maus darüber, sehen Sie die genaue Zeit |
-| **Podman / Agent** | Versionsnummern der Software (für Fragen an den Administrator hilfreich) |
+| **Podman / Agent** | Versionsnummern der Software (für Fragen an den Administrator hilfreich). Steht unter der Agent-Version **veraltet**, läuft auf dem Rechner eine ältere Version des Hilfsprogramms. Das beeinträchtigt Ihre Arbeit nicht; der Administrator kann es aktualisieren |
 | **Container** | Anzahl der Anwendungen auf dem Rechner |
 | **Speicher** | Wie viel Speicherplatz die Anwendungen belegen, aufgeteilt nach *Images* (Programmpakete), *Container* (laufende Anwendungen) und *Volumes* (gespeicherte Daten). „Ungenutzt“ ist der Teil, den man aufräumen könnte |
 
@@ -177,7 +179,28 @@ Ein Klick auf den Namen öffnet die **Detailseite**:
 
 Dort sehen Sie die **enthaltenen Anwendungen** mit ihrem Zustand. Der Eintrag mit der Markierung **INFRA** ist ein technischer Hilfsbaustein des Pods, den Sie ignorieren können. Mit **Logs anzeigen** lesen Sie die **gemischten Logs aller Anwendungen** der Gruppe. Vor jeder Zeile steht der Name der Anwendung, von der sie stammt.
 
-## 8. Einstellungen, Über, Sprache
+## 8. Images: die Programmpakete
+
+Ein **Image** ist das „Programmpaket“, aus dem ein Container gestartet wird. Unter **Images** sehen Sie, welche Pakete auf den Rechnern Ihrer Gruppe liegen:
+
+![Images](screenshots/handbuch/15-images.png)
+
+| Spalte | Bedeutung |
+|---|---|
+| **Image** | Name und Version des Pakets, zum Beispiel `nginx:1.27`. Ein Paket mit mehreren Namen steht in mehreren Zeilen. Pakete ohne Namen heißen **„ohne Tag“** (meist Reste einer Aktualisierung) |
+| **ID** | Kurzkennung des Pakets |
+| **Host** | Auf welchem Rechner es liegt |
+| **Größe** | Belegter Speicherplatz |
+| **Container** | Wie viele Anwendungen dieses Paket gerade benutzen. **ungenutzt** heißt: keine |
+| **Erstellt** | Wann das Paket gebaut wurde |
+
+Mit dem Filter oben grenzen Sie nach **Host** oder **Image-Name** ein. Die Markierung **wird von PodmanManager genutzt** bedeutet: Dieses Paket gehört zu PodmanManager selbst.
+
+Als Benutzer können Sie Images **nur ansehen**. Löschen und Aufräumen sind Administratoren vorbehalten. Sehen Sie viele ungenutzte Pakete oder fehlt Speicherplatz, informieren Sie Ihren Administrator.
+
+![Images auf dem Handy](screenshots/handbuch/16-handy-images.png)
+
+## 9. Einstellungen, Über, Sprache
 
 **Einstellungen**
 
@@ -189,19 +212,19 @@ Hier sehen Sie, als wer Sie angemeldet sind, **auf welche Rechner Sie zugreifen 
 
 ![Über-Dialog](screenshots/handbuch/10-ueber.png)
 
-Zeigt die **Versionsnummer** von PodmanManager und – falls aktiviert – ob eine neuere Version verfügbar ist. Hilfreich, wenn Sie dem Administrator ein Problem melden.
+Zeigt die **Versionsnummer** von PodmanManager und – falls aktiviert – ob eine neuere Version verfügbar ist. Hilfreich, wenn Sie dem Administrator ein Problem melden. Das Aktualisieren übernimmt der Administrator; für Sie gibt es dort keinen Knopf.
 
 **Sprache**
 
 Mit den **Flaggen** oben rechts wechseln Sie zwischen Englisch, Deutsch, Rumänisch und Spanisch. Ihre Wahl wird im Browser gemerkt. Eine automatische Übersetzung durch den Browser ist ausgeschaltet, damit Fachbegriffe korrekt bleiben.
 
-## 9. Mit dem Smartphone
+## 10. Mit dem Smartphone
 
 Auf dem Handy passt sich die Seite an: Tabellen werden zu **Karten**, und die Navigationsleiste verbirgt sich hinter einem **Menü-Knopf** mit drei Strichen oben rechts.
 
 ![Dashboard auf dem Handy](screenshots/handbuch/12-handy-dashboard.png)
 
-1. Tippen Sie auf den **Menü-Knopf**. Die Liste mit Dashboard, Hosts, Container, Pods, Einstellungen, Hilfe, Über und den Sprach-Flaggen klappt auf.
+1. Tippen Sie auf den **Menü-Knopf**. Die Liste mit Dashboard, Hosts, Container, Pods, Images, Einstellungen, Hilfe, Über und den Sprach-Flaggen klappt auf.
 2. Tippen Sie auf einen Eintrag. Das Menü schließt sich von selbst. Ein weiterer Tipp auf den Knopf (jetzt ein **X**) schließt es ebenfalls.
 
 ![Menü auf dem Handy](screenshots/handbuch/13-handy-menue.png)
@@ -210,7 +233,7 @@ Die Knöpfe zum Starten, Stoppen und Neustarten finden Sie in jeder Karte:
 
 ![Container auf dem Handy](screenshots/handbuch/14-handy-container.png)
 
-## 10. Was Sie nicht sehen und nicht ändern können
+## 11. Was Sie nicht sehen und nicht ändern können
 
 Das ist **Absicht** und dient der Sicherheit:
 
@@ -219,11 +242,12 @@ Das ist **Absicht** und dient der Sicherheit:
 - Sie können **keine Rechner hinzufügen, entfernen, prüfen oder deaktivieren**.
 - Sie können **keine Einstellungen ändern** und keine Gruppen verwalten.
 - Die **Logs von PodmanManager selbst** und der Hilfsprogramme sehen nur Administratoren.
-- Anwendungen **anlegen, löschen oder verändern** ist in PodmanManager gar nicht möglich, auch nicht für Administratoren. Es gibt nur Starten, Stoppen und Neustarten.
+- **Images löschen oder aufräumen** und PodmanManager **aktualisieren** können nur Administratoren.
+- Anwendungen **anlegen oder verändern** ist in PodmanManager gar nicht möglich, auch nicht für Administratoren. Es gibt nur Starten, Stoppen und Neustarten.
 
 Fehlt Ihnen etwas davon, wenden Sie sich an Ihren Administrator.
 
-## 11. Wenn etwas nicht klappt
+## 12. Wenn etwas nicht klappt
 
 | Problem | Was Sie tun können |
 |---|---|
@@ -241,14 +265,14 @@ Fehlt Ihnen etwas davon, wenden Sie sich an Ihren Administrator.
 
 **Was Sie dem Administrator mitteilen sollten:** Wer Sie sind, was Sie versucht haben, den **Namen des Rechners** und der Anwendung, die **Uhrzeit** und die **Meldung im Wortlaut** (am besten als Bildschirmfoto). Die **Versionsnummer** finden Sie unter **Über**.
 
-## 12. Kleines Wörterbuch
+## 13. Kleines Wörterbuch
 
 | Begriff | Bedeutung |
 |---|---|
 | **Host** | Ein Rechner (Server), auf dem Anwendungen laufen. |
 | **Container** | Eine einzelne, abgeschottete Anwendung, zum Beispiel ein Webserver. |
 | **Pod** | Eine Gruppe von Containern, die zusammengehören und gemeinsam gestartet oder gestoppt werden. |
-| **Image** | Das „Programmpaket“, aus dem ein Container gestartet wird. |
+| **Image** | Das „Programmpaket“, aus dem ein Container gestartet wird. Dasselbe Image kann mehrere Namen (Tags, z. B. `latest`) haben. |
 | **Volume** | Ein Speicherbereich für Daten, die auch nach einem Neustart erhalten bleiben sollen (zum Beispiel Datenbankinhalte). |
 | **Podman** | Die Software auf dem Rechner, die die Container betreibt. PodmanManager steuert sie. |
 | **Agent** | Ein kleines Hilfsprogramm auf jedem Rechner, das PodmanManager mit diesem Rechner verbindet. „Agent-ID“ ist sein Name. |

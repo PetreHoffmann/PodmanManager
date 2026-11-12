@@ -63,7 +63,7 @@ export default async function Images({ searchParams }: { searchParams: SP }) {
             {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={admin ? 7 : 6}>{t("images.none")}</td></tr>}
             {rows.map(({ agent, img, tag }) => (
               <tr key={`${agent.id}-${img.id}-${tag ?? ""}`} className="transition hover:bg-slate-900">
-                <td className="td max-w-[22rem] break-all font-medium">{label(tag, img.id)}{img.protected && <span className="ml-2 text-xs font-normal text-amber-300">{t("images.protected")}</span>}</td>
+                <td className="td max-w-[22rem] break-all font-medium">{label(tag, img.id)}{img.protected && <div className="text-xs font-normal text-amber-300">{t("images.protected")}</div>}</td>
                 <td className="td font-mono text-xs">{img.id.slice(0, 12)}</td>
                 <td className="td max-w-[11rem] truncate" title={agent.hostname}>{agent.hostname}</td>
                 <td className="td whitespace-nowrap tabular-nums">{fmtBytes(img.size, lang)}</td>
