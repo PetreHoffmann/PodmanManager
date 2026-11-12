@@ -1,4 +1,4 @@
-import { SAML, ValidateInResponseTo, generateServiceProviderMetadata, type CacheProvider, type Profile } from "@node-saml/node-saml";
+import { SAML, SamlStatusError, ValidateInResponseTo, generateServiceProviderMetadata, type CacheProvider, type Profile } from "@node-saml/node-saml";
 import { DbCacheProvider, REQUEST_TTL_MS } from "./saml-cache";
 import { spAcsUrl, spEntityId, splitCerts, type SamlConfig } from "./saml-config";
 import type { MappedSamlGroup } from "./saml-access";
@@ -47,6 +47,32 @@ export function claimValues(profile: object, claim: string): string[] {
   return list.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter((x) => x !== "");
 }
 
+const STATUS_PREFIX = "urn:oasis:names:tc:SAML:2.0:status:";
+
+const STATUS_HINTS: Record<string, string> = {
+  RequestDenied:
+    "ADFS refused the request and does not say why. Typical causes on the ADFS side: the access control policy / issuance authorization rules of the relying party trust do not permit this user, " +
+    "or the trust's identifier or endpoint does not match what this master sends (see below). The reason is in ADFS: Event Viewer > Applications and Services Logs > AD FS > Admin",
+  AuthnFailed: "the user could not be authenticated at ADFS",
+  NoPassive: "ADFS cannot sign in without user interaction",
+  InvalidNameIDPolicy: "ADFS does not support the requested NameID policy",
+  UnsupportedBinding: "ADFS does not support the requested binding",
+  RequestUnsupported: "ADFS does not support this kind of request",
+  RequestVersionTooLow: "ADFS does not support this SAML version",
+};
+
+/** A failure status of the identity provider, with what this master sent so it can be compared with the relying party trust. */
+export function describeStatusError(e: SamlStatusError, cfg: Pick<SamlConfig, "publicUrl">): string {
+  const codes = [...e.xmlStatus.matchAll(/<StatusCode[^>]*\sValue="([^"]+)"/g)].map((m) => m[1]!.replace(STATUS_PREFIX, ""));
+  const message = /<StatusMessage>([\s\S]*?)<\/StatusMessage>/.exec(e.xmlStatus)?.[1]?.trim();
+  const detail = /<StatusDetail>([\s\S]*?)<\/StatusDetail>/.exec(e.xmlStatus)?.[1]?.replace(/<[^>]+>/g, " ").trim();
+  const hint = codes.map((c) => STATUS_HINTS[c]).find((h) => h !== undefined);
+  return (
+    `ADFS answered with an error: ${codes.join(" > ") || "unknown status"}${message ? `; message: ${message}` : ""}${detail ? `; detail: ${detail}` : ""}` +
+      `${hint ? `. ${hint}` : ""}. This master sent: identifier ${spEntityId(cfg)}, sign-in endpoint ${spAcsUrl(cfg)}`
+  ).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 800);
+}
+
 const sameUrl = (a: string, b: string): boolean => {
   try {
     return new URL(a).href === new URL(b).href;
@@ -74,6 +100,7 @@ export async function completeLogin(cfg: SamlConfig, samlResponse: string, cache
   try {
     ({ profile } = await createSaml(cfg, cache).validatePostResponseAsync({ SAMLResponse: samlResponse }));
   } catch (e) {
+    if (e instanceof SamlStatusError) return { ok: false, reason: describeStatusError(e, cfg) };
     return { ok: false, reason: clean(e instanceof Error ? e.message : String(e)) };
   }
   if (!profile) return { ok: false, reason: "no profile in the response" };

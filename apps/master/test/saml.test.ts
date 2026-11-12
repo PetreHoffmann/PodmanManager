@@ -90,6 +90,19 @@ describe("SAML response validation (ADFS-shaped, signed assertion)", () => {
     assert.equal((await completeLogin(cfg, "", cache)).ok, false);
   });
 
+  it("explains an error status of ADFS (RequestDenied carries no message) and names what the master sent", async () => {
+    const cache = new DbCacheProvider(openDb(":memory:"));
+    const failed = (id: string, extra = "") => Buffer.from(`<samlp:Response ID="_f" Version="2.0" IssueInstant="${new Date().toISOString()}" InResponseTo="${id}" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"><Issuer xmlns="urn:oasis:names:tc:SAML:2.0:assertion">${IDP}</Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Responder"><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:RequestDenied"/></samlp:StatusCode>${extra}</samlp:Status></samlp:Response>`).toString("base64");
+    const r = await completeLogin(cfg, failed(await begin(cache)), cache);
+    assert.ok(!r.ok);
+    assert.match(r.reason, /Responder > RequestDenied/);
+    assert.match(r.reason, /access control policy|authorization rules/);
+    assert.match(r.reason, /AD FS > Admin/);
+    assert.ok(r.reason.includes(`identifier ${spEntityId(cfg)}`) && r.reason.includes(`sign-in endpoint ${spAcsUrl(cfg)}`), r.reason);
+    const withMsg = await completeLogin(cfg, failed(await begin(cache), "<samlp:StatusMessage>MSIS7337: not authorized</samlp:StatusMessage>"), cache);
+    assert.ok(!withMsg.ok && withMsg.reason.includes("message: MSIS7337: not authorized"), withMsg.ok ? "" : withMsg.reason);
+  });
+
   it("tolerates a small clock difference between ADFS and the master", async () => {
     const cache = new DbCacheProvider(openDb(":memory:"));
     const r = await completeLogin(cfg, resp({ inResponseTo: await begin(cache), now: Date.now() + 60_000 }), cache);

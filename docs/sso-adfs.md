@@ -81,11 +81,12 @@ ADFS erneuert sein Tokensignaturzertifikat in der Regel automatisch (*Automatisc
 
 ## Fehlersuche
 
-Schlägt eine SSO-Anmeldung fehl, steht der **Grund im Master-Log** (*Einstellungen → Master-Logs → Logs anzeigen*), Zeilen `saml login failed: …` oder `saml login denied: …`. Dem Benutzer zeigt der Master bewusst nur eine kurze Meldung.
+Schlägt eine SSO-Anmeldung fehl, steht der **Grund im Master-Log** (*Einstellungen → Master-Logs → Logs anzeigen*), Zeilen `saml login started: …` (was der Master an ADFS gesendet hat), `saml login failed: …` und `saml login denied: …`. Dem Benutzer zeigt der Master bewusst nur eine kurze Meldung.
 
 | Meldung im Master-Log | Ursache und Lösung |
 |---|---|
 | `no matching group (received: …)` | Anmeldung gelungen, aber kein Gruppenwert passt. Die ausgegebene Liste zeigt, was ADFS gesendet hat: Schreibweise (`CORP\Team-A`) und Anspruchsregel in ADFS prüfen, Eintrag bei *SAML-Gruppe* anpassen. |
+| `ADFS answered with an error: Responder > RequestDenied` | **ADFS hat die Anfrage abgelehnt und nennt keinen Grund**; der Master kann ihn nicht erfahren. Die Zeile nennt Bezeichner und Anmelde-Endpunkt, die der Master gesendet hat. Prüfen Sie in ADFS: (1) **Zugriffssteuerungsrichtlinie / Ausgabeautorisierungsregeln** der Vertrauensstellung: ist der Benutzer zugelassen (z. B. „Bestimmte Gruppe zulassen“, Mehrstufige Authentifizierung)? (2) Entspricht der **Bezeichner** der Vertrauensstellung genau dem Bezeichner aus der Zeile und der **SAML-Endpunkt** (ACS, POST) der Adresse? Am einfachsten die Vertrauensstellung aus den Metadaten des Masters neu anlegen. (3) Den eigentlichen Grund nennt das ADFS-Ereignisprotokoll (*Ereignisanzeige → Anwendungs- und Dienstprotokolle → AD FS → Admin*), bei aktivierter ADFS-Überwachung auch das Sicherheitsprotokoll. |
 | `Invalid signature` / `Invalid document signature` | Das gespeicherte Zertifikat passt nicht zur Signatur: Metadaten erneut importieren (Zertifikatwechsel). Sendet ADFS die Assertion unsigniert, in ADFS die Signatur nicht abschalten. |
 | `SAML assertion audience mismatch` | Der **Bezeichner** der Vertrauensstellung in ADFS ist nicht die Entity-ID des Masters (`https://…/saml/metadata`). Öffentliche Adresse und ADFS-Bezeichner angleichen. |
 | `Unknown SAML issuer` | Die *ADFS-Entity-ID* im Master weicht von der in den Metadaten ab (ADFS nutzt oft `http://…/adfs/services/trust`, nicht https). Metadaten importieren statt von Hand eintippen. |
