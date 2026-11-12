@@ -159,8 +159,8 @@ describe("configuration", () => {
   });
   it("button text: normalised, limited to 60 characters, empty = default; old stored configs have none", () => {
     const ok = (label: string) => parseSamlInput({ ...base, idpCert: idp.cert, buttonLabel: label });
-    const a = ok("  Mit  PBeaKK-Konto \n anmelden\u0000 ");
-    assert.ok(a.ok && a.config.buttonLabel === "Mit PBeaKK-Konto anmelden");
+    const a = ok("  Mit  Acme Inc \n anmelden\u0000 ");
+    assert.ok(a.ok && a.config.buttonLabel === "Mit Acme Inc anmelden");
     const e = ok("");
     assert.ok(e.ok && e.config.buttonLabel === "");
     assert.ok(ok("x".repeat(60)).ok);
