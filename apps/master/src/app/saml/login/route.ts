@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { loadSamlConfig, samlReady } from "@/lib/saml-config";
+import { loadSamlConfig, samlReady, spAcsUrl, spEntityId } from "@/lib/saml-config";
 import { NONCE_COOKIE, relayTarget, startAllowed } from "@/lib/saml-http";
 import { startLogin } from "@/lib/saml";
 
@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
   if (!startAllowed()) return new NextResponse("Too many requests", { status: 429, headers: { "Retry-After": "60" } });
   const nonce = randomBytes(16).toString("base64url");
   const url = await startLogin(cfg, `${nonce}.${relayTarget(req.nextUrl.searchParams.get("next"))}`);
+  console.info(`saml login started: identifier ${spEntityId(cfg)}, sign-in endpoint ${spAcsUrl(cfg)}, sent to ${cfg.idpSsoUrl}`);
   const https = cfg.publicUrl.startsWith("https://");
   const res = NextResponse.redirect(url, 302);
   // Sent back with ADFS's cross-site POST, so it needs SameSite=None (which requires https); plain http can only use Lax.
