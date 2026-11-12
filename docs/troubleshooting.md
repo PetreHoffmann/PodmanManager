@@ -46,6 +46,17 @@
 | Warnung „SQLite is an experimental feature" | Harmlos (Node 24). |
 | Logs | `journalctl -u podmanmanager-master -f` |
 
+## Update per Web-UI
+
+| Meldung / Symptom | Ursache und Abhilfe |
+|---|---|
+| Kein „Aktualisieren“-Button bei einem Agent | Agent ist nicht älter als der Master, oder Sie sind kein Admin. |
+| „zu alt für Remote-Updates“ | Agent ≤ 0.9.2: einmalig manuell `podman pull …:latest && systemctl --user restart podmanmanager-agent`. |
+| „fest gepinnter Image-Tag“ | Im Quadlet `Image=…:latest` (oder `X` / `X.Y`) statt `X.Y.Z` verwenden. |
+| „nicht von systemd/Quadlet verwaltet“ | Agent per Quadlet mit `Restart=always` starten; mit `podman run` kann er sich nicht selbst neu starten. |
+| „Jetzt aktualisieren“ fehlt in „Über“ | Auf dem Master-Host muss ein Agent ≥ 0.11.0 mit `Environment=UPDATE_UNIT=podmanmanager-master` laufen (`daemon-reload`, Agent neu starten). |
+| Update startet, nichts ändert sich | Der Pull fand kein neues Image („Already up to date“) oder der Host-Podman erreicht Docker Hub nicht; Agent-Log in der Host-Ansicht prüfen. |
+
 ## Diagnose
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" http://<agent>:9126/api/v1/containers
