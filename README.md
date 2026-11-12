@@ -1,7 +1,7 @@
 # PodmanManager
 
 Schlanke zentrale Verwaltung von **rootless Podman**-Containern auf mehreren Linux-Hosts.
-Funktionsumfang bewusst begrenzt: Container **anzeigen, starten, stoppen, neustarten**.
+Funktionsumfang bewusst begrenzt: Container und Pods **anzeigen, starten, stoppen, neustarten**, Logs lesen, Images **ansehen und (Admins) löschen**.
 
 - **Master** (`apps/master`): Next.js-Weboberfläche, HTTP `:8080`, SQLite.
 - **Agent** (`apps/agent`): eigenständiger Node.js-Prozess pro Host, HTTP `:9126`, spricht ausschließlich mit dem lokalen Podman-Unix-Socket des eigenen Benutzers. Keine Laufzeit-Abhängigkeiten.
@@ -10,7 +10,11 @@ Funktionsumfang bewusst begrenzt: Container **anzeigen, starten, stoppen, neusta
 Browser ── HTTP :8080 ── Master ── HTTP :9126 (Bearer-Token) ── Agent ── Unix-Socket ── Podman (rootless)
 ```
 
-Neben Containern zeigt der Master auch **Pods** (Liste, Detail mit Containern, Start/Stop/Restart und die letzten 150 Log-Zeilen des ganzen Pods); in der Container-Liste steht, zu welchem Pod ein Container gehört. Die Host-Tabelle zeigt pro Host den vom Podman-Speicher belegten Platz (Images, Container, Volumes).
+Neben Containern zeigt der Master auch **Pods** (Liste, Detail mit Containern, Start/Stop/Restart und die letzten 150 Log-Zeilen des ganzen Pods); in der Container-Liste steht, zu welchem Pod ein Container gehört. Die Host-Tabelle zeigt pro Host den vom Podman-Speicher belegten Platz (Images, Container, Volumes) und die Agent-Version.
+
+**Images** (eigener Menüpunkt): je Host alle Images mit Tags, Größe, Alter und nutzenden Containern. Admins löschen ein Image oder nur einen Tag und räumen Images ohne Tag auf; Images in Benutzung sowie die von PodmanManager selbst sind gesperrt.
+
+**Updates per Web-UI** (Admins): Agents, die älter als der Master sind, tragen das Label „veraltet“ und lassen sich in der Host-Ansicht per Knopf aktualisieren. Den Master aktualisiert ein Agent auf demselben Host über „Über“ → „Jetzt aktualisieren“ (`UPDATE_UNIT`). Voraussetzung: Quadlet mit `Restart=always` und Image-Tag `:latest` (siehe [Quadlets](deployment/quadlet/README.md)).
 
 Die Oberfläche ist in Englisch, Deutsch, Rumänisch und Spanisch verfügbar (Flaggen-Auswahl oben rechts; Standard aus `Accept-Language`, danach per Cookie gemerkt). Die automatische Browser-Übersetzung ist per `translate="no"` und `<meta name="google" content="notranslate">` unterbunden.
 
@@ -35,6 +39,8 @@ Kein Docker, kein Compose, kein HTTPS/TLS, kein Root. **Nur in einem abgeschotte
 | ![Details](docs/screenshots/desktop-container-detail.png) | ![Dashboard mit Offline-Host](docs/screenshots/desktop-dashboard-host-offline.png) |
 | **Pods** | **Pod-Details mit gemischten Logs** |
 | ![Pods](docs/screenshots/desktop-pods.png) | ![Pod-Details](docs/screenshots/desktop-pod-detail.png) |
+| **Images** (Löschen nur für Admins) | |
+| ![Images](docs/screenshots/desktop-images.png) | |
 
 **Smartphone** (Hamburger-Menü und Kartenansicht statt Tabellen)
 
@@ -43,6 +49,7 @@ Kein Docker, kein Compose, kein HTTPS/TLS, kein Root. **Nur in einem abgeschotte
   <img src="docs/screenshots/mobile-hosts.png" alt="Hosts mobil" width="200">
   <img src="docs/screenshots/mobile-containers.png" alt="Container mobil" width="200">
   <img src="docs/screenshots/mobile-pods.png" alt="Pods mobil" width="200">
+  <img src="docs/screenshots/mobile-images.png" alt="Images mobil" width="200">
 </p>
 
 Die Screenshots zeigen Testdaten (nachgebaute Podman-Sockets). Die Oberfläche gibt es in Englisch, Deutsch, Rumänisch und Spanisch (Flaggen oben rechts).
@@ -65,7 +72,7 @@ MASTER_SECRET_KEY=$(openssl rand -base64 32) deployment/master/start.sh
 
 ## Docker-Images
 
-Fertige Images (Apache-2.0) liegen öffentlich auf Docker Hub: [`petrecalinoiu/podmanmanager-master`](https://hub.docker.com/r/petrecalinoiu/podmanmanager-master) und [`petrecalinoiu/podmanmanager-agent`](https://hub.docker.com/r/petrecalinoiu/podmanmanager-agent). Tags: `0.1.1`, `latest` (und `sha-<commit>`); sie werden bei jedem Git-Tag `v*` automatisch gebaut. Die Container-Starts sind bisher nicht auf echten Hosts getestet.
+Fertige Images (Apache-2.0) liegen öffentlich auf Docker Hub: [`petrecalinoiu/podmanmanager-master`](https://hub.docker.com/r/petrecalinoiu/podmanmanager-master) und [`petrecalinoiu/podmanmanager-agent`](https://hub.docker.com/r/petrecalinoiu/podmanmanager-agent). Tags: `latest`, die Version (z. B. `0.12.1`) und `sha-<commit>`; sie werden bei jedem Git-Tag `v*` automatisch gebaut. Für Updates per Web-UI `latest` verwenden.
 
 **Master**
 
@@ -73,7 +80,7 @@ Fertige Images (Apache-2.0) liegen öffentlich auf Docker Hub: [`petrecalinoiu/p
 docker run -d --name podmanmanager-master -p 8080:8080 \
   -v pm-data:/data \
   -e MASTER_SECRET_KEY="<32 Byte, base64: openssl rand -base64 32>" \
-  petrecalinoiu/podmanmanager-master:0.1.1
+  petrecalinoiu/podmanmanager-master:latest
 ```
 
 `MASTER_SECRET_KEY` einmal festlegen und bei jedem Start wieder verwenden – mit einem neuen Schlüssel sind die gespeicherten Agent-Tokens unlesbar. Die Datenbank liegt im Volume `/data`.
@@ -81,11 +88,11 @@ docker run -d --name podmanmanager-master -p 8080:8080 \
 **Agent** (empfohlen bleibt die native Installation mit `deployment/agent/install.sh`; als Container braucht der Agent den gemounteten Rootless-Socket und muss mit der UID des Podman-Benutzers laufen, er verweigert Root)
 
 ```bash
-podman run --rm petrecalinoiu/podmanmanager-agent:0.1.1 node dist/index.js --generate-token   # Token + Hash
+podman run --rm petrecalinoiu/podmanmanager-agent:latest node dist/index.js --generate-token   # Token + Hash
 podman run -d --name pm-agent --user $(id -u) --userns=keep-id -p 9126:9126 \
   -v $XDG_RUNTIME_DIR/podman/podman.sock:/run/podman/podman.sock \
   -e AGENT_ID=host-1 -e AGENT_TOKEN_HASH=<hash> \
-  docker.io/petrecalinoiu/podmanmanager-agent:0.1.1
+  docker.io/petrecalinoiu/podmanmanager-agent:latest
 ```
 
 Den Token im Master unter *Hosts* eintragen; Port 9126 nur für die Master-IP freigeben (siehe [Sicherheit](docs/security.md)).
@@ -100,7 +107,7 @@ Den Token im Master unter *Hosts* eintragen; Port 9126 nur für die Master-IP fr
 | [SSO mit SAML/ADFS](docs/sso-adfs.md) | Anmeldung per SAML 2.0 über ADFS 2022: Einrichtung, Claims, Fehlersuche |
 | [Agent-Installation](docs/installation-agent.md) | install.sh, User-Service, Lingering, Podman-Socket |
 | [Deployment (Schritt für Schritt)](deployment/README.md) | `podman run` und Quadlet für Master und Agent; Agent-Hash als Secret oder Environment-Wert |
-| [Quadlets](deployment/quadlet/README.md) | Rootless-Quadlets für Master und Agent (Podman-Secrets, gemeinsames Netzwerk) |
+| [Quadlets](deployment/quadlet/README.md) | Rootless-Quadlets für Master und Agent (Podman-Secrets, gemeinsames Netzwerk, Updates per Web-UI) |
 | [API](docs/api.md) | Agent-REST-API, Fehlercodes |
 | [Sicherheit](docs/security.md) | Bedrohungsmodell, Tokens, Firewall |
 | [Troubleshooting](docs/troubleshooting.md) | Häufige Fehler |

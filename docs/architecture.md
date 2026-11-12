@@ -32,6 +32,8 @@ Der Agent nutzt ausschließlich diese festen Endpunkte (kein Pass-through). `<ba
 | Restart | `POST <base>/containers/{id}/restart?t=10` (204) |
 | Pods | `GET <base>/pods/json` (Liste mit Containern); Aktionen `POST <base>/pods/{id}/start|stop?t=10|restart` (200; 304 = Zustand schon erreicht) |
 | Speicher (lesend) | `GET <base>/system/df` (Images, Container, Volumes mit Größen); der Agent summiert und cached 60 s |
+| Images | `GET <base>/images/json` (Liste), `DELETE <base>/images/{id oder repo:tag}?force=false` (nie mit Force), `POST <base>/images/prune?filters={"dangling":["true"]}`; Nutzung aus `GET <base>/containers/json?all=true` (`ImageID`) |
+| Selbst-Update | `GET <base>/containers/{id}/json` (eigenes Image), `POST <base>/images/pull?reference=<eigenes Image>&quiet=true`; danach beendet sich der Agent bzw. stoppt `POST <base>/containers/{id}/stop` den Master-Container (gefunden per `GET <base>/containers/json?filters={"label":["PODMAN_SYSTEMD_UNIT=<unit>.service"]}`) |
 | Pod-Logs (lesend) | keine Podman-Route: Container-Logs jedes Pod-Containers (siehe oben), vom Agent nach Zeitstempel gemischt |
 | Logs (lesend) | `GET <base>/containers/{id}/logs?stdout=true&stderr=true&tail=<n>&timestamps=true` (Antwort: Rahmenformat, siehe unten) |
 
@@ -43,5 +45,8 @@ Der Agent nutzt ausschließlich diese festen Endpunkte (kein Pass-through). `<ba
 - gegen den Podman-Quellcode und gegen ein echtes **Podman 4.9.3** (Root-Socket in der Entwicklungsumgebung): `_ping`, Version, Container auflisten/ansehen, Start/Stop/Restart inkl. 304-Fall und unbekannter ID, mit einem echten Container;
 - auf einem echten Host mit **Rootless-Podman 5.8.2** (Agent und Master als Quadlet-Container im gemeinsamen Netzwerk): Registrierung im Master, `/api/v1/health` (`socketStatus: ok`, `apiStatus: ok`, Podman-Version), Containerliste und Start/Stop/Restart über die Master-Oberfläche funktionieren. Andere 5.x-Versionen sind nicht gesondert getestet.
 
+## Updates per Web-UI
+Podman hat keine REST-Route für Auto-Updates; daher: Der **Agent** zieht sein eigenes Image (nur schwebende Tags wie `latest`, `X`, `X.Y`) erneut und beendet sich mit Fehlercode, systemd (`Restart=always`) erstellt den Container aus dem neuen Image. Für den **Master** (ohne Podman-Zugriff) übernimmt das ein Agent auf demselben Host: Mit `UPDATE_UNIT=<Master-Unit>` zieht er das Master-Image und stoppt dessen Container, systemd startet ihn neu. Ohne Quadlet/systemd oder mit festem Tag wird abgelehnt. Admin-Aktion im Master.
+
 ## Bewusst nicht enthalten
-Container und Pods erstellen/löschen, Images, Volumes, Netzwerke, Exec/Terminal, Statistiken, Compose. (Pods gibt es nur als Liste, Detail, Start/Stop/Restart und schreibgeschützte Logs. Logs gibt es nur als schreibgeschützte Ansicht der letzten 150 Zeilen, kein Live-Stream.)
+Container und Pods erstellen/löschen, Images pullen/bauen (nur ansehen und löschen), Volumes, Netzwerke, Exec/Terminal, Statistiken, Compose. (Pods gibt es nur als Liste, Detail, Start/Stop/Restart und schreibgeschützte Logs. Logs gibt es nur als schreibgeschützte Ansicht der letzten 150 Zeilen, kein Live-Stream.)

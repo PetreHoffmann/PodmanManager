@@ -204,6 +204,7 @@ Im Master unter *Hosts* `http://<host-ip>:9126` und den Token eintragen. Master 
 ### B.6 Update, Token erneuern, Entfernen
 
 - **Update:** In den `.container`-Dateien den `Image=`-Tag ändern, `systemctl --user daemon-reload && systemctl --user restart podmanmanager-agent podmanmanager-master`. Der About-Dialog des Masters zeigt, wenn eine neuere Version vorliegt.
+- **Update per Web-UI (ab v0.10.0 / v0.11.0):** Mit `Image=…:latest` und `Restart=always` aktualisiert der Admin Agents in der Host-Ansicht („veraltet“ → *Aktualisieren*) und den Master unter *Über* → *Jetzt aktualisieren*. Für den Master braucht der Agent auf demselben Host `Environment=UPDATE_UNIT=podmanmanager-master`. Details: [Quadlets](quadlet/README.md#master-per-web-ui-aktualisieren).
 - **Token erneuern:** Abschnitt „Token und Hash“ erneut ausführen, dann
   - Secret-Variante: `podman secret rm podmanmanager-agent-hash`, neues Secret anlegen (B.3);
   - Environment-Variante: `AGENT_TOKEN_HASH=` in der Unit-Datei ersetzen (B.4);
