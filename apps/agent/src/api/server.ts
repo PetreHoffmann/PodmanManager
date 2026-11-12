@@ -6,6 +6,7 @@ import { PodmanError } from "../podman/client.js";
 import { isValidContainerId, isValidPodId, type PodmanService } from "../podman/service.js";
 import { collectHealth } from "../services/health.js";
 import type { LogBuffer } from "../logbuffer.js";
+import type { SelfUpdater } from "../services/update.js";
 
 export interface Logger {
   info(msg: string): void;
@@ -61,7 +62,7 @@ function drain(req: IncomingMessage): Promise<boolean> {
   });
 }
 
-export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: Logger, logs?: LogBuffer): Server {
+export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: Logger, logs?: LogBuffer, updater?: SelfUpdater): Server {
   const limiter = new FailureLimiter(cfg.rateLimitMax, cfg.rateLimitWindowMs);
 
   const server = createServer(async (req, res) => {
@@ -104,6 +105,16 @@ export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: 
       if (route.length === 2 && route[0] === "system" && route[1] === "storage") {
         if (method !== "GET") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
         return send(res, 200, { ok: true, data: await podman.storage() });
+      }
+
+      if (route.length === 2 && route[0] === "system" && route[1] === "update") {
+        if (method !== "GET" && method !== "POST") return fail(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET, POST" });
+        if (!updater) return fail(res, 404, "NOT_FOUND", "Not found");
+        if (method === "GET") return send(res, 200, { ok: true, data: await updater.info() });
+        const info = await updater.start();
+        if (!info.possible) return fail(res, 409, "UPDATE_NOT_POSSIBLE", info.reason ?? "not_possible");
+        log.info(`update requested (state ${info.state})`);
+        return send(res, 202, { ok: true, data: info });
       }
 
       if (route[0] === "pods") {

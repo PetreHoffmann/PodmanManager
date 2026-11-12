@@ -273,6 +273,42 @@ export class PodmanService {
     return this.storagePending;
   }
 
+  /** Selected fields of the raw container inspect, for the agent's own update check. */
+  async inspectSelf(id: string): Promise<{ imageName: string; imageId: string; labels: Record<string, string> }> {
+    this.assertId(id);
+    await this.client.checkSocket();
+    const res = await this.client.call("GET", `${await this.libpod()}/containers/${id}/json`);
+    if (res.status === 404) throw new PodmanError("CONTAINER_NOT_FOUND", "Container not found", 404);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const o = rec(json(res));
+    const labels: Record<string, string> = {};
+    for (const [k, v] of Object.entries(rec(rec(o.Config).Labels))) if (typeof v === "string") labels[k] = v;
+    return { imageName: str(o.ImageName), imageId: str(o.Image), labels };
+  }
+
+  /** Pulls an image (the registry is reached by the host's Podman) and returns its image id. */
+  async pullImage(reference: string, timeoutMs: number): Promise<string> {
+    if (!/^[A-Za-z0-9._\-/:@]{1,255}$/.test(reference)) throw new PodmanError("PODMAN_API_ERROR", "Invalid image reference");
+    await this.client.checkSocket();
+    const res = await this.client.call("POST", `${await this.libpod()}/images/pull?reference=${encodeURIComponent(reference)}&quiet=true`, { timeoutMs, maxBytes: 1024 * 1024 });
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    // Podman reports a failed pull inside a 200 response: {"error":"..."}
+    const lines = res.body.toString("utf8").split("\n").map((l) => l.trim()).filter((l) => l !== "");
+    let id = "";
+    for (const l of lines) {
+      let o: Rec;
+      try {
+        o = rec(JSON.parse(l));
+      } catch {
+        continue;
+      }
+      if (typeof o.error === "string" && o.error) throw new PodmanError("PODMAN_API_ERROR", o.error.slice(0, 300));
+      if (typeof o.id === "string" && o.id) id = o.id;
+    }
+    if (!id) throw new PodmanError("PODMAN_API_ERROR", "Podman did not report an image id");
+    return id;
+  }
+
   async listPods(): Promise<PodInfo[]> {
     await this.client.checkSocket();
     const res = await this.client.call("GET", `${await this.libpod()}/pods/json`);

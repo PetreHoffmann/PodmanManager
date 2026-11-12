@@ -9,6 +9,7 @@ import { hashToken } from "../src/auth/auth.js";
 import type { AgentConfig } from "../src/config/config.js";
 import { PodmanClient } from "../src/podman/client.js";
 import { PodmanService } from "../src/podman/service.js";
+import { SelfUpdater, type UpdaterOptions } from "../src/services/update.js";
 
 export const TOKEN = "test-token-0123456789abcdef";
 export const ID = "a".repeat(64);
@@ -79,7 +80,7 @@ export interface Running {
   close(): Promise<void>;
 }
 
-export async function startAgent(socketPath: string, over: Partial<AgentConfig> = {}): Promise<Running> {
+export async function startAgent(socketPath: string, over: Partial<AgentConfig> = {}, updater?: UpdaterOptions): Promise<Running> {
   const cfg: AgentConfig = {
     agentId: "test-agent",
     host: "127.0.0.1",
@@ -94,7 +95,7 @@ export async function startAgent(socketPath: string, over: Partial<AgentConfig> 
   };
   const svc = new PodmanService(new PodmanClient(socketPath, cfg.podmanTimeoutMs), cfg.stopTimeoutSec);
   const logs = new LogBuffer(5);
-  const server = createAgentServer(cfg, svc, { info: (m) => logs.push("info", m), error: (m) => logs.push("error", m) }, logs);
+  const server = createAgentServer(cfg, svc, { info: (m) => logs.push("info", m), error: (m) => logs.push("error", m) }, logs, updater ? new SelfUpdater(svc, updater) : undefined);
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   const port = (server.address() as AddressInfo).port;
   return { base: `http://127.0.0.1:${port}`, logs, close: () => new Promise((r) => server.close(() => r())) };

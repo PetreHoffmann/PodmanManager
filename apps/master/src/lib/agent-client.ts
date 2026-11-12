@@ -1,4 +1,4 @@
-import type { StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
+import type { UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { CONTAINER_ID_RE } from "./validate";
 
@@ -92,3 +92,5 @@ export function agentPodLogs(t: AgentTarget, id: string) {
 
 /** Disk space used by the agent's Podman storage (read-only; `podman system df` can take a while). */
 export const agentStorage = (t: AgentTarget) => call<StorageInfo>(t, "GET", "/api/v1/system/storage", 40);
+
+export const agentUpdateStart = (t: AgentTarget) => call<UpdateInfo>(t, "POST", "/api/v1/system/update", 20);

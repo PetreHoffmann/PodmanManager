@@ -105,3 +105,17 @@ export interface StorageInfo {
   /** ISO time of the measurement (the agent caches it for a minute) */
   measuredAt: string;
 }
+
+export type UpdateState = "idle" | "pulling" | "restarting" | "current" | "error";
+
+/** Whether and how the agent can update itself (container started by systemd/Quadlet from a floating tag). */
+export interface UpdateInfo {
+  possible: boolean;
+  /** why not: no_container | inspect_failed | pinned_tag | not_systemd */
+  reason?: string;
+  /** image reference the agent container was started from, e.g. docker.io/…/podmanmanager-agent:latest */
+  image?: string;
+  tag?: string;
+  state: UpdateState;
+  message?: string;
+}

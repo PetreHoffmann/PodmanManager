@@ -69,6 +69,8 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Ist `https_proxy` gesetzt, geht die Update-Prüfung (und nur sie) über diesen HTTP-Proxy per CONNECT-Tunnel; das Serverzertifikat von Docker wird weiterhin geprüft (bei TLS-Inspektion die Firmen-CA per `NODE_EXTRA_CA_CERTS` hinterlegen). Agent-Verbindungen nutzen nie einen Proxy. Fehlerursachen erscheinen im Dialog nur als kurze Codes (kein Freitext).
 - Einzige ausgehende Verbindung des Masters ins Internet: lesende Abfragen der Tag-Liste bei Docker Hub, auf zwei Wegen parallel: `auth.docker.io` + `registry-1.docker.io` (Registry-API, anonymes Pull-Token) und `hub.docker.com/v2/repositories/<repo>/tags/`. 5 s Timeout je Anfrage, keine Redirects, nur nach Anmeldung und beim Öffnen des Dialogs, Cache 5 min. Es werden weder Hostnamen noch Agents noch Benutzer übertragen. Abschaltbar mit `UPDATE_CHECK=off`. Das Repository wird gegen ein festes Muster geprüft (kein frei wählbarer Pfad/Host).
 
+- **Agent-Selbst-Update:** `POST /system/update` (Bearer-Token wie alle Routen) löst nur Pull des *eigenen* Image-Verweises (validiert, nur schwebende Tags, nur systemd-verwaltet) und Neustart aus; es nimmt keine Image-Angaben vom Master entgegen. Im Master nur für Admins.
+
 ## Restrisiken
 - Aktiver Angreifer im Netz kann Token/Cookie abgreifen oder Traffic manipulieren (kein TLS).
 - Wer den Agent-Token kennt, kann Container dieses Benutzers starten/stoppen/neustarten (nur das).
