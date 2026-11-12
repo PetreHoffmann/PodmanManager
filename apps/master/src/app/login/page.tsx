@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 export default async function Page({ searchParams }: { searchParams: Promise<{ sso?: string }> }) {
   const t = await getT();
   const { sso } = await searchParams;
-  const saml = samlReady(loadSamlConfig());
+  const samlCfg = loadSamlConfig();
+  const saml = samlReady(samlCfg);
   if (!adminExists()) redirect("/setup");
   return (
     <div className="mx-auto mt-24 max-w-sm px-4">
@@ -31,7 +32,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
         <div className="mt-4 space-y-3">
           <p className="text-center text-xs text-slate-500">{t("auth.or")}</p>
           {/* a plain link: the browser must follow the redirect to the identity provider */}
-          <a href="/saml/login" className="btn w-full justify-center">{t("auth.ssoSignIn")}</a>
+          <a href="/saml/login" className="btn w-full justify-center">{samlCfg?.buttonLabel || t("auth.ssoSignIn")}</a>
         </div>
       )}
     </div>

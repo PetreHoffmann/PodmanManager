@@ -157,6 +157,21 @@ describe("configuration", () => {
     assert.ok(d.ok && d.config.usernameClaim === "" && d.config.groupClaim === DEFAULT_GROUP_CLAIM, "empty user name claim = NameID, empty group claim = default");
     assert.equal(DEFAULT_USERNAME_CLAIM.endsWith("/upn"), true);
   });
+  it("button text: normalised, limited to 60 characters, empty = default; old stored configs have none", () => {
+    const ok = (label: string) => parseSamlInput({ ...base, idpCert: idp.cert, buttonLabel: label });
+    const a = ok("  Mit  PBeaKK-Konto \n anmelden\u0000 ");
+    assert.ok(a.ok && a.config.buttonLabel === "Mit PBeaKK-Konto anmelden");
+    const e = ok("");
+    assert.ok(e.ok && e.config.buttonLabel === "");
+    assert.ok(ok("x".repeat(60)).ok);
+    assert.deepEqual(ok("x".repeat(61)), { ok: false, error: "err.samlButtonLabel" });
+    assert.ok(ok("🔐".repeat(60)).ok, "counted in characters, not bytes");
+    const db = openDb(":memory:");
+    db.prepare("INSERT INTO settings (key, value) VALUES ('saml', ?)").run(JSON.stringify({ enabled: true, publicUrl: "https://m.example.com" }));
+    assert.equal(loadSamlConfig(db)!.buttonLabel, "");
+    db.prepare("UPDATE settings SET value = ? WHERE key = 'saml'").run(JSON.stringify({ buttonLabel: "<b>x</b>\u0000y" }));
+    assert.equal(loadSamlConfig(db)!.buttonLabel, "<b>x</b> y", "stored junk is cleaned (rendered as plain text anyway)");
+  });
   it("accepts several certificates and bare base64", () => {
     const b64 = idp.cert.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
     assert.equal(splitCerts(`${idp.cert}\n${idp.cert}`).length, 2);
