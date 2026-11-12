@@ -175,7 +175,7 @@ describe("agent API with podman socket", () => {
     assert.equal((await post(`/api/v1/containers/${ID}/exec`)).status, 404);
     assert.equal((await get(`/api/v1/containers/${ID}/start`)).status, 405);
     assert.equal((await post(`/api/v1/containers`)).status, 405);
-    assert.equal((await get(`/api/v1/images`)).status, 404);
+    assert.equal((await get(`/api/v1/networks`)).status, 404);
     assert.equal((await get(`/libpod/info`)).status, 404);
   });
 
