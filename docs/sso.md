@@ -49,7 +49,7 @@ Unter *Einstellungen → Registerkarte „SAML“* (als Administrator):
 
 1. **Metadaten importieren:** Adresse oder XML des Anbieters eintragen, dann *Importieren*. Das füllt **Entity-ID**, **Anmeldeadresse** und das **Signaturzertifikat**. Hat der Master das Zertifikat der Anbieter-Webseite nicht im Vertrauensspeicher (Firmen-CA), siehe `NODE_EXTRA_CA_CERTS` in der [Master-Installation](installation-master.md), oder die XML-Datei einfügen. Ohne Import tragen Sie die drei Werte von Hand ein.
 2. **Öffentliche Adresse des Masters** eintragen (`https://master.example.com`, ohne Pfad).
-3. **Vorlage für den Anbieter** wählen (füllt Claim-Namen und NameID-Format) und anpassen.
+3. **Vorlage für den Anbieter** wählen (füllt Claim-Namen und NameID-Format) und anpassen. Optional den **Claim mit dem Anzeigenamen** eintragen (bei ADFS siehe „Regel 3“): dann steht bei „Angemeldet als“ „Anzeigename (Kontoname)“, sonst der Benutzername.
 4. **Administrator-Gruppe** eintragen (Wert wie in der Tabelle oben; leer lassen, wenn es keine SSO-Administratoren geben soll).
 5. Optional die **Beschriftung des SSO-Knopfs** anpassen (bis 60 Zeichen, gilt für alle Sprachen), z. B. „Mit Acme Inc anmelden“. Leer lassen = Standardtext (in der jeweiligen Sprache).
 6. **Prüfen** zeigt Zertifikat (Ablaufdatum), die Werte für den Anbieter und Hinweise (z. B. wenn die Adresse http statt https nutzt). Dann **SSO aktivieren** und **Speichern**.
