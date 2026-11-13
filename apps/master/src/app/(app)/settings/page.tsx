@@ -10,6 +10,7 @@ import GroupEditor from "@/components/GroupEditor";
 import LogoInput from "@/components/LogoInput";
 import SamlPreset from "@/components/SamlPreset";
 import LdapPreset from "@/components/LdapPreset";
+import BackupPanel from "@/components/BackupPanel";
 import UserEditor from "@/components/UserEditor";
 import { listUsers } from "@/lib/users";
 import { listAgents } from "@/lib/agents";
@@ -136,6 +137,12 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
                 </ActionForm>
               </section>
               {canPw ? pwCard : <p className="card text-sm text-slate-400">{t("set.pwExternal")}</p>}
+              {session.kind === "local" && (
+                <section className="card">
+                  <h2 className="mb-2 font-medium">{t("backup.title")}</h2>
+                  <BackupPanel />
+                </section>
+              )}
             </>
           ) : (
             <>
