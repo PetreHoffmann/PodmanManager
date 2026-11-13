@@ -28,16 +28,16 @@ export async function checkAdminPassword(pw: string, db: DatabaseSync = getDb())
 export function createSession(info: SessionInfo, db: DatabaseSync = getDb()): string {
   const token = randomToken();
   db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
-  db.prepare("INSERT INTO sessions (token_hash, expires_at, username, kind, access, group_ids) VALUES (?, ?, ?, ?, ?, ?)").run(
-    sha256(token), Date.now() + TTL_MS, info.username, info.kind, info.access, JSON.stringify(info.groupIds),
+  db.prepare("INSERT INTO sessions (token_hash, expires_at, username, kind, access, group_ids, display_name) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+    sha256(token), Date.now() + TTL_MS, info.username, info.kind, info.access, JSON.stringify(info.groupIds), info.displayName ?? null,
   );
   return token;
 }
 
 export function getSession(token: string | undefined, db: DatabaseSync = getDb()): SessionInfo | null {
   if (!token) return null;
-  const r = db.prepare("SELECT expires_at, username, kind, access, group_ids FROM sessions WHERE token_hash = ?").get(sha256(token)) as
-    | { expires_at: number; username: string | null; kind: string | null; access: string | null; group_ids: string | null }
+  const r = db.prepare("SELECT expires_at, username, kind, access, group_ids, display_name FROM sessions WHERE token_hash = ?").get(sha256(token)) as
+    | { expires_at: number; username: string | null; kind: string | null; access: string | null; group_ids: string | null; display_name: string | null }
     | undefined;
   if (!r || r.expires_at <= Date.now() || !r.username) return null;
   let groupIds: number[] = [];
@@ -50,7 +50,7 @@ export function getSession(token: string | undefined, db: DatabaseSync = getDb()
   const kind = r.kind === "ldap" ? "ldap" : r.kind === "saml" ? "saml" : "local";
   // Unknown or missing access values never widen permissions: only local sessions default to "all".
   const access = r.access === "all" || (r.access === null && kind === "local") ? "all" : "groups";
-  return { username: r.username, kind, access, groupIds };
+  return { username: r.username, kind, access, groupIds, ...(r.display_name ? { displayName: r.display_name } : {}) };
 }
 
 export async function startSession(info: SessionInfo): Promise<void> {

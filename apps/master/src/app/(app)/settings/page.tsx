@@ -76,7 +76,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
       {tab === "general" && (
         <div className="space-y-5">
           <section className="card space-y-1">
-            <p className="text-sm">{t("set.signedIn", { name: session.username })}</p>
+            <p className="text-sm">{t("set.signedIn", { name: session.displayName ?? session.username })}</p>
             <p className="text-xs text-slate-400">
               {admin ? t("set.accessAll") : t("set.accessGroups", { groups: groupNames(session).join(", ") || "—" })}
             </p>
@@ -218,6 +218,10 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
                 <input name="groupClaim" defaultValue={saml.groupClaim} className="input mt-1 font-mono text-xs" />
               </label>
             </div>
+            <label className="block text-sm">{t("saml.displayNameClaim")}
+              <input name="displayNameClaim" defaultValue={saml.displayNameClaim} placeholder="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name" className="input mt-1 font-mono text-xs" />
+              <span className="text-xs text-slate-500">{t("saml.displayNameHint")}</span>
+            </label>
             <p className="-mt-2 text-xs text-slate-500">{t("saml.claimHint")}</p>
             <label className="block text-sm">{t("saml.nameIdFormat")}
               <select name="nameIdFormat" defaultValue={saml.nameIdFormat} className="input mt-1 block w-auto">

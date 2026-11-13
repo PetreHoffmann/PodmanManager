@@ -23,6 +23,7 @@ export default function SamlPreset() {
           set("usernameClaim", p.usernameClaim);
           set("groupClaim", p.groupClaim);
           set("nameIdFormat", p.nameIdFormat);
+          set("displayNameClaim", p.displayNameClaim);
         }}
       >
         <option value="">{t("saml.presetPick")}</option>

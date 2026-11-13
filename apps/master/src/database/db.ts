@@ -70,6 +70,7 @@ export function openDb(path: string): DatabaseSync {
     // Sessions created before agent groups existed carry no scope; drop them.
     db.exec("DELETE FROM sessions; ALTER TABLE sessions ADD COLUMN access TEXT; ALTER TABLE sessions ADD COLUMN group_ids TEXT;");
   }
+  if (!cols.includes("display_name")) db.exec("ALTER TABLE sessions ADD COLUMN display_name TEXT");
   const groupCols = (db.prepare("PRAGMA table_info(agent_groups)").all() as { name: string }[]).map((c) => c.name);
   if (!groupCols.includes("saml_group")) {
     db.exec("ALTER TABLE agent_groups ADD COLUMN saml_group TEXT NOT NULL DEFAULT ''");

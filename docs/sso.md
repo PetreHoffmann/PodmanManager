@@ -96,6 +96,8 @@ Add-AdfsRelyingPartyTrust -Name "PodmanManager" -MetadataUrl "https://master.exa
 - **Variante A: alle Gruppen des Benutzers.** Vorlage *LDAP-Attribute als Ansprüche senden*, Attribut **Token-Groups – Qualified by Domain Name**, ausgehender Anspruchstyp **Group**. Das liefert `DOMÄNE\Gruppenname` für jede Gruppe. Bei Benutzern in sehr vielen Gruppen wird die Antwort groß.
 - **Variante B: nur benötigte Gruppen (empfohlen).** Pro benötigter Gruppe eine Regel mit der Vorlage *Gruppenmitgliedschaft als Anspruch senden*: Benutzergruppe wählen, Ausgehender Anspruchstyp **Group**, Ausgehender Anspruchswert z. B. `CORP\Team-A`. Der Wert, den Sie hier eintippen, muss mit dem Eintrag im Master übereinstimmen.
 
+**Regel 3 (optional): Anzeigename.** Soll bei „Angemeldet als“ statt des UPN „Max Mustermann (MustermannM)“ stehen, eine weitere Regel mit der Vorlage *LDAP-Attribute als Ansprüche senden*: LDAP-Attribut **Display-Name**, ausgehender Anspruchstyp **Name** (`http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name`). Im Master dann bei *Claim mit dem Anzeigenamen* denselben Anspruchstyp eintragen. Der Kontoname in Klammern ist der Teil des UPN vor dem `@`; sendet ADFS den Anspruch nicht (oder ist das Feld leer), zeigt der Master wie bisher den UPN. Angemeldet wird weiterhin mit dem UPN, Rechte und Logs ändern sich nicht.
+
 Der Anspruchstyp **Group** hat die Kennung `http://schemas.xmlsoap.org/claims/Group`, UPN die Kennung `http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn`. Das sind die Voreinstellungen im Master.
 
 ## Microsoft Entra ID

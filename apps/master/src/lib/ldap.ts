@@ -1,4 +1,5 @@
 import { Client, InvalidCredentialsError } from "ldapts";
+import { formatDisplayName } from "./display-name";
 
 export interface LdapConfig {
   enabled: boolean;
@@ -139,7 +140,7 @@ export interface MappedGroup {
 }
 
 export type LdapAuthResult =
-  | { ok: true; username: string; dn: string; admin: boolean; groupIds: number[] }
+  | { ok: true; username: string; dn: string; admin: boolean; groupIds: number[]; displayName?: string }
   | { ok: false; reason: "invalid" | "not_member" | "disabled" }
   | { ok: false; reason: "unavailable"; code: LdapErrorCode };
 
@@ -187,7 +188,9 @@ export async function authenticateLdap(
     await uc?.unbind().catch(() => {});
   }
   const sam = user["sAMAccountName"];
-  return { ok: true, username: typeof sam === "string" && sam ? sam : username, dn: user.dn, admin, groupIds: admin ? [] : groupIds };
+  const account = typeof sam === "string" && sam ? sam : username;
+  const display = formatDisplayName(user["displayName"], account);
+  return { ok: true, username: account, dn: user.dn, admin, groupIds: admin ? [] : groupIds, ...(display ? { displayName: display } : {}) };
 }
 
 export interface LdapTestStep {

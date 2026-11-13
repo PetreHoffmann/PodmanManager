@@ -52,6 +52,6 @@ export async function POST(req: NextRequest) {
   }
   jar.delete({ name: MANUAL_COOKIE, path: "/" });
   jar.delete({ name: REAUTH_COOKIE, path: "/saml" }); // the identity provider has authenticated the user again
-  await startSession({ username: r.username, kind: "saml", access: access.admin ? "all" : "groups", groupIds: access.groupIds });
+  await startSession({ username: r.username, kind: "saml", access: access.admin ? "all" : "groups", groupIds: access.groupIds, displayName: r.displayName });
   return htmlRedirect(next);
 }

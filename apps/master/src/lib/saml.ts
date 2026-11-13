@@ -2,6 +2,7 @@ import { SAML, SamlStatusError, ValidateInResponseTo, generateServiceProviderMet
 import { DbCacheProvider, REQUEST_TTL_MS } from "./saml-cache";
 import { spAcsUrl, spEntityId, splitCerts, type SamlConfig } from "./saml-config";
 import type { MappedSamlGroup } from "./saml-access";
+import { accountFromUpn, formatDisplayName } from "./display-name";
 
 /** Tolerated difference between the clocks of ADFS and this master. */
 export const CLOCK_SKEW_MS = 120_000;
@@ -37,7 +38,7 @@ export async function startLogin(cfg: SamlConfig, relayState: string, cache?: Ca
   return createSaml(cfg, cache, opts).getAuthorizeUrlAsync(relayState, undefined, {});
 }
 
-export type SamlLoginResult = { ok: true; username: string; groups: string[] } | { ok: false; reason: string };
+export type SamlLoginResult = { ok: true; username: string; groups: string[]; displayName?: string } | { ok: false; reason: string };
 
 const clean = (s: string) => s.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 256);
 
@@ -114,7 +115,9 @@ export async function completeLogin(cfg: SamlConfig, samlResponse: string, cache
   const fromClaim = cfg.usernameClaim ? claimValues(profile, cfg.usernameClaim)[0] : undefined;
   const username = clean(fromClaim ?? (typeof profile.nameID === "string" ? profile.nameID : ""));
   if (!username) return { ok: false, reason: "no user name in the response (claim and NameID missing)" };
-  return { ok: true, username, groups: claimValues(profile, cfg.groupClaim).map(clean) };
+  // "Display Name (account)": the account name is the part of the user name before the @; without a display name claim the user name is shown as it is
+  const dn = cfg.displayNameClaim ? formatDisplayName(claimValues(profile, cfg.displayNameClaim)[0], accountFromUpn(username)) : null;
+  return { ok: true, username, groups: claimValues(profile, cfg.groupClaim).map(clean), ...(dn ? { displayName: dn } : {}) };
 }
 
 /** Service provider metadata for the identity provider (ADFS relying party trust, Entra/Okta/Keycloak application). */
