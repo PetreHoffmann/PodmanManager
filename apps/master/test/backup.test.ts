@@ -88,6 +88,13 @@ describe("database restore", () => {
     }
   });
 
+  it("refuses a backup without an administrator (it would reopen the first-run setup)", () => {
+    const empty = openDb(":memory:");
+    const dst = seed(K1);
+    assert.deepEqual(restoreBackup(createBackup(empty), {}, dst, null), { ok: false, error: "err.restoreFile" });
+    assert.equal((dst.prepare("SELECT COUNT(*) AS n FROM admin").get() as { n: number }).n, 1);
+  });
+
   it("refuses unreadable host tokens unless forced", () => {
     const data = createBackup(seed(K1));
     const dst = openDb(":memory:");
