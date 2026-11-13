@@ -42,9 +42,14 @@ function statusFor(e: PodmanError): number {
     case "CONTAINER_NOT_FOUND":
     case "POD_NOT_FOUND":
     case "IMAGE_NOT_FOUND":
+    case "VOLUME_NOT_FOUND":
+    case "NETWORK_NOT_FOUND":
       return 404;
     case "IMAGE_IN_USE":
     case "IMAGE_PROTECTED":
+    case "VOLUME_IN_USE":
+    case "NETWORK_IN_USE":
+    case "NETWORK_PROTECTED":
       return 409;
     case "INVALID_PARAM":
       return 400;
@@ -122,6 +127,21 @@ export function createAgentHandler(deps: HandlerDeps): AgentHandler {
         const tag = query.get("tag") ?? undefined;
         const r = await podman.deleteImage(route[1]!, tag);
         log.info(`image ${route[1]!.slice(0, 12)}${tag ? ` (${tag})` : ""} ${r.result}`);
+        return reply(200, { ok: true, data: r });
+      }
+      return failR(404, "NOT_FOUND", "Not found");
+    }
+
+    if (route[0] === "volumes" || route[0] === "networks") {
+      const vol = route[0] === "volumes";
+      if (route.length === 1) {
+        if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+        return reply(200, { ok: true, data: vol ? await podman.listVolumes() : await podman.listNetworks() });
+      }
+      if (route.length === 2) {
+        if (method !== "DELETE") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "DELETE" });
+        const r = vol ? await podman.removeVolume(route[1]!) : await podman.removeNetwork(route[1]!);
+        log.info(`${vol ? "volume" : "network"} ${route[1]!.slice(0, 64)} removed`);
         return reply(200, { ok: true, data: r });
       }
       return failR(404, "NOT_FOUND", "Not found");

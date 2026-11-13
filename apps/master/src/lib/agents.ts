@@ -1,7 +1,7 @@
-import type { ContainerInfo, ImageInfo, PodInfo } from "../../../../shared/types/index.js";
+import type { ContainerInfo, ImageInfo, NetworkInfo, PodInfo, VolumeInfo } from "../../../../shared/types/index.js";
 import type { DatabaseSync } from "node:sqlite";
 import { getDb } from "../database/db";
-import { agentHealth, agentImages, agentList, agentPods, type AgentTarget, type CallResult } from "./agent-client";
+import { agentHealth, agentImages, agentList, agentNetworks, agentPods, agentVolumes, type AgentTarget, type CallResult } from "./agent-client";
 import { getConfig } from "./config";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { isHidden, isPodHidden } from "./hidden";
@@ -208,3 +208,28 @@ export async function fetchAllImages(db: DatabaseSync = getDb(), allowed: Readon
     }),
   );
 }
+
+export interface HostList<T> {
+  agent: AgentRow;
+  result: CallResult<T[]> | { ok: false; code: "SKIPPED"; message: string; unreachable: true };
+}
+
+/** Live query of one list (volumes, networks) for all enabled agents within the allowed set, in parallel; never throws. */
+async function fetchAll<T>(query: (t: AgentTarget) => Promise<CallResult<T[]>>, db: DatabaseSync, allowed: ReadonlySet<number> | null): Promise<HostList<T>[]> {
+  const agents = listAgents(db).filter((a) => allowed === null || allowed.has(a.id));
+  return Promise.all(
+    agents.map(async (agent): Promise<HostList<T>> => {
+      const skipped: HostList<T> = { agent, result: { ok: false, code: "SKIPPED", message: "", unreachable: true } };
+      if (!agent.enabled) return skipped;
+      try {
+        const t = targetFor(agent.id, db);
+        return t ? { agent, result: await query(t) } : skipped;
+      } catch {
+        return skipped;
+      }
+    }),
+  );
+}
+
+export const fetchAllVolumes = (db: DatabaseSync = getDb(), allowed: ReadonlySet<number> | null = null) => fetchAll<VolumeInfo>(agentVolumes, db, allowed);
+export const fetchAllNetworks = (db: DatabaseSync = getDb(), allowed: ReadonlySet<number> | null = null) => fetchAll<NetworkInfo>(agentNetworks, db, allowed);

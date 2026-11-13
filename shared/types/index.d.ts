@@ -142,3 +142,33 @@ export interface ImagePruneResult {
   removed: number;
   reclaimed: number;
 }
+
+export interface VolumeInfo {
+  name: string;
+  driver: string;
+  createdAt: string | null;
+  /** bytes; null when the host could not measure it in time */
+  size: number | null;
+  /** no container (running or not) uses the volume */
+  unused: boolean;
+  /** created implicitly by a container (random name) */
+  anonymous: boolean;
+}
+
+export interface NetworkInfo {
+  name: string;
+  id: string;
+  driver: string;
+  subnets: string[];
+  internal: boolean;
+  dnsEnabled: boolean;
+  ipv6: boolean;
+  /** running containers attached to the network */
+  containers: string[];
+  /** the default network cannot be removed */
+  protected: boolean;
+}
+
+export interface RemoveResult {
+  result: "removed";
+}

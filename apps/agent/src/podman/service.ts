@@ -1,4 +1,4 @@
-import type { ContainerAction, ContainerInfo, ImageDeleteResult, ImageInfo, ImagePruneResult, LogLine, PodInfo, PodLogs, StorageInfo } from "../../../../shared/types/index.js";
+import type { ContainerAction, ContainerInfo, ImageDeleteResult, ImageInfo, ImagePruneResult, LogLine, NetworkInfo, PodInfo, PodLogs, RemoveResult, StorageInfo, VolumeInfo } from "../../../../shared/types/index.js";
 import { PodmanClient, PodmanError, TOO_LARGE_MESSAGE, type PodmanResponse } from "./client.js";
 import { parseLogStream } from "./logs.js";
 
@@ -162,6 +162,39 @@ export function mapImage(raw: unknown, inUse: number, isProtected: boolean): Ima
     containers: inUse,
     dangling: tags.length === 0,
     protected: isProtected,
+  };
+}
+
+const RESOURCE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$/;
+export const isValidResourceName = (n: string) => RESOURCE_NAME_RE.test(n);
+
+export function mapVolume(raw: unknown, unused: boolean, sizes: Map<string, number> | null): VolumeInfo {
+  const o = rec(raw);
+  const name = str(o.Name);
+  return {
+    name,
+    driver: str(o.Driver) || "local",
+    createdAt: isoTime(o.CreatedAt),
+    size: sizes ? (sizes.get(name) ?? 0) : null,
+    unused,
+    anonymous: o.Anonymous === true,
+  };
+}
+
+export function mapNetwork(raw: unknown, containers: string[]): NetworkInfo {
+  const o = rec(raw);
+  const name = str(o.name);
+  const subnets = (Array.isArray(o.subnets) ? o.subnets : []).map((s) => str(rec(s).subnet)).filter(Boolean);
+  return {
+    name,
+    id: str(o.id),
+    driver: str(o.driver),
+    subnets,
+    internal: o.internal === true,
+    dnsEnabled: o.dns_enabled === true,
+    ipv6: o.ipv6_enabled === true,
+    containers: [...new Set(containers)].sort(),
+    protected: name === "podman",
   };
 }
 
@@ -379,6 +412,83 @@ export class PodmanService {
     if (res.status === 409) throw new PodmanError("IMAGE_IN_USE", upstreamMessage(res), 409);
     if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     return { result: untag ? "untagged" : "removed" };
+  }
+
+  /** Volumes with usage (from the "dangling" filter) and, if the host answers in time, their size. */
+  async listVolumes(): Promise<VolumeInfo[]> {
+    await this.client.checkSocket();
+    const base = await this.libpod();
+    const res = await this.client.call("GET", `${base}/volumes/json`);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const unusedNames = new Set<string>();
+    const filters = encodeURIComponent(JSON.stringify({ dangling: ["true"] }));
+    const un = await this.client.call("GET", `${base}/volumes/json?filters=${filters}`);
+    if (un.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(un), un.status);
+    const ua = json(un);
+    if (Array.isArray(ua)) for (const v of ua) unusedNames.add(str(rec(v).Name));
+    // sizes come from the (slow) storage report; without it the list is still complete
+    let sizes: Map<string, number> | null = null;
+    try {
+      const df = await this.client.call("GET", `${base}/system/df`, { timeoutMs: 8000 });
+      if (df.status === 200) {
+        sizes = new Map();
+        const vols = rec(json(df)).Volumes;
+        if (Array.isArray(vols)) for (const v of vols) sizes.set(str(rec(v).VolumeName), num(rec(v).Size));
+      }
+    } catch {
+      sizes = null;
+    }
+    const arr = json(res);
+    return (Array.isArray(arr) ? arr : []).map((v) => mapVolume(v, unusedNames.has(str(rec(v).Name)), sizes)).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /** Removes one volume that no container uses; never forces (Podman answers 409 for a used volume). */
+  async removeVolume(name: string): Promise<RemoveResult> {
+    if (!isValidResourceName(name)) throw new PodmanError("VOLUME_NOT_FOUND", "Volume not found", 404);
+    await this.client.checkSocket();
+    const res = await this.client.call("DELETE", `${await this.libpod()}/volumes/${encodeURIComponent(name)}?force=false`);
+    if (res.status === 404) throw new PodmanError("VOLUME_NOT_FOUND", "Volume not found", 404);
+    if (res.status === 409) throw new PodmanError("VOLUME_IN_USE", upstreamMessage(res), 409);
+    if (res.status !== 204 && res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    return { result: "removed" };
+  }
+
+  /** Networks with the running containers attached to each. */
+  async listNetworks(): Promise<NetworkInfo[]> {
+    await this.client.checkSocket();
+    const base = await this.libpod();
+    const res = await this.client.call("GET", `${base}/networks/json`);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const cr = await this.client.call("GET", `${base}/containers/json`);
+    const users = new Map<string, string[]>();
+    if (cr.status === 200) {
+      const cs = json(cr);
+      if (Array.isArray(cs)) for (const c of cs) {
+        const o = rec(c);
+        const names = Array.isArray(o.Names) ? o.Names.filter((n): n is string => typeof n === "string") : [];
+        for (const n of Array.isArray(o.Networks) ? o.Networks : []) if (typeof n === "string") users.set(n, [...(users.get(n) ?? []), ...names.slice(0, 1)]);
+      }
+    }
+    const arr = json(res);
+    return (Array.isArray(arr) ? arr : []).map((n) => mapNetwork(n, users.get(str(rec(n).name)) ?? [])).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /** Removes one network that nothing uses; the default network and networks in use are refused. */
+  async removeNetwork(name: string): Promise<RemoveResult> {
+    if (!isValidResourceName(name)) throw new PodmanError("NETWORK_NOT_FOUND", "Network not found", 404);
+    if (name === "podman") throw new PodmanError("NETWORK_PROTECTED", "The default network cannot be removed", 409);
+    await this.client.checkSocket();
+    const res = await this.client.call("DELETE", `${await this.libpod()}/networks/${encodeURIComponent(name)}?force=false`);
+    if (res.status === 404) throw new PodmanError("NETWORK_NOT_FOUND", "Network not found", 404);
+    if (res.status === 409) throw new PodmanError("NETWORK_IN_USE", upstreamMessage(res), 409);
+    // Podman 5 answers a network that still has containers with 500 "network is being used"
+    if (res.status === 500 && /being used|associated containers/i.test(upstreamMessage(res))) throw new PodmanError("NETWORK_IN_USE", upstreamMessage(res), 409);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    // Podman reports a refusal inside a 200 answer: [{"Name": "...", "Err": "..."}]
+    const arr = json(res);
+    const err = Array.isArray(arr) ? str(rec(arr[0]).Err) : "";
+    if (err) throw new PodmanError(/being used|in use|has containers/i.test(err) ? "NETWORK_IN_USE" : "PODMAN_API_ERROR", err.slice(0, 200), 409);
+    return { result: "removed" };
   }
 
   /** Removes dangling images that no container uses. */
