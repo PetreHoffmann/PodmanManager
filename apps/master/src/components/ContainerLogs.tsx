@@ -5,6 +5,7 @@ import { containerLogsAction, podLogsAction } from "@/app/actions";
 import type { LogLine } from "../../../../shared/types/index.js";
 import { useT } from "./I18nProvider";
 import Icon from "./Icon";
+import { logStamp } from "@/lib/logtime";
 
 export default function ContainerLogs({ agentId, containerId, kind = "container" }: { agentId: number; containerId: string; kind?: "container" | "pod" }) {
   const t = useT();
@@ -50,7 +51,7 @@ export default function ContainerLogs({ agentId, containerId, kind = "container"
             ) : (
               lines.map((l, i) => (
                 <div key={i} data-stream={l.stream} className={`whitespace-pre-wrap break-all ${l.stream === "stderr" ? "text-amber-300" : "text-slate-300"}`}>
-                  <span className="mr-2 select-none text-slate-500" title={l.ts ?? ""}>{l.ts ? l.ts.slice(11, 19) : "--:--:--"}</span>
+                  <span className="mr-2 select-none text-slate-500" title={l.ts ?? ""}>{logStamp(l.ts)}</span>
                   {l.container && <span className="mr-2 select-none text-sky-400" data-testid="log-container">{l.container}</span>}
                   {l.text}
                 </div>

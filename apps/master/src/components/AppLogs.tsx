@@ -5,6 +5,7 @@ import type { AppLogsResult } from "@/app/actions";
 import type { AppLogLine } from "../../../../shared/types/index.js";
 import { useT } from "./I18nProvider";
 import Icon from "./Icon";
+import { logStamp } from "@/lib/logtime";
 
 const COLOR = { info: "text-slate-300", warn: "text-amber-300", error: "text-red-400" } as const;
 
@@ -56,7 +57,7 @@ export default function AppLogs({ title, load, options }: { title: string; load:
             ) : (
               lines.map((l, i) => (
                 <div key={i} data-level={l.level} className={`whitespace-pre-wrap break-all ${COLOR[l.level]}`}>
-                  <span className="mr-2 select-none text-slate-500" title={l.ts}>{l.ts.slice(11, 19)}</span>
+                  <span className="mr-2 select-none text-slate-500" title={l.ts}>{logStamp(l.ts)}</span>
                   <span className="mr-2 select-none uppercase text-slate-500">{l.level}</span>
                   {l.text}
                 </div>
