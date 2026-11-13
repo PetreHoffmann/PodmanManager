@@ -2,7 +2,10 @@ import { redirect } from "next/navigation";
 import ActionForm from "@/components/ActionForm";
 import { loginAction } from "@/app/actions";
 import LangSelect from "@/components/LangSelect";
+import { loadBranding } from "@/lib/branding";
 import { getT } from "@/lib/lang";
+import { getVersion } from "@/lib/version";
+import { APP_NAME } from "@/lib/brand";
 import { loadSamlConfig, samlReady } from "@/lib/saml-config";
 import { adminExists } from "@/lib/session";
 
@@ -14,9 +17,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   const samlCfg = loadSamlConfig();
   const saml = samlReady(samlCfg);
   if (!adminExists()) redirect("/setup");
+  const brand = loadBranding();
   return (
     <div className="mx-auto mt-24 max-w-sm px-4">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-col items-center gap-3">
+        {brand.logo && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={`/brand/logo?v=${brand.logo}`} alt={brand.text ?? APP_NAME} className="h-16 max-h-16 w-auto max-w-full object-contain" />
+        )}
         <h1 className="text-xl font-semibold">{t("auth.signIn")}</h1>
         <LangSelect />
       </div>
@@ -35,6 +43,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
           <a href="/saml/login" className="btn w-full justify-center">{samlCfg?.buttonLabel || t("auth.ssoSignIn")}</a>
         </div>
       )}
+      <p className="mt-6 text-center text-xs text-slate-500" data-testid="login-version">{t("about.version")} {getVersion()}</p>
     </div>
   );
 }
