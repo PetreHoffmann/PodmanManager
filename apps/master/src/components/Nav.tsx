@@ -37,14 +37,14 @@ export default function Nav({ version, brand }: { version: string; brand: { text
       {/* below md: brand + hamburger, menu as a vertical list; from md: one row (md:contents flattens the wrappers) */}
       <div className="mx-auto max-w-7xl px-4 py-2 md:flex md:flex-wrap md:items-center md:gap-1">
         <div className="flex items-center justify-between gap-3 md:contents">
-          <span className="mr-4 flex h-8 min-w-0 items-center font-semibold text-sky-400">
+          <Link href="/" aria-label={t("nav.dashboard")} className="mr-4 flex h-8 min-w-0 items-center rounded-md font-semibold text-sky-400 outline-offset-4 transition hover:opacity-80">
             {brand.logo ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={`/brand/logo?v=${brand.logo}`} alt={brand.text ?? APP_NAME} title={brand.text ?? APP_NAME} className="h-8 max-h-8 w-auto max-w-[14rem] object-contain" />
             ) : (
               <span className="max-w-[18rem] truncate" title={brand.text ?? APP_NAME}>{brand.text ?? APP_NAME}</span>
             )}
-          </span>
+          </Link>
           <button
             type="button"
             className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-700 text-slate-300 transition hover:bg-slate-800 hover:text-white md:hidden"
