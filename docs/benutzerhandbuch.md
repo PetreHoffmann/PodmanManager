@@ -46,7 +46,7 @@ PodmanManager **löscht, ändert und legt keine Anwendungen an**. Für Sie gibt 
 
 ![Anmeldeseite](screenshots/handbuch/01-anmeldung.png)
 
-Der SSO-Knopf erscheint nur, wenn Ihr Administrator SSO eingerichtet hat. Welchen Weg Sie nutzen, ist egal; Sie sehen danach dieselben Rechner und Anwendungen, nämlich die Ihrer Gruppen.
+Der SSO-Knopf erscheint nur, wenn Ihr Administrator SSO eingerichtet hat. Hat Ihr Unternehmen ein eigenes Logo eingestellt, sehen Sie es oben auf der Anmeldeseite; ganz unten steht die Versionsnummer von PodmanManager. Welchen Weg Sie nutzen, ist egal; Sie sehen danach dieselben Rechner und Anwendungen, nämlich die Ihrer Gruppen.
 
 Oben rechts können Sie schon hier die **Sprache** wählen (Flaggen).
 
