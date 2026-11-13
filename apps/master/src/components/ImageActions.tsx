@@ -40,40 +40,39 @@ export function ImageDelete({ agentId, imageId, tag, name, multiTag, blockedReas
   );
 }
 
-/** Remove untagged, unused images of the chosen host. */
-export function ImagePrune({ hosts }: { hosts: { id: number; label: string }[] }) {
+/** Remove untagged, unused images of the hosts the list is filtered to (one host, or all hosts shown). */
+export function ImagePrune({ hosts }: { hosts: { id: number; name: string }[] }) {
   const t = useT();
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [host, setHost] = useState(hosts[0]?.id ?? 0);
   const [confirm, setConfirm] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   if (hosts.length === 0) return null;
+  const one = hosts.length === 1;
   const run = () => {
     setConfirm(false);
     start(async () => {
-      const r = await imagePruneAction(host);
+      const r = await imagePruneAction(hosts.map((h) => h.id));
       setMsg({ ok: r.ok, text: r.message });
       router.refresh();
     });
   };
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {hosts.length > 1 && (
-        <select className="input w-auto !py-1 text-xs" value={host} onChange={(e) => setHost(Number(e.target.value))} disabled={pending}>
-          {hosts.map((h) => <option key={h.id} value={h.id}>{h.label}</option>)}
-        </select>
-      )}
-      {confirm ? (
-        <>
-          <span className="text-xs text-amber-300">{t("images.pruneQ")}</span>
-          <button className="btn btn-danger !px-3 !py-1 text-xs" onClick={run}>{t("common.confirm")}</button>
-          <button className="btn !px-3 !py-1 text-xs" onClick={() => setConfirm(false)}>{t("common.cancel")}</button>
-        </>
-      ) : (
-        <button className="btn !px-3 !py-1 text-xs" disabled={pending} onClick={() => setConfirm(true)}>{pending ? "…" : t("images.prune")}</button>
-      )}
-      {msg && <span className={`text-xs ${msg.ok ? "text-emerald-300" : "text-amber-300"}`}>{msg.text}</span>}
+    <div className="space-y-1">
+      <div className="flex flex-wrap items-center gap-2">
+        {confirm ? (
+          <>
+            <span className="text-xs text-amber-300">{one ? t("images.pruneQHost", { host: hosts[0]!.name }) : t("images.pruneQMany", { hosts: hosts.map((h) => h.name).join(", ") })}</span>
+            <button className="btn btn-danger !px-3 !py-1 text-xs" onClick={run}>{t("common.confirm")}</button>
+            <button className="btn !px-3 !py-1 text-xs" onClick={() => setConfirm(false)}>{t("common.cancel")}</button>
+          </>
+        ) : (
+          <button className="btn !px-3 !py-1 text-xs" disabled={pending} onClick={() => { setMsg(null); setConfirm(true); }}>
+            {pending ? "…" : `${t("images.prune")} (${one ? hosts[0]!.name : t("images.pruneAll", { n: hosts.length })})`}
+          </button>
+        )}
+      </div>
+      {msg && <p className={`whitespace-pre-line text-xs ${msg.ok ? "text-emerald-300" : "text-amber-300"}`}>{msg.text}</p>}
     </div>
   );
 }
