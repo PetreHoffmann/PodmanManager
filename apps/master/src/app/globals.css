@@ -3,10 +3,19 @@
 body { @apply bg-slate-950 text-slate-200 antialiased; }
 @layer components {
 .card { @apply rounded-xl border border-slate-800 bg-slate-900/60 p-4; }
-.btn { @apply inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 transition hover:bg-slate-700 disabled:opacity-50; }
+.btn { @apply inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 transition hover:bg-slate-700 disabled:opacity-50; }
 .btn-danger { @apply border-red-900 bg-red-950 text-red-200 hover:bg-red-900; }
 .btn-primary { @apply border-sky-700 bg-sky-700 hover:bg-sky-600; }
 .input { @apply w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-600 focus:outline-none; }
 .th { @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400; }
 .td { @apply px-3 py-2 text-sm; }
 }
+/* duotone icons: the translucent layer takes the accent color of the icon */
+.icon .duo { fill: var(--icon-2, currentColor); opacity: 0.55; }
+.icon-sky { --icon-2: #38bdf8; }
+.icon-ok { --icon-2: #34d399; }
+.icon-bad { --icon-2: #f87171; }
+.icon-warn { --icon-2: #fbbf24; }
+.icon-muted { --icon-2: #94a3b8; }
+.btn-primary .icon { --icon-2: #bae6fd; }
+.btn-danger .icon { --icon-2: #fca5a5; }

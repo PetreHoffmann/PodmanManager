@@ -5,6 +5,7 @@ import { errText } from "@/lib/i18n";
 import { getT, getLang } from "@/lib/lang";
 import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { requireAuth } from "@/lib/session";
+import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export default async function Images({ searchParams }: { searchParams: SP }) {
           {hosts.map((h) => <option key={h.agent.id} value={h.agent.id}>{h.agent.agent_id} ({h.agent.hostname})</option>)}
         </select>
         <input name="q" defaultValue={q} placeholder={t("images.namePh")} className="input w-48" />
-        <button className="btn">{t("cont.filter")}</button>
+        <button className="btn"><Icon name="funnel" />{t("cont.filter")}</button>
       </form>
       {admin && <ImagePrune hosts={pruneHosts} />}
 

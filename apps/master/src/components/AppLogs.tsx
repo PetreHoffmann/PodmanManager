@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { AppLogsResult } from "@/app/actions";
 import type { AppLogLine } from "../../../../shared/types/index.js";
 import { useT } from "./I18nProvider";
+import Icon from "./Icon";
 
 const COLOR = { info: "text-slate-300", warn: "text-amber-300", error: "text-red-400" } as const;
 
@@ -41,7 +42,7 @@ export default function AppLogs({ title, load, options }: { title: string; load:
           </select>
         )}
         <button type="button" className="btn !px-3 !py-1 text-xs" disabled={pending || (options !== undefined && options.length === 0)} onClick={run}>
-          {lines === null ? t("logs.show") : t("logs.refresh")}
+          {lines === null ? <Icon name="terminal-window" /> : <Icon name="arrow-clockwise" />}{lines === null ? t("logs.show") : t("logs.refresh")}
         </button>
         {pending && <span className="animate-pulse text-xs text-slate-400">{t("logs.loading")}</span>}
       </div>

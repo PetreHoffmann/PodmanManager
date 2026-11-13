@@ -15,6 +15,7 @@ import { getT } from "@/lib/lang";
 import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { hiddenPatternsFor } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
+import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
@@ -102,7 +103,7 @@ export default async function Hosts() {
           <label className="block text-sm">{t("hosts.tokenLabel")}
             <input name="token" type="password" required autoComplete="off" className="input mt-1" />
           </label>
-          <button className="btn btn-primary" type="submit">{t("hosts.register")}</button>
+          <button className="btn btn-primary" type="submit"><Icon name="plus-circle" />{t("hosts.register")}</button>
         </ActionForm>
       </section>
       )}

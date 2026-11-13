@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { agentUpdateAction } from "@/app/actions";
 import { useT } from "./I18nProvider";
+import Icon from "./Icon";
 
 export default function AgentUpdate({ id }: { id: number }) {
   const t = useT();
@@ -23,7 +24,7 @@ export default function AgentUpdate({ id }: { id: number }) {
           })
         }
       >
-        {pending ? "…" : t("update.btn")}
+        {pending ? "…" : <><Icon name="arrow-circle-up" />{t("update.btn")}</>}
       </button>
       {msg && <div className={`max-w-xs text-xs ${msg.ok ? "text-emerald-300" : "text-amber-300"}`}>{msg.text}</div>}
     </div>

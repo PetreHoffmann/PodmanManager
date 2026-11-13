@@ -16,6 +16,8 @@ Neben Containern zeigt der Master auch **Pods** (Liste, Detail mit Containern, S
 
 **Updates per Web-UI** (Admins): Agents, die älter als der Master sind, tragen das Label „veraltet“ und lassen sich in der Host-Ansicht per Knopf aktualisieren. Den Master aktualisiert ein Agent auf demselben Host über „Über“ → „Jetzt aktualisieren“ (`UPDATE_UNIT`). Voraussetzung: Quadlet mit `Restart=always` und Image-Tag `:latest` (siehe [Quadlets](deployment/quadlet/README.md)).
 
+Knöpfe und Navigation tragen Duotone-Icons (Phosphor, MIT, im Image eingebettet, keine externen Anfragen); auf dem Handy erscheinen die Knöpfe nur mit Text. Das Dashboard zeigt je Kartenart (Hosts, Container, Pods) eine statische Illustration.
+
 Die Oberfläche ist in Englisch, Deutsch, Rumänisch und Spanisch verfügbar (Flaggen-Auswahl oben rechts; Standard aus `Accept-Language`, danach per Cookie gemerkt). Die automatische Browser-Übersetzung ist per `translate="no"` und `<meta name="google" content="notranslate">` unterbunden.
 
 Die *Einstellungen* sind in Registerkarten gegliedert (**Allgemein**, **Zugriff**, **SAML**, **LDAP**, **Logs**; direkt aufrufbar mit `/settings?tab=…`). Der Name in der Navigationsleiste lässt sich unter *Allgemein* durch einen eigenen Text oder ein Logo ersetzen (zu große Logos werden skaliert; Standard: „PodmanManager“).

@@ -4,6 +4,7 @@ import { setupAction } from "@/app/actions";
 import LangSelect from "@/components/LangSelect";
 import { getT } from "@/lib/lang";
 import { adminExists } from "@/lib/session";
+import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function Page() {
         <p className="text-xs text-slate-400">{t("auth.setupHint")}</p>
         <input name="password" type="password" required autoFocus placeholder={t("auth.password")} autoComplete="new-password" className="input" />
         <input name="confirm" type="password" required placeholder={t("auth.repeat")} autoComplete="new-password" className="input" />
-        <button className="btn btn-primary w-full justify-center">{t("auth.createAdmin")}</button>
+        <button className="btn btn-primary w-full justify-center"><Icon name="user-circle" />{t("auth.createAdmin")}</button>
       </ActionForm>
     </div>
   );
