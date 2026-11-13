@@ -17,6 +17,7 @@ import { getVersion } from "@/lib/version";
 import { EMPTY_SAML, certInfo, loadSamlConfig, parseSamlInput, saveSamlConfig, spAcsUrl, spEntityId, splitCerts, type SamlConfig } from "@/lib/saml-config";
 import { loadIdpMetadata } from "@/lib/saml-metadata";
 import { LdapError, authenticateLdap, testLdap, type MappedGroup } from "@/lib/ldap";
+import { getUserByName, authenticateUser, checkUserPassword, deleteUser, saveUser, sessionFor, setUserPassword } from "@/lib/users";
 import { allowedAgentIds, deleteGroup, listGroups, mayAccessAgent, saveGroup } from "@/lib/groups";
 import {
   COOKIE, LOCAL_ADMIN, LOCAL_SESSION, adminExists, checkAdminPassword, endSession, getSession, loginBlocked, recordLoginFailure,
@@ -63,11 +64,23 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
       redirect("/");
     }
     console.warn(`local login denied: wrong password for "${LOCAL_ADMIN}"`);
+  } else if (getUserByName(username)) {
+    // a local user of that name never falls through to LDAP
+    const r = await authenticateUser(username, password);
+    if (r.ok) {
+      await startSession(sessionFor(r.user));
+      redirect("/");
+    }
+    if (r.reason === "no_group") {
+      console.warn(`local login denied: user "${username}": not an administrator and in no agent group (no access)`);
+      return { ok: false, message: t("msg.noGroup") };
+    }
+    console.warn(r.reason === "disabled" ? `local login denied: user "${username}" is disabled` : `local login denied: wrong password for user "${username}"`);
   } else {
     const cfg = loadLdapConfig();
     if (!cfg?.enabled) {
       // the typed name is not logged: it may be a mistyped password
-      console.warn("login denied: unknown user (only the local account exists, LDAP login is not enabled)");
+      console.warn("login denied: unknown user (not a local account, LDAP login is not enabled)");
     }
     if (cfg?.enabled) {
       const r = await authenticateLdap(cfg, username, password, mappedGroups());
@@ -108,15 +121,23 @@ export async function logoutAction(): Promise<void> {
 }
 
 export async function changePasswordAction(_: FormState, fd: FormData): Promise<FormState> {
-  const session = await requireAuth();
+  const session = await requireAuth({ allowMustChange: true });
   const t = await getT();
-  if (session.kind !== "local") return { ok: false, message: t("set.pwExternal") };
-  if (!(await checkAdminPassword(s(fd, "current")))) return { ok: false, message: t("msg.curWrong") };
+  if (session.kind !== "local" && session.kind !== "user") return { ok: false, message: t("set.pwExternal") };
+  const isUser = session.kind === "user";
+  if (!(await (isUser ? checkUserPassword(session.username, s(fd, "current")) : checkAdminPassword(s(fd, "current"))))) return { ok: false, message: t("msg.curWrong") };
   const pw = s(fd, "password");
   if (pw.length < MIN_PW) return { ok: false, message: t("msg.pwShort", { n: MIN_PW }) };
   if (pw !== s(fd, "confirm")) return { ok: false, message: t("msg.pwMismatch") };
-  await setAdminPassword(pw);
-  await startSession(LOCAL_SESSION);
+  if (isUser) {
+    await setUserPassword(session.username, pw);
+    const u = getUserByName(session.username);
+    if (u) await startSession(sessionFor(u));
+    if (session.mustChange) redirect("/");
+  } else {
+    await setAdminPassword(pw);
+    await startSession(LOCAL_SESSION);
+  }
   return { ok: true, message: t("msg.pwChanged") };
 }
 
@@ -267,6 +288,32 @@ export async function groupAction(_: FormState, fd: FormData): Promise<FormState
   revalidatePath("/settings");
   revalidatePath("/hosts");
   return { ok: true, message: t("msg.groupSaved") };
+}
+
+export async function userAction(_: FormState, fd: FormData): Promise<FormState> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+
+  const idRaw = s(fd, "id");
+  const id = idRaw === "" ? undefined : Number(idRaw);
+  if (id !== undefined && (!Number.isInteger(id) || id < 1)) return { ok: false, message: t("err.userNotFound") };
+
+  if (s(fd, "intent") === "delete") {
+    if (id === undefined) return { ok: false, message: t("err.userNotFound") };
+    deleteUser(id);
+    revalidatePath("/settings");
+    return { ok: true, message: t("msg.userDeleted") };
+  }
+
+  const groupIds = fd.getAll("groups").map((v) => Number(v)).filter((n) => Number.isInteger(n) && n > 0);
+  const r = await saveUser({
+    id, username: s(fd, "username"), password: s(fd, "password"), isAdmin: s(fd, "isAdmin") === "on",
+    enabled: s(fd, "enabled") === "on", mustChange: s(fd, "mustChange") === "on", groupIds,
+  });
+  if (!r.ok) return { ok: false, message: t(r.error as Key) };
+  revalidatePath("/settings");
+  return { ok: true, message: t("msg.userSaved") };
 }
 
 export async function checkUpdateAction(): Promise<UpdateInfo> {

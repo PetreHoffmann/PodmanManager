@@ -10,6 +10,8 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Feste Allowlist aus 6 Routen mit fest verdrahteten Podman-Pfaden; Container-IDs per Regex validiert; Request-Bodys werden ignoriert.
 - Kein Docker, kein Compose, kein Fallback auf andere Runtimes.
 
+**Lokale Benutzer:** Passwörter nur als scrypt-Hash; unbekannte und bekannte Benutzer werden gleich lang geprüft, die Meldung bei falscher Anmeldung ist immer dieselbe, Fehlversuche begrenzt der bestehende Rate-Limiter. Deaktivierte oder gelöschte Benutzer verlieren ihre Sitzung sofort.
+
 **Lokaler Host (ohne Agent):** Wird `LOCAL_PODMAN_SOCKET` gesetzt, liegt der Podman-Socket im Master-Container. Wer den Master kompromittiert, steuert dann die Container dieses Benutzers (rootless, nie root-Rechte des Hosts). Bewusster Kompromiss gegenüber dem Ressourcenbedarf eines eigenen Agents; ohne die Variable bleibt der Socket außerhalb des Masters.
 
 **Master ↔ Agent**

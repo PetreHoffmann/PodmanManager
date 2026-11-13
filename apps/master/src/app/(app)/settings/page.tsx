@@ -10,6 +10,8 @@ import GroupEditor from "@/components/GroupEditor";
 import LogoInput from "@/components/LogoInput";
 import SamlPreset from "@/components/SamlPreset";
 import LdapPreset from "@/components/LdapPreset";
+import UserEditor from "@/components/UserEditor";
+import { listUsers } from "@/lib/users";
 import { listAgents } from "@/lib/agents";
 import { groupNames, listGroups } from "@/lib/groups";
 import { loadHiddenPatterns } from "@/lib/hidden";
@@ -20,7 +22,7 @@ import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
-const TABS = ["general", "access", "saml", "ldap", "logs"] as const;
+const TABS = ["general", "access", "users", "saml", "ldap", "logs"] as const;
 type Tab = (typeof TABS)[number];
 type SP = Promise<{ tab?: string }>;
 
@@ -36,7 +38,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
   const session = await requireAuth();
   const t = await getT();
   const c = getConfig();
-  const local = session.kind === "local";
+  const canPw = session.kind === "local" || session.kind === "user";
   const admin = session.access === "all";
   // administrators (local account, LDAP/SSO administrator groups) manage everything; everybody else sees the general page
   const tabs: Tab[] = admin ? [...TABS] : [];
@@ -47,11 +49,24 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
   const l = (admin ? loadLdapConfig() : null) ?? EMPTY_LDAP;
   const agentOptions = admin ? listAgents().map((a) => ({ id: a.id, label: `${a.agent_id} (${a.hostname})` })) : [];
   const groups = admin ? listGroups() : [];
+  const users = admin ? listUsers() : [];
   const hiddenText = admin ? loadHiddenPatterns().join("\n") : "";
   const brand = loadBranding();
   const saml = (admin ? loadSamlConfig() : null) ?? EMPTY_SAML;
   const insecure = l.enabled && l.url.startsWith("ldap://") && !l.startTls;
-  const label: Record<Tab, string> = { general: t("set.tabGeneral"), access: t("set.tabAccess"), saml: t("set.tabSaml"), ldap: t("set.tabLdap"), logs: t("set.tabLogs") };
+  const label: Record<Tab, string> = { general: t("set.tabGeneral"), access: t("set.tabAccess"), users: t("set.tabUsers"), saml: t("set.tabSaml"), ldap: t("set.tabLdap"), logs: t("set.tabLogs") };
+
+  const pwCard = (
+    <section className="card">
+      <h2 className="mb-3 font-medium">{t("set.changePw")}</h2>
+      <ActionForm action={changePasswordAction} className="space-y-3">
+        <input name="current" type="password" required placeholder={t("set.current")} autoComplete="current-password" className="input" />
+        <input name="password" type="password" required minLength={10} placeholder={t("set.new")} autoComplete="new-password" className="input" />
+        <input name="confirm" type="password" required placeholder={t("set.repeat")} autoComplete="new-password" className="input" />
+        <button className="btn btn-primary"><Icon name="key" />{t("set.changeBtn")}</button>
+      </ActionForm>
+    </section>
+  );
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -79,7 +94,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
         <div className="space-y-5">
           <section className="card space-y-1">
             <p className="text-sm">{t("set.signedIn", { name: session.displayName ?? session.username })}</p>
-            <p className="text-xs text-slate-400">{t("set.via", { kind: t(session.kind === "saml" ? "set.viaSaml" : session.kind === "ldap" ? "set.viaLdap" : "set.viaLocal") })}</p>
+            <p className="text-xs text-slate-400">{t("set.via", { kind: t(session.kind === "saml" ? "set.viaSaml" : session.kind === "ldap" ? "set.viaLdap" : session.kind === "user" ? "set.viaUser" : "set.viaLocal") })}</p>
             <p className="text-xs text-slate-400">
               {admin ? t("set.accessAll") : t("set.accessGroups", { groups: groupNames(session).join(", ") || "—" })}
             </p>
@@ -120,25 +135,29 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
                   </div>
                 </ActionForm>
               </section>
-              {local ? (
-                <section className="card">
-                  <h2 className="mb-3 font-medium">{t("set.changePw")}</h2>
-                  <ActionForm action={changePasswordAction} className="space-y-3">
-                    <input name="current" type="password" required placeholder={t("set.current")} autoComplete="current-password" className="input" />
-                    <input name="password" type="password" required minLength={10} placeholder={t("set.new")} autoComplete="new-password" className="input" />
-                    <input name="confirm" type="password" required placeholder={t("set.repeat")} autoComplete="new-password" className="input" />
-                    <button className="btn btn-primary"><Icon name="key" />{t("set.changeBtn")}</button>
-                  </ActionForm>
-                </section>
-              ) : (
-                <p className="card text-sm text-slate-400">{t("set.pwExternal")}</p>
-              )}
+              {canPw ? pwCard : <p className="card text-sm text-slate-400">{t("set.pwExternal")}</p>}
             </>
           ) : (
-            <p className="card text-sm text-slate-400">{t("set.localOnly")}</p>
+            <>
+              <p className="card text-sm text-slate-400">{t("set.localOnly")}</p>
+              {canPw ? pwCard : <p className="card text-sm text-slate-400">{t("set.pwExternal")}</p>}
+            </>
           )}
 
         </div>
+      )}
+
+      {tab === "users" && admin && (
+        <section className="card">
+          <h2 className="mb-1 font-medium">{t("users.title")}</h2>
+          <p className="mb-3 text-xs text-slate-400">{t("users.intro")}</p>
+          <div className="space-y-3">
+            {users.map((u) => (
+              <UserEditor key={u.id} user={u} groups={groups.map((g) => ({ id: g.id, name: g.name }))} />
+            ))}
+            <UserEditor key="new" user={{ username: "", isAdmin: false, enabled: true, mustChange: false, groupIds: [] }} groups={groups.map((g) => ({ id: g.id, name: g.name }))} />
+          </div>
+        </section>
       )}
 
       {tab === "access" && admin && (
