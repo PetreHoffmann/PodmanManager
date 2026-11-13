@@ -16,6 +16,8 @@ export function getConfig() {
     offlineAfterFailures: num("HEARTBEAT_FAILURES", 3, 1, 100),
     actionTimeoutSec: 30,
     /** daily automatic database copies to keep in <data dir>/backups; 0 = off */
+    /** days to keep audit entries; 0 = forever */
+    auditKeepDays: num("AUDIT_KEEP_DAYS", 365, 0, 3650),
     backupKeep: num("BACKUP_KEEP", 0, 0, 365),
   };
 }

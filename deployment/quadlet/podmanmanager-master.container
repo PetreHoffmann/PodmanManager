@@ -34,6 +34,8 @@ Environment=AGENT_TIMEOUT=5
 # Environment=NODE_EXTRA_CA_CERTS=/etc/corp-ca.pem
 # Taeglich eine Kopie der Datenbank in /data/backups, die neuesten N behalten (0 = aus):
 # Environment=BACKUP_KEEP=7
+# Audit-Log: Eintraege nach so vielen Tagen loeschen (Standard 365, 0 = nie):
+# Environment=AUDIT_KEEP_DAYS=365
 # Update-Pruefung im About-Dialog abschalten (abgeschottete Netze):
 # Environment=UPDATE_CHECK=off
 # Automatische Updates (braucht :latest statt festem Tag, dazu podman-auto-update.timer):

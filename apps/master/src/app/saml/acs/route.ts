@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
+import { audit } from "@/lib/audit";
 import { listGroups } from "@/lib/groups";
 import { resolveSamlAccess, safeNext } from "@/lib/saml-access";
 import { loadSamlConfig, samlReady } from "@/lib/saml-config";
@@ -43,15 +44,18 @@ export async function POST(req: NextRequest) {
   const r = await completeLogin(cfg, samlResponse);
   if (!r.ok) {
     console.warn(`saml login failed: ${r.reason}`);
+    await audit(null, "login.fail", { ok: false, detail: `sso: ${r.reason}` });
     return htmlRedirect("/login?sso=failed");
   }
   const access = resolveSamlAccess(cfg, r.groups, listGroups().filter((g) => g.saml_group).map((g) => ({ id: g.id, name: g.name, samlGroup: g.saml_group })));
   if (!access.ok) {
     console.warn(`saml login denied: ${r.username}${r.displayName ? ` (${r.displayName})` : ""}: no matching group (received: ${r.groups.slice(0, 20).join(", ").slice(0, 300) || "none"})`);
+    await audit({ username: r.username, kind: "saml" }, "login.denied", { ok: false, detail: "no agent group" });
     return htmlRedirect("/login?sso=denied");
   }
   jar.delete({ name: MANUAL_COOKIE, path: "/" });
   jar.delete({ name: REAUTH_COOKIE, path: "/saml" }); // the identity provider has authenticated the user again
   await startSession({ username: r.username, kind: "saml", access: access.admin ? "all" : "groups", groupIds: access.groupIds, displayName: r.displayName });
+  await audit({ username: r.username, kind: "saml" }, "login.ok");
   return htmlRedirect(next);
 }

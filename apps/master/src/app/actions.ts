@@ -17,7 +17,8 @@ import { getVersion } from "@/lib/version";
 import { EMPTY_SAML, certInfo, loadSamlConfig, parseSamlInput, saveSamlConfig, spAcsUrl, spEntityId, splitCerts, type SamlConfig } from "@/lib/saml-config";
 import { loadIdpMetadata } from "@/lib/saml-metadata";
 import { LdapError, authenticateLdap, testLdap, type MappedGroup } from "@/lib/ldap";
-import { getUserByName, authenticateUser, checkUserPassword, deleteUser, saveUser, sessionFor, setUserPassword } from "@/lib/users";
+import { getUserByName, authenticateUser, checkUserPassword, deleteUser, listUsers, saveUser, sessionFor, setUserPassword } from "@/lib/users";
+import { audit } from "@/lib/audit";
 import { allowedAgentIds, deleteGroup, listGroups, mayAccessAgent, saveGroup } from "@/lib/groups";
 import {
   COOKIE, LOCAL_ADMIN, LOCAL_SESSION, adminExists, checkAdminPassword, endSession, getSession, loginBlocked, recordLoginFailure,
@@ -61,33 +62,42 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
   if (username.toLowerCase() === LOCAL_ADMIN) {
     if (await checkAdminPassword(password)) {
       await startSession(LOCAL_SESSION);
+      await audit(LOCAL_SESSION, "login.ok");
       redirect("/");
     }
     console.warn(`local login denied: wrong password for "${LOCAL_ADMIN}"`);
+    await audit({ username: LOCAL_ADMIN, kind: "local" }, "login.fail", { ok: false, detail: "wrong password" });
   } else if (getUserByName(username)) {
     // a local user of that name never falls through to LDAP
     const r = await authenticateUser(username, password);
     if (r.ok) {
       await startSession(sessionFor(r.user));
+      await audit(sessionFor(r.user), "login.ok");
       redirect("/");
     }
     if (r.reason === "no_group") {
       console.warn(`local login denied: user "${username}": not an administrator and in no agent group (no access)`);
+      await audit({ username, kind: "user" }, "login.denied", { ok: false, detail: "no agent group" });
       return { ok: false, message: t("msg.noGroup") };
     }
+    await audit({ username, kind: "user" }, "login.fail", { ok: false, detail: r.reason === "disabled" ? "disabled" : "wrong password" });
     console.warn(r.reason === "disabled" ? `local login denied: user "${username}" is disabled` : `local login denied: wrong password for user "${username}"`);
   } else {
     const cfg = loadLdapConfig();
     if (!cfg?.enabled) {
       // the typed name is not logged: it may be a mistyped password
       console.warn("login denied: unknown user (not a local account, LDAP login is not enabled)");
+      await audit(null, "login.fail", { ok: false, detail: "unknown user" });
     }
     if (cfg?.enabled) {
       const r = await authenticateLdap(cfg, username, password, mappedGroups());
       if (r.ok) {
         await startSession({ username: r.username, kind: "ldap", access: r.admin ? "all" : "groups", groupIds: r.groupIds, displayName: r.displayName });
+        await audit({ username: r.username, kind: "ldap" }, "login.ok");
         redirect("/");
       }
+      // only the directory's own account name is stored; a typed name may be a mistyped password
+      await audit(r.reason === "not_member" ? { username: r.username, kind: "ldap" } : null, r.reason === "not_member" ? "login.denied" : "login.fail", { ok: false, detail: r.reason === "not_member" ? "no agent group" : r.reason === "unavailable" ? "directory unavailable" : "unknown user or wrong password" });
       if (r.reason === "unavailable") {
         console.warn(`ldap login failed: directory unavailable (${r.code})`);
         return { ok: false, message: `${t("msg.ldapUnavailable")} (${errText(t, r.code)})` };
@@ -104,6 +114,8 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
   }
   // the fifth failure blocks this name for a minute: say so once (not for every further attempt, which would flood the log)
   if (recordLoginFailure(username) === 5) {
+    const known = username.toLowerCase() === LOCAL_ADMIN || !!getUserByName(username);
+    await audit(known ? { username, kind: "local" } : null, "login.blocked", { ok: false, detail: "5 failed attempts, blocked for 60 s" });
     console.warn(`login blocked for 60 s after 5 failed attempts (${username.toLowerCase() === LOCAL_ADMIN ? `"${LOCAL_ADMIN}"` : "one login name, not shown"})`);
   }
   return { ok: false, message: t("msg.pwInvalid") };
@@ -111,7 +123,9 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
 
 export async function logoutAction(): Promise<void> {
   const jar = await cookies();
-  const kind = getSession(jar.get(COOKIE)?.value)?.kind;
+  const who = getSession(jar.get(COOKIE)?.value);
+  const kind = who?.kind;
+  if (who) await audit(who, "logout");
   await endSession();
   // Seamless sign-on must not send the user straight back in after an explicit logout
   jar.set(MANUAL_COOKIE, "1", { httpOnly: true, sameSite: "lax", path: "/" });
@@ -138,6 +152,7 @@ export async function changePasswordAction(_: FormState, fd: FormData): Promise<
     await setAdminPassword(pw);
     await startSession(LOCAL_SESSION);
   }
+  await audit(session, "password.change");
   return { ok: true, message: t("msg.pwChanged") };
 }
 
@@ -151,6 +166,7 @@ export async function addAgentAction(_: FormState, fd: FormData): Promise<FormSt
     const msg = p.code ? errText(t, p.code, p.msg) : p.msg;
     return { ok: false, message: t(r.error as Key, { ...p, msg: msg ?? "" }) };
   }
+  await audit(session, "host.add", { target: s(fd, "url").trim() });
   revalidatePath("/hosts");
   return { ok: true, message: t("msg.agentAdded") };
 }
@@ -167,7 +183,9 @@ export async function removeAgentAction(_: FormState, fd: FormData): Promise<For
   const id = idOf(fd);
   if (!id) return { ok: false, message: t("msg.invalidAgent") };
   if (getAgent(id)?.kind === "local") return { ok: false, message: t("msg.localHost") };
+  const gone = getAgent(id);
   removeAgent(id);
+  await audit(session, "host.remove", { target: gone?.hostname ?? String(id) });
   revalidatePath("/hosts");
   return { ok: true, message: t("msg.agentRemoved") };
 }
@@ -179,6 +197,7 @@ export async function toggleAgentAction(_: FormState, fd: FormData): Promise<For
   const id = idOf(fd);
   if (!id || !getAgent(id)) return { ok: false, message: t("msg.invalidAgent") };
   setEnabled(id, s(fd, "enable") === "1");
+  await audit(session, s(fd, "enable") === "1" ? "host.enable" : "host.disable", { target: getAgent(id)?.hostname ?? String(id) });
   revalidatePath("/hosts");
   return { ok: true, message: t("msg.updated") };
 }
@@ -220,6 +239,7 @@ export async function containerOpAction(agentId: number, containerId: string, ac
     if (isHidden(ins.data.name, hidden)) return { ok: false, message: t("detail.notFound") };
   }
   const r = await agentAction(tg, containerId, action);
+  await audit(session, `container.${action}`, { target: r.ok ? `${r.data.container.name} (${containerId.slice(0, 12)})` : containerId.slice(0, 12), host: a.hostname, ok: r.ok, detail: r.ok ? "" : r.code });
   revalidatePath("/containers");
   revalidatePath("/");
   const verb = t(`act.${action}` as Key);
@@ -261,6 +281,7 @@ export async function ldapAction(_: FormState, fd: FormData): Promise<FormState>
   }
 
   saveLdapConfig(cfg);
+  await audit(session, "ldap.save", { detail: cfg.enabled ? "enabled" : "disabled" });
   revalidatePath("/settings");
   const insecure = cfg.url.startsWith("ldap://") && !cfg.startTls;
   return { ok: true, message: insecure ? `${t("msg.ldapSaved")}. ${t("ldap.insecure")}` : t("msg.ldapSaved") };
@@ -277,7 +298,9 @@ export async function groupAction(_: FormState, fd: FormData): Promise<FormState
 
   if (s(fd, "intent") === "delete") {
     if (id === undefined) return { ok: false, message: t("err.groupNotFound") };
+    const gname = listGroups().find((g) => g.id === id)?.name ?? String(id);
     deleteGroup(id);
+    await audit(session, "group.delete", { target: gname });
     revalidatePath("/settings");
     return { ok: true, message: t("msg.groupDeleted") };
   }
@@ -285,6 +308,7 @@ export async function groupAction(_: FormState, fd: FormData): Promise<FormState
   const agentIds = fd.getAll("agents").map((v) => Number(v)).filter((n) => Number.isInteger(n) && n > 0);
   const r = saveGroup({ id, name: s(fd, "name"), adGroupDn: s(fd, "adGroupDn"), samlGroup: s(fd, "samlGroup"), agentIds });
   if (!r.ok) return { ok: false, message: t(r.error as Key) };
+  await audit(session, "group.save", { target: s(fd, "name").trim() });
   revalidatePath("/settings");
   revalidatePath("/hosts");
   return { ok: true, message: t("msg.groupSaved") };
@@ -301,7 +325,9 @@ export async function userAction(_: FormState, fd: FormData): Promise<FormState>
 
   if (s(fd, "intent") === "delete") {
     if (id === undefined) return { ok: false, message: t("err.userNotFound") };
+    const uname = listUsers().find((u) => u.id === id)?.username ?? String(id);
     deleteUser(id);
+    await audit(session, "user.delete", { target: uname });
     revalidatePath("/settings");
     return { ok: true, message: t("msg.userDeleted") };
   }
@@ -312,6 +338,7 @@ export async function userAction(_: FormState, fd: FormData): Promise<FormState>
     enabled: s(fd, "enabled") === "on", mustChange: s(fd, "mustChange") === "on", groupIds,
   });
   if (!r.ok) return { ok: false, message: t(r.error as Key) };
+  await audit(session, "user.save", { target: listUsers().find((u) => u.id === r.id)?.username ?? s(fd, "username").trim(), detail: id === undefined ? "created" : "changed" });
   revalidatePath("/settings");
   return { ok: true, message: t("msg.userSaved") };
 }
@@ -336,6 +363,7 @@ export async function hiddenAction(_: FormState, fd: FormData): Promise<FormStat
       : { ok: true, message: t("msg.hiddenTestNo", { name }) };
   }
   saveHiddenPatterns(parsed.patterns);
+  await audit(session, "hidden.save", { detail: `${parsed.patterns.length} patterns` });
   revalidatePath("/", "layout");
   return { ok: true, message: t("msg.hiddenSaved", { n: parsed.patterns.length }) };
 }
@@ -399,6 +427,7 @@ export async function podOpAction(agentId: number, podId: string, action: string
     if (isPodHidden(cur.data, hidden)) return { ok: false, message: t("pods.notFound") };
   }
   const r = await agentPodAction(tg, podId, action);
+  await audit(session, `pod.${action}`, { target: r.ok ? `${r.data.pod.name} (${podId.slice(0, 12)})` : podId.slice(0, 12), host: a.hostname, ok: r.ok, detail: r.ok ? "" : r.code });
   revalidatePath("/pods");
   revalidatePath("/containers");
   revalidatePath("/");
@@ -440,6 +469,7 @@ export async function brandingAction(_: FormState, fd: FormData): Promise<FormSt
   if (intent === "reset") {
     saveText(null);
     clearLogo();
+    await audit(session, "branding.save", { detail: "reset" });
     revalidatePath("/", "layout");
     return { ok: true, message: t("msg.brandReset") };
   }
@@ -452,6 +482,7 @@ export async function brandingAction(_: FormState, fd: FormData): Promise<FormSt
     clearLogo();
   }
   saveText(normalizeText(s(fd, "text")));
+  await audit(session, "branding.save");
   revalidatePath("/", "layout");
   return { ok: true, message: t("msg.brandSaved") };
 }
@@ -485,6 +516,7 @@ export async function samlAction(_: FormState, fd: FormData): Promise<FormState>
     return { ok: lines.every((l) => l.ok), message: lines.map((l) => `${l.ok ? "✓" : "✗"} ${l.text}`).join("\n") || t("msg.samlCheckEmpty") };
   }
   saveSamlConfig(cfg);
+  await audit(session, "saml.save", { detail: cfg.enabled ? "enabled" : "disabled" });
   revalidatePath("/settings");
   revalidatePath("/login");
   const warn = lines.filter((l) => !l.ok).map((l) => `✗ ${l.text}`);
@@ -506,6 +538,7 @@ export async function samlImportAction(_: FormState, fd: FormData): Promise<Form
   // Stays switched off if it was off; a complete configuration keeps its state.
   const merged = { ...parsed.config, enabled: existing.enabled };
   saveSamlConfig(merged);
+  await audit(session, "saml.save", { detail: "metadata import" });
   revalidatePath("/settings");
   return { ok: true, message: t("msg.samlImported", { entity: m.data.entityId, n: String(m.data.certs.length) }) };
 }
@@ -537,6 +570,7 @@ export async function agentUpdateAction(agentId: number): Promise<{ ok: boolean;
     }
     return { ok: false, message: errText(t, r.code, r.message) };
   }
+  await audit(session, "host.update", { target: a.hostname });
   revalidatePath("/hosts");
   return { ok: true, message: t("update.started") };
 }
@@ -576,6 +610,7 @@ export async function masterUpdateStartAction(agentId: number): Promise<{ ok: bo
     }
     return { ok: false, message: errText(t, r.code, r.message) };
   }
+  await audit(session, "master.update", { host: a.hostname });
   return { ok: true, message: t("mupdate.started") };
 }
 
@@ -600,6 +635,7 @@ export async function imageDeleteAction(agentId: number, imageId: string, tag: s
   const { tg, t } = x;
   if (!CONTAINER_ID_RE.test(imageId) || (tag !== null && !IMAGE_TAG_RE.test(tag))) return { ok: false, message: t("errc.INVALID_PARAM") };
   const r = await agentImageDelete(tg, imageId, tag);
+  await audit(await requireAuth(), "image.delete", { target: tag ?? imageId.slice(0, 12), host: getAgent(agentId)?.hostname, ok: r.ok, detail: r.ok ? "" : r.code });
   revalidatePath("/images");
   revalidatePath("/hosts");
   if (!r.ok) return { ok: false, message: errText(t, r.code, r.message) };
@@ -617,6 +653,7 @@ export async function imagePruneAction(agentIds: number[]): Promise<{ ok: boolea
       if (x.err !== undefined) return { ok: false, line: x.err };
       const name = getAgent(id)?.hostname ?? String(id);
       const r = await agentImagePrune(x.tg);
+      await audit(await requireAuth(), "image.prune", { host: name, ok: r.ok, detail: r.ok ? `${r.data.removed} images` : r.code });
       if (!r.ok) return { ok: false, line: `${name}: ${errText(x.t, r.code, r.message)}` };
       return { ok: true, line: `${name}: ${r.data.removed > 0 ? x.t("images.pruned", { n: r.data.removed, size: fmtBytes(r.data.reclaimed) }) : x.t("images.pruneNone")}` };
     }),
