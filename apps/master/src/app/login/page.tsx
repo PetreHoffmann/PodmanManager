@@ -10,6 +10,7 @@ import { APP_NAME } from "@/lib/brand";
 import { loadSamlConfig, samlReady } from "@/lib/saml-config";
 import { MANUAL_COOKIE } from "@/lib/saml-http";
 import { adminExists } from "@/lib/session";
+import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
         <input name="username" required autoFocus placeholder={t("auth.username")} autoComplete="username" maxLength={256} className="input" />
         <input name="password" type="password" required placeholder={t("auth.password")} autoComplete="current-password" className="input" />
         
-        <button className="btn btn-primary w-full justify-center">{t("auth.signIn")}</button>
+        <button className="btn btn-primary w-full justify-center"><Icon name="sign-in" />{t("auth.signIn")}</button>
       </ActionForm>
       {sso === "failed" && <p role="alert" className="mt-3 text-sm text-red-400">{t("msg.ssoFailed")}</p>}
       {sso === "denied" && <p role="alert" className="mt-3 text-sm text-amber-300">{t("msg.ssoDenied")}</p>}
@@ -44,7 +45,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
         <div className="mt-4 space-y-3">
           <p className="text-center text-xs text-slate-500">{t("auth.or")}</p>
           {/* a plain link: the browser must follow the redirect to the identity provider */}
-          <a href="/saml/login" className="btn w-full justify-center">{samlCfg?.buttonLabel || t("auth.ssoSignIn")}</a>
+          <a href="/saml/login" className="btn w-full justify-center"><Icon name="key" />{samlCfg?.buttonLabel || t("auth.ssoSignIn")}</a>
         </div>
       )}
       <p className="mt-6 text-center text-xs text-slate-500" data-testid="login-version">{t("about.version")} {getVersion()}</p>

@@ -5,6 +5,7 @@ import { checkUpdateAction, masterUpdateAgentsAction, masterUpdateStartAction, t
 import type { UpdateInfo } from "@/lib/update-check";
 import { AUTHOR, APP_NAME, COPYRIGHT_YEAR, REPO_URL } from "@/lib/brand";
 import { useT } from "./I18nProvider";
+import Icon from "./Icon";
 
 const HUB_URL = "https://hub.docker.com/r/petrecalinoiu/podmanmanager-master";
 
@@ -59,8 +60,8 @@ export default function AboutDialog({ version }: { version: string }) {
 
   return (
     <>
-      <button type="button" onClick={open} className="rounded-md px-3 py-2 text-sm text-slate-400 transition hover:text-white md:py-1.5">
-        {t("nav.about")}
+      <button type="button" onClick={open} className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm text-slate-400 transition hover:text-white md:py-1.5">
+        <Icon name="info" />{t("nav.about")}
       </button>
       <dialog
         ref={ref}
@@ -94,7 +95,7 @@ export default function AboutDialog({ version }: { version: string }) {
                 {agents?.ok && (
                   agents.agents.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <button type="button" className="btn btn-primary !py-1 text-xs" disabled={busy} onClick={runUpdate}>{busy ? "…" : t("mupdate.btn")}</button>
+                      <button type="button" className="btn btn-primary !py-1 text-xs" disabled={busy} onClick={runUpdate}>{busy ? "…" : <><Icon name="arrow-circle-up" />{t("mupdate.btn")}</>}</button>
                       {agents.agents.length > 1 ? (
                         <select className="input !w-auto !py-1 text-xs" value={agentId} onChange={(e) => setAgentId(Number(e.target.value))} disabled={busy} aria-label={t("mupdate.via")}>
                           {agents.agents.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
@@ -124,7 +125,7 @@ export default function AboutDialog({ version }: { version: string }) {
           </div>
 
           <div className="flex justify-end">
-            <button type="button" onClick={close} className="btn">{t("about.close")}</button>
+            <button type="button" onClick={close} className="btn"><Icon name="x" />{t("about.close")}</button>
           </div>
         </div>
       </dialog>

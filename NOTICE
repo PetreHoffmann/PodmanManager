@@ -3,3 +3,6 @@ Copyright 2026 Petre Hoffmann
 
 This product includes software developed by Petre Hoffmann
 (https://github.com/PetreHoffmann/PodmanManager).
+
+Icons (apps/master/src/components/icons-data.ts) are taken from Phosphor Icons, duotone weight,
+Copyright (c) 2023 Phosphor Icons, MIT License (https://phosphoricons.com).

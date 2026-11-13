@@ -8,6 +8,7 @@ import { getT } from "@/lib/lang";
 import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { hiddenPatternsFor } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
+import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export default async function Pods({ searchParams }: { searchParams: SP }) {
           <option value="stopped">{t("cont.notRunning")}</option>
         </select>
         <input name="q" defaultValue={q} placeholder={t("pods.namePh")} className="input w-48" />
-        <button className="btn">{t("cont.filter")}</button>
+        <button className="btn"><Icon name="funnel" />{t("cont.filter")}</button>
       </form>
 
       {failed.map((h) => (

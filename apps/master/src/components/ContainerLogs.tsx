@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { containerLogsAction, podLogsAction } from "@/app/actions";
 import type { LogLine } from "../../../../shared/types/index.js";
 import { useT } from "./I18nProvider";
+import Icon from "./Icon";
 
 export default function ContainerLogs({ agentId, containerId, kind = "container" }: { agentId: number; containerId: string; kind?: "container" | "pod" }) {
   const t = useT();
@@ -34,7 +35,7 @@ export default function ContainerLogs({ agentId, containerId, kind = "container"
       <div className="flex items-center gap-3">
         <h2 className="font-medium">{t("logs.title")}</h2>
         <button type="button" className="btn !px-3 !py-1 text-xs" disabled={pending} onClick={load}>
-          {lines === null ? t("logs.show") : t("logs.refresh")}
+          {lines === null ? <Icon name="terminal-window" /> : <Icon name="arrow-clockwise" />}{lines === null ? t("logs.show") : t("logs.refresh")}
         </button>
         {pending && <span className="animate-pulse text-xs text-slate-400">{t("logs.loading")}</span>}
       </div>

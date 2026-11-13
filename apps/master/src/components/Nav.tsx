@@ -9,14 +9,15 @@ import AboutDialog from "./AboutDialog";
 import LangSelect from "./LangSelect";
 import { APP_NAME, REPO_URL } from "@/lib/brand";
 import { logoutAction } from "@/app/actions";
+import Icon, { type IconName } from "./Icon";
 
-const ITEMS: { href: string; key: Key }[] = [
-  { href: "/", key: "nav.dashboard" },
-  { href: "/hosts", key: "nav.hosts" },
-  { href: "/containers", key: "nav.containers" },
-  { href: "/pods", key: "nav.pods" },
-  { href: "/images", key: "nav.images" },
-  { href: "/settings", key: "nav.settings" },
+const ITEMS: { href: string; key: Key; icon: IconName }[] = [
+  { href: "/", key: "nav.dashboard", icon: "gauge" },
+  { href: "/hosts", key: "nav.hosts", icon: "hard-drives" },
+  { href: "/containers", key: "nav.containers", icon: "cube" },
+  { href: "/pods", key: "nav.pods", icon: "squares-four" },
+  { href: "/images", key: "nav.images", icon: "stack" },
+  { href: "/settings", key: "nav.settings", icon: "gear-six" },
 ];
 
 export default function Nav({ version, brand }: { version: string; brand: { text: string | null; logo: string | null } }) {
@@ -31,7 +32,7 @@ export default function Nav({ version, brand }: { version: string; brand: { text
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
-  const link = "rounded-md px-3 py-2 text-sm transition md:py-1.5";
+  const link = "inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm transition md:py-1.5";
   return (
     <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
       {/* below md: brand + hamburger, menu as a vertical list; from md: one row (md:contents flattens the wrappers) */}
@@ -63,18 +64,18 @@ export default function Nav({ version, brand }: { version: string; brand: { text
             const active = i.href === "/" ? path === "/" : path.startsWith(i.href);
             return (
               <Link key={i.href} href={i.href} className={`${link} ${active ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white"}`}>
-                {t(i.key)}
+                <Icon name={i.icon} />{t(i.key)}
               </Link>
             );
           })}
           <div className="mt-1 flex flex-wrap items-center gap-1 border-t border-slate-800 pt-2 md:ml-auto md:mt-0 md:border-0 md:pt-0">
             <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={`${link} text-slate-400 hover:text-white`}>
-              {t("nav.help")}
+              <Icon name="question" />{t("nav.help")}
             </a>
             <AboutDialog version={version} />
             <form action={logoutAction}>
-              <button type="submit" className="rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white md:py-1.5">
-                {t("set.logout")}
+              <button type="submit" className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white md:py-1.5">
+                <Icon name="sign-out" />{t("set.logout")}
               </button>
             </form>
             <LangSelect className="ml-2" />

@@ -16,6 +16,7 @@ import { loadHiddenPatterns } from "@/lib/hidden";
 import { EMPTY_SAML, MAX_BUTTON_LABEL, NAMEID_FORMATS, loadSamlConfig, spAcsUrl, spEntityId, spMetadataUrl } from "@/lib/saml-config";
 import { MAX_LOGO_BYTES, MAX_TEXT_CHARS, loadBranding } from "@/lib/branding";
 import { requireAuth } from "@/lib/session";
+import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
@@ -114,8 +115,8 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <button name="intent" value="save" className="btn btn-primary">{t("brand.save")}</button>
-                    <button name="intent" value="reset" className="btn" formNoValidate>{t("brand.reset")}</button>
+                    <button name="intent" value="save" className="btn btn-primary"><Icon name="floppy-disk" />{t("brand.save")}</button>
+                    <button name="intent" value="reset" className="btn" formNoValidate><Icon name="arrow-counter-clockwise" />{t("brand.reset")}</button>
                   </div>
                 </ActionForm>
               </section>
@@ -126,7 +127,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
                     <input name="current" type="password" required placeholder={t("set.current")} autoComplete="current-password" className="input" />
                     <input name="password" type="password" required minLength={10} placeholder={t("set.new")} autoComplete="new-password" className="input" />
                     <input name="confirm" type="password" required placeholder={t("set.repeat")} autoComplete="new-password" className="input" />
-                    <button className="btn btn-primary">{t("set.changeBtn")}</button>
+                    <button className="btn btn-primary"><Icon name="key" />{t("set.changeBtn")}</button>
                   </ActionForm>
                 </section>
               ) : (
@@ -165,8 +166,8 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
                 <input name="testName" autoComplete="off" maxLength={128} placeholder="podmanmanager-agent" className="input mt-1" />
               </label>
               <div className="flex gap-2">
-                <button name="intent" value="save" className="btn btn-primary">{t("hidden.save")}</button>
-                <button name="intent" value="test" className="btn" formNoValidate>{t("hidden.test")}</button>
+                <button name="intent" value="save" className="btn btn-primary"><Icon name="floppy-disk" />{t("hidden.save")}</button>
+                <button name="intent" value="test" className="btn" formNoValidate><Icon name="shield-check" />{t("hidden.test")}</button>
               </div>
             </ActionForm>
           </section>
@@ -182,10 +183,10 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
               <textarea name="metadata" rows={2} spellCheck={false} placeholder="https://adfs.example.com/FederationMetadata/2007-06/FederationMetadata.xml" className="input mt-1 font-mono text-xs" />
               <span className="text-xs text-slate-500">{t("saml.importHint")}</span>
             </label>
-            <button className="btn">{t("saml.importBtn")}</button>
+            <button className="btn"><Icon name="download-simple" />{t("saml.importBtn")}</button>
           </ActionForm>
-          <ActionForm key={`${saml.idpEntityId}|${saml.idpSsoUrl}|${saml.idpCert.length}`} action={samlAction} className="space-y-3" bar={<><button name="intent" value="save" className="btn btn-primary">{t("saml.save")}</button>
-              <button name="intent" value="check" className="btn" formNoValidate>{t("saml.check")}</button></>}>
+          <ActionForm key={`${saml.idpEntityId}|${saml.idpSsoUrl}|${saml.idpCert.length}`} action={samlAction} className="space-y-3" bar={<><button name="intent" value="save" className="btn btn-primary"><Icon name="floppy-disk" />{t("saml.save")}</button>
+              <button name="intent" value="check" className="btn" formNoValidate><Icon name="shield-check" />{t("saml.check")}</button></>}>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="samlEnabled" defaultChecked={saml.enabled} /> {t("saml.enabled")}
             </label>
@@ -256,8 +257,8 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
           <h2 className="mb-1 flex items-center gap-2 font-medium">{t("ldap.title")} <StatusPill on={l.enabled} text={l.enabled ? t("set.statusOn") : t("set.statusOff")} /></h2>
           <p className="mb-3 text-xs text-slate-400">{t("ldap.intro")}</p>
           {insecure && <p className="mb-3 text-xs text-amber-400">{t("ldap.insecure")}</p>}
-          <ActionForm action={ldapAction} className="space-y-3" bar={<><button name="intent" value="save" className="btn btn-primary">{t("ldap.save")}</button>
-              <button name="intent" value="test" className="btn">{t("ldap.test")}</button></>}>
+          <ActionForm action={ldapAction} className="space-y-3" bar={<><button name="intent" value="save" className="btn btn-primary"><Icon name="floppy-disk" />{t("ldap.save")}</button>
+              <button name="intent" value="test" className="btn"><Icon name="plugs-connected" />{t("ldap.test")}</button></>}>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="enabled" defaultChecked={l.enabled} /> {t("ldap.enabled")}
             </label>

@@ -4,6 +4,7 @@ import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { hiddenPatternsFor } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
 import { Stat } from "@/components/ui";
+import { ContainersArt, HostsArt, PodsArt } from "@/components/Illustrations";
 
 export const dynamic = "force-dynamic";
 
@@ -31,23 +32,33 @@ export default async function Dashboard() {
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">{t("dash.title")}</h1>
       {session.access === "groups" && <p className="text-xs text-slate-400">{t("scope.note", { groups: groupNames(session).join(", ") || "—" })}</p>}
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label={t("dash.hosts")} value={total} />
-        <Stat label={t("dash.reachable")} value={reachable} tone="ok" />
-        <Stat label={t("dash.unreachable")} value={unreachable} tone={unreachable ? "bad" : undefined} />
-        <Stat label={t("dash.other")} value={other} tone={other ? "warn" : undefined} />
-      </section>
-      <section className="grid grid-cols-3 gap-3">
-        <Stat label={t("dash.containers")} value={all.length} />
-        <Stat label={t("dash.running")} value={running} tone="ok" />
-        <Stat label={t("dash.stopped")} value={all.length - running} />
-      </section>
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label={t("dash.pods")} value={pods.length} />
-        <Stat label={t("dash.podsRunning")} value={podRunning} tone="ok" />
-        <Stat label={t("dash.podsDegraded")} value={podDegraded} tone={podDegraded ? "warn" : undefined} />
-        <Stat label={t("dash.podsStopped")} value={pods.length - podRunning - podDegraded} />
-      </section>
+      {/* one illustration per card type; hidden on phones */}
+      <div className="flex items-center gap-4">
+        <HostsArt className="hidden w-32 shrink-0 sm:block lg:w-40" />
+        <section className="grid flex-1 grid-cols-2 gap-3 md:grid-cols-4">
+          <Stat label={t("dash.hosts")} value={total} />
+          <Stat label={t("dash.reachable")} value={reachable} tone="ok" />
+          <Stat label={t("dash.unreachable")} value={unreachable} tone={unreachable ? "bad" : undefined} />
+          <Stat label={t("dash.other")} value={other} tone={other ? "warn" : undefined} />
+        </section>
+      </div>
+      <div className="flex items-center gap-4">
+        <ContainersArt className="hidden w-32 shrink-0 sm:block lg:w-40" />
+        <section className="grid flex-1 grid-cols-3 gap-3">
+          <Stat label={t("dash.containers")} value={all.length} />
+          <Stat label={t("dash.running")} value={running} tone="ok" />
+          <Stat label={t("dash.stopped")} value={all.length - running} />
+        </section>
+      </div>
+      <div className="flex items-center gap-4">
+        <PodsArt className="hidden w-32 shrink-0 sm:block lg:w-40" />
+        <section className="grid flex-1 grid-cols-2 gap-3 md:grid-cols-4">
+          <Stat label={t("dash.pods")} value={pods.length} />
+          <Stat label={t("dash.podsRunning")} value={podRunning} tone="ok" />
+          <Stat label={t("dash.podsDegraded")} value={podDegraded} tone={podDegraded ? "warn" : undefined} />
+          <Stat label={t("dash.podsStopped")} value={pods.length - podRunning - podDegraded} />
+        </section>
+      </div>
       {podsMissing.length > 0 && (
         <p className="card border-amber-800 text-sm text-amber-300">
           {t("dash.podsExcluded", { n: podsMissing.length, names: podsMissing.map((h) => h.agent.agent_id).join(", ") })}
@@ -58,7 +69,12 @@ export default async function Dashboard() {
           {t("dash.excluded", { n: missing, names: hosts.filter((h) => !h.result.ok).map((h) => h.agent.hostname).join(", ") })}
         </p>
       )}
-      {total === 0 && <p className="text-sm text-slate-400">{t("dash.empty")}</p>}
+      {total === 0 && (
+        <div className="card flex flex-col items-center gap-3 py-8 text-center">
+          <HostsArt className="w-44" />
+          <p className="text-sm text-slate-400">{t("dash.empty")}</p>
+        </div>
+      )}
     </div>
   );
 }
