@@ -6,7 +6,7 @@ export type IconTone = "sky" | "ok" | "bad" | "warn" | "muted";
 /** Secondary (translucent) color of each icon: it follows the meaning of the action. */
 const TONE: Record<IconName, IconTone> = {
   gauge: "sky", "hard-drives": "sky", cube: "sky", stack: "sky", "squares-four": "sky", package: "sky", "gear-six": "sky", question: "sky", info: "sky",
-  "sign-out": "warn", "sign-in": "sky", play: "ok", stop: "bad", "arrows-clockwise": "sky", "arrow-clockwise": "sky", "terminal-window": "sky",
+  "sign-out": "sky", "sign-in": "sky", play: "ok", stop: "bad", "arrows-clockwise": "sky", "arrow-clockwise": "sky", "terminal-window": "sky",
   "plugs-connected": "sky", "shield-check": "ok", "floppy-disk": "sky", "arrow-counter-clockwise": "warn", trash: "bad", broom: "warn", check: "ok", x: "muted",
   funnel: "sky", key: "sky", "user-circle": "sky", "download-simple": "sky", "plus-circle": "ok", "arrow-circle-up": "ok", prohibit: "warn", power: "ok",
   "check-circle": "ok", warning: "warn", "x-circle": "bad", "user-gear": "sky",
