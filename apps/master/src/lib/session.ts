@@ -87,9 +87,12 @@ export function loginBlocked(key: string, now = Date.now()): boolean {
   return l.length >= 5 || global.length >= 60;
 }
 
-export function recordLoginFailure(key: string, now = Date.now()): void {
+/** Records a failed login; returns how many failures this name has within the last minute (5 block it). */
+export function recordLoginFailure(key: string, now = Date.now()): number {
   const k = key.toLowerCase().slice(0, 256);
-  byKey.set(k, [...prune(byKey.get(k) ?? [], now), now]);
+  const list = [...prune(byKey.get(k) ?? [], now), now];
+  byKey.set(k, list);
   global.push(now);
   if (byKey.size > 5000) byKey.clear();
+  return list.length;
 }
