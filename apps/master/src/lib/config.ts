@@ -15,6 +15,8 @@ export function getConfig() {
     agentTimeoutSec: num("AGENT_TIMEOUT", 5, 1, 60),
     offlineAfterFailures: num("HEARTBEAT_FAILURES", 3, 1, 100),
     actionTimeoutSec: 30,
+    /** daily automatic database copies to keep in <data dir>/backups; 0 = off */
+    backupKeep: num("BACKUP_KEEP", 0, 0, 365),
   };
 }
 

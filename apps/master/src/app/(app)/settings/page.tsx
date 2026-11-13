@@ -10,6 +10,7 @@ import GroupEditor from "@/components/GroupEditor";
 import LogoInput from "@/components/LogoInput";
 import SamlPreset from "@/components/SamlPreset";
 import LdapPreset from "@/components/LdapPreset";
+import { listBackups } from "@/lib/autobackup";
 import BackupPanel from "@/components/BackupPanel";
 import UserEditor from "@/components/UserEditor";
 import { listUsers } from "@/lib/users";
@@ -140,7 +141,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
               {session.kind === "local" && (
                 <section className="card">
                   <h2 className="mb-2 font-medium">{t("backup.title")}</h2>
-                  <BackupPanel />
+                  <BackupPanel keep={c.backupKeep} items={listBackups()} />
                 </section>
               )}
             </>

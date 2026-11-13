@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ensureLocalHost } from "@/lib/agents";
+import { isBackupName, readStoredBackup } from "@/lib/autobackup";
 import { MAX_BACKUP_BYTES, createBackup, restoreBackup } from "@/lib/backup";
 import { getSecretKey } from "@/lib/config";
 import { getT } from "@/lib/lang";
@@ -17,11 +18,20 @@ const NO_STORE = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosni
 
 export async function GET(req: NextRequest) {
   if (!adminOnly(req)) return new NextResponse(null, { status: 403, headers: NO_STORE });
-  const day = new Date().toISOString().slice(0, 10);
-  const data = createBackup();
-  console.warn("database backup downloaded by the local administrator");
+  const stored = req.nextUrl.searchParams.get("file");
+  let data: Buffer | null;
+  let name: string;
+  if (stored !== null) {
+    data = readStoredBackup(stored);
+    if (!data) return new NextResponse(null, { status: 404, headers: NO_STORE });
+    name = `podmanmanager-${stored.slice(7)}`;
+  } else {
+    data = createBackup();
+    name = `podmanmanager-${new Date().toISOString().slice(0, 10)}.db`;
+  }
+  console.warn(`database backup downloaded by the local administrator${stored !== null ? ` (${stored})` : ""}`);
   return new NextResponse(new Uint8Array(data), {
-    headers: { ...NO_STORE, "Content-Type": "application/vnd.sqlite3", "Content-Length": String(data.length), "Content-Disposition": `attachment; filename="podmanmanager-${day}.db"` },
+    headers: { ...NO_STORE, "Content-Type": "application/vnd.sqlite3", "Content-Length": String(data.length), "Content-Disposition": `attachment; filename="${name}"` },
   });
 }
 
@@ -39,8 +49,15 @@ export async function POST(req: NextRequest) {
     return json(400, false, t("err.restoreFile"));
   }
   const f = fd.get("file");
-  if (!(f instanceof File) || f.size > MAX_BACKUP_BYTES) return json(400, false, t("err.restoreFile"));
-  if (fd.get("confirm") !== "on") return json(400, false, t("err.restoreFile"));
+  const pick = fd.get("stored");
+  let upload: Buffer | null = null;
+  if (typeof pick === "string" && pick !== "") {
+    if (!isBackupName(pick)) return json(400, false, t("err.restoreFile"));
+    upload = readStoredBackup(pick);
+  } else if (f instanceof File && f.size <= MAX_BACKUP_BYTES) {
+    upload = Buffer.from(await f.arrayBuffer());
+  }
+  if (!upload || fd.get("confirm") !== "on") return json(400, false, t("err.restoreFile"));
   let key: Buffer | undefined;
   try {
     key = getSecretKey();
@@ -49,7 +66,7 @@ export async function POST(req: NextRequest) {
   }
   let r;
   try {
-    r = restoreBackup(Buffer.from(await f.arrayBuffer()), { key, force: fd.get("force") === "on" });
+    r = restoreBackup(upload, { key, force: fd.get("force") === "on" });
   } catch (e) {
     console.warn(`database restore failed: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300));
     return json(500, false, t("err.restoreFile"));

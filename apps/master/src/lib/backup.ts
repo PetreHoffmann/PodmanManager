@@ -77,6 +77,8 @@ export function restoreBackup(data: Buffer, opts: { key?: Buffer; force?: boolea
     }
     let unreadable = 0;
     try {
+      // without an administrator the master would fall back to its first-run page, where anybody could set one
+      if (count(src, "admin") === 0) return { ok: false, error: "err.restoreFile" } as const;
       if (opts.key) {
         const rows = src.prepare("SELECT token_enc FROM agents WHERE kind = 'remote' AND token_enc <> ''").all() as { token_enc: string }[];
         for (const r of rows) {
