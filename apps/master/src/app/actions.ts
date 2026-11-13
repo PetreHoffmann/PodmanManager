@@ -538,14 +538,22 @@ export async function imageDeleteAction(agentId: number, imageId: string, tag: s
   return { ok: true, message: r.data.result === "untagged" ? t("images.untagged") : t("images.deleted") };
 }
 
-/** Remove dangling images of one host. Admins only. */
-export async function imagePruneAction(agentId: number): Promise<{ ok: boolean; message: string }> {
-  const x = await imageAdminTarget(agentId);
-  if (x.err !== undefined) return { ok: false, message: x.err };
-  const { tg, t } = x;
-  const r = await agentImagePrune(tg);
+/** Remove dangling images of the given hosts (one line of result per host). Admins only; every host is checked on its own. */
+export async function imagePruneAction(agentIds: number[]): Promise<{ ok: boolean; message: string }> {
+  const t = await getT();
+  const ids = [...new Set(Array.isArray(agentIds) ? agentIds : [])].filter((n) => Number.isInteger(n)).slice(0, 200);
+  if (ids.length === 0) return { ok: false, message: t("msg.unknownHost") };
+  const lines = await Promise.all(
+    ids.map(async (id): Promise<{ ok: boolean; line: string }> => {
+      const x = await imageAdminTarget(id);
+      if (x.err !== undefined) return { ok: false, line: x.err };
+      const name = getAgent(id)?.hostname ?? String(id);
+      const r = await agentImagePrune(x.tg);
+      if (!r.ok) return { ok: false, line: `${name}: ${errText(x.t, r.code, r.message)}` };
+      return { ok: true, line: `${name}: ${r.data.removed > 0 ? x.t("images.pruned", { n: r.data.removed, size: fmtBytes(r.data.reclaimed) }) : x.t("images.pruneNone")}` };
+    }),
+  );
   revalidatePath("/images");
   revalidatePath("/hosts");
-  if (!r.ok) return { ok: false, message: errText(t, r.code, r.message) };
-  return { ok: true, message: t("images.pruned", { n: r.data.removed, size: fmtBytes(r.data.reclaimed) }) };
+  return { ok: lines.every((l) => l.ok), message: lines.map((l) => l.line).join("\n") };
 }

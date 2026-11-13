@@ -25,7 +25,8 @@ export default async function Images({ searchParams }: { searchParams: SP }) {
     .filter(({ agent, tag, img }) => (!host || String(agent.id) === host) && (!q || (tag ?? img.id).toLowerCase().includes(q.toLowerCase())))
     .sort((a, b) => (a.tag ?? "~").localeCompare(b.tag ?? "~") || a.agent.hostname.localeCompare(b.agent.hostname));
   const failed = hosts.filter((h) => !h.result.ok && h.agent.enabled);
-  const okHosts = hosts.filter((h) => h.result.ok).map((h) => ({ id: h.agent.id, label: `${h.agent.agent_id} (${h.agent.hostname})` }));
+  // the prune button acts on what the host filter shows: one host, or every reachable host
+  const pruneHosts = hosts.filter((h) => h.result.ok && (!host || String(h.agent.id) === host)).map((h) => ({ id: h.agent.id, name: h.agent.hostname }));
   const label = (tag: string | null, id: string) => tag ?? `<${t("images.dangling")}> ${id.slice(0, 12)}`;
   const blocked = (img: { protected: boolean; containers: number; tags: string[] }) =>
     img.protected ? t("images.protected") : img.containers > 0 && img.tags.length <= 1 ? t("errc.IMAGE_IN_USE") : undefined;
@@ -43,7 +44,7 @@ export default async function Images({ searchParams }: { searchParams: SP }) {
         <input name="q" defaultValue={q} placeholder={t("images.namePh")} className="input w-48" />
         <button className="btn">{t("cont.filter")}</button>
       </form>
-      {admin && <ImagePrune hosts={okHosts} />}
+      {admin && <ImagePrune hosts={pruneHosts} />}
 
       {failed.map((h) => (
         <p key={h.agent.id} className="card border-red-900 text-sm text-red-300">
