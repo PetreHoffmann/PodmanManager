@@ -1,0 +1,30 @@
+name: Funktionswunsch
+description: Eine neue Funktion oder Verbesserung vorschlagen
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem oder Anlass
+      description: Was ist heute umständlich oder nicht möglich?
+    validations:
+      required: true
+  - type: textarea
+    id: wish
+    attributes:
+      label: Gewünschte Lösung
+      description: Wie soll es sich verhalten? Gern mit Beispiel.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Bereich
+      options: [Master, Agent, Master und Agent, Dokumentation, Deployment]
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativen
+      description: Was hast du schon versucht oder erwogen?
