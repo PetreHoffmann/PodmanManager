@@ -1,4 +1,4 @@
-import type { ImageDeleteResult, ImageInfo, ImagePruneResult, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
+import type { ImageDeleteResult, ImageInfo, ImagePruneResult, NetworkInfo, RemoveResult, VolumeInfo, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { localCall } from "./local-host";
 import { CONTAINER_ID_RE } from "./validate";
@@ -107,4 +107,10 @@ export function agentImageDelete(t: AgentTarget, id: string, tag: string | null)
   return call<ImageDeleteResult>(t, "DELETE", `/api/v1/images/${id}${tag ? `?tag=${encodeURIComponent(tag)}` : ""}`, 60);
 }
 export const agentImagePrune = (t: AgentTarget) => call<ImagePruneResult>(t, "POST", "/api/v1/images/prune", 130);
+const RESOURCE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$/;
+const badName = <T,>() => Promise.resolve<CallResult<T>>({ ok: false, code: "INVALID_PARAM", message: "Invalid name", unreachable: false });
+export const agentVolumes = (t: AgentTarget) => call<VolumeInfo[]>(t, "GET", "/api/v1/volumes", 40);
+export const agentVolumeDelete = (t: AgentTarget, name: string) => (RESOURCE_NAME_RE.test(name) ? call<RemoveResult>(t, "DELETE", `/api/v1/volumes/${encodeURIComponent(name)}`, 60) : badName<RemoveResult>());
+export const agentNetworks = (t: AgentTarget) => call<NetworkInfo[]>(t, "GET", "/api/v1/networks", 40);
+export const agentNetworkDelete = (t: AgentTarget, name: string) => (RESOURCE_NAME_RE.test(name) ? call<RemoveResult>(t, "DELETE", `/api/v1/networks/${encodeURIComponent(name)}`, 60) : badName<RemoveResult>());
 export const agentSelfInfo = (t: AgentTarget) => call<UpdateInfo>(t, "GET", "/api/v1/system/update", 15);

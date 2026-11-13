@@ -11,6 +11,11 @@ export type PodmanErrorCode =
   | "IMAGE_NOT_FOUND"
   | "IMAGE_IN_USE"
   | "IMAGE_PROTECTED"
+  | "VOLUME_NOT_FOUND"
+  | "VOLUME_IN_USE"
+  | "NETWORK_NOT_FOUND"
+  | "NETWORK_IN_USE"
+  | "NETWORK_PROTECTED"
   | "INVALID_PARAM"
   | "LOGS_TOO_LARGE";
 

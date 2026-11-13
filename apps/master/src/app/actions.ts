@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentImageDelete, agentImagePrune, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
+import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, agentVolumeDelete, agentVolumes, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
 import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
 import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
@@ -663,7 +663,7 @@ export async function imageDeleteAction(agentId: number, imageId: string, tag: s
   if (!CONTAINER_ID_RE.test(imageId) || (tag !== null && !IMAGE_TAG_RE.test(tag))) return { ok: false, message: t("errc.INVALID_PARAM") };
   const r = await agentImageDelete(tg, imageId, tag);
   await audit(await requireAuth(), "image.delete", { target: tag ?? imageId.slice(0, 12), host: getAgent(agentId)?.hostname, ok: r.ok, detail: r.ok ? "" : r.code });
-  revalidatePath("/images");
+  revalidatePath("/resources");
   revalidatePath("/hosts");
   if (!r.ok) return { ok: false, message: errText(t, r.code, r.message) };
   return { ok: true, message: r.data.result === "untagged" ? t("images.untagged") : t("images.deleted") };
@@ -685,7 +685,70 @@ export async function imagePruneAction(agentIds: number[]): Promise<{ ok: boolea
       return { ok: true, line: `${name}: ${r.data.removed > 0 ? x.t("images.pruned", { n: r.data.removed, size: fmtBytes(r.data.reclaimed) }) : x.t("images.pruneNone")}` };
     }),
   );
-  revalidatePath("/images");
+  revalidatePath("/resources");
   revalidatePath("/hosts");
   return { ok: lines.every((l) => l.ok), message: lines.map((l) => l.line).join("\n") };
+}
+
+const RES_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$/;
+
+/** Delete one volume or network. Admins only; the agent refuses what is in use (and the default network). */
+async function resourceDelete(kind: "volume" | "network", agentId: number, name: string): Promise<{ ok: boolean; message: string }> {
+  const x = await imageAdminTarget(agentId);
+  if (x.err !== undefined) return { ok: false, message: x.err };
+  const { tg, t } = x;
+  if (typeof name !== "string" || !RES_NAME_RE.test(name)) return { ok: false, message: t("errc.INVALID_PARAM") };
+  const r = await (kind === "volume" ? agentVolumeDelete(tg, name) : agentNetworkDelete(tg, name));
+  await audit(await requireAuth(), `${kind}.delete`, { target: name, host: getAgent(agentId)?.hostname, ok: r.ok, detail: r.ok ? "" : r.code });
+  revalidatePath("/resources");
+  if (!r.ok) return { ok: false, message: errText(t, r.code, r.message) };
+  return { ok: true, message: t(kind === "volume" ? "volumes.deleted" : "networks.deleted") };
+}
+
+export async function volumeDeleteAction(agentId: number, name: string): Promise<{ ok: boolean; message: string }> {
+  return resourceDelete("volume", agentId, name);
+}
+export async function networkDeleteAction(agentId: number, name: string): Promise<{ ok: boolean; message: string }> {
+  return resourceDelete("network", agentId, name);
+}
+
+/**
+ * Remove every unused volume or network of the given hosts, one by one (the agent refuses anything that became used in the
+ * meantime). One result line per host. Admins only; every host is checked on its own.
+ */
+async function resourcePrune(kind: "volume" | "network", agentIds: number[]): Promise<{ ok: boolean; message: string }> {
+  const t = await getT();
+  const ids = [...new Set(Array.isArray(agentIds) ? agentIds : [])].filter((n) => Number.isInteger(n)).slice(0, 200);
+  if (ids.length === 0) return { ok: false, message: t("msg.unknownHost") };
+  const lines = await Promise.all(
+    ids.map(async (id): Promise<{ ok: boolean; line: string }> => {
+      const x = await imageAdminTarget(id);
+      if (x.err !== undefined) return { ok: false, line: x.err };
+      const host = getAgent(id)?.hostname ?? String(id);
+      const list = await (kind === "volume" ? agentVolumes(x.tg) : agentNetworks(x.tg));
+      if (!list.ok) return { ok: false, line: `${host}: ${errText(x.t, list.code, list.message)}` };
+      const names = kind === "volume"
+        ? (list.data as { name: string; unused: boolean }[]).filter((v) => v.unused).map((v) => v.name)
+        : (list.data as { name: string; containers: string[]; protected: boolean }[]).filter((n) => !n.protected && n.containers.length === 0).map((n) => n.name);
+      let removed = 0;
+      let skipped = 0;
+      for (const name of names) {
+        const r = await (kind === "volume" ? agentVolumeDelete(x.tg, name) : agentNetworkDelete(x.tg, name));
+        if (r.ok) removed++;
+        else skipped++;
+      }
+      await audit(await requireAuth(), `${kind}.prune`, { host, ok: skipped === 0, detail: `${removed} removed${skipped ? `, ${skipped} skipped` : ""}` });
+      const key = kind === "volume" ? "volumes.pruned" : "networks.pruned";
+      return { ok: true, line: `${host}: ${removed > 0 || skipped > 0 ? x.t(key, { n: removed, skipped }) : x.t(kind === "volume" ? "volumes.pruneNone" : "networks.pruneNone")}` };
+    }),
+  );
+  revalidatePath("/resources");
+  return { ok: lines.every((l) => l.ok), message: lines.map((l) => l.line).join("\n") };
+}
+
+export async function volumesPruneAction(agentIds: number[]): Promise<{ ok: boolean; message: string }> {
+  return resourcePrune("volume", agentIds);
+}
+export async function networksPruneAction(agentIds: number[]): Promise<{ ok: boolean; message: string }> {
+  return resourcePrune("network", agentIds);
 }

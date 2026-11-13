@@ -12,7 +12,7 @@ Browser ── HTTP :8080 ── Master ── HTTP :9126 (Bearer-Token) ── 
 
 Neben Containern zeigt der Master auch **Pods** (Liste, Detail mit Containern, Start/Stop/Restart und die letzten 150 Log-Zeilen des ganzen Pods); in der Container-Liste steht, zu welchem Pod ein Container gehört. Die Host-Tabelle zeigt pro Host den vom Podman-Speicher belegten Platz (Images, Container, Volumes) und die Agent-Version.
 
-**Images** (eigener Menüpunkt): je Host alle Images mit Tags, Größe, Alter und nutzenden Containern. Admins löschen ein Image oder nur einen Tag und räumen Images ohne Tag auf; Images in Benutzung sowie die von PodmanManager selbst sind gesperrt.
+**Ressourcen** (eigener Menüpunkt mit den Reitern *Images*, *Netzwerke* und *Volumes*): je Host alle Images mit Tags, Größe, Alter und nutzenden Containern; Netzwerke mit Treiber, Subnetz, DNS-/IPv6-/intern-Kennzeichen und den angeschlossenen laufenden Containern; Volumes mit Größe und Benutzung. Admins löschen ein Image (oder nur einen Tag), ein Netzwerk oder ein Volume und räumen Unbenutztes auf (Images ohne Tag, unbenutzte Netzwerke, unbenutzte Volumes mit Rückfrage, denn die Daten eines Volumes sind danach weg). Benutztes sowie die von PodmanManager selbst genutzten Images und das Standard-Netzwerk sind gesperrt; Podman verweigert das Löschen von Benutztem zusätzlich.
 
 **Updates per Web-UI** (Admins): Agents, die älter als der Master sind, tragen das Label „veraltet“ und lassen sich in der Host-Ansicht per Knopf aktualisieren. Den Master aktualisiert ein Agent auf demselben Host über „Über“ → „Jetzt aktualisieren“ (`UPDATE_UNIT`). Voraussetzung: Quadlet mit `Restart=always` und Image-Tag `:latest` (siehe [Quadlets](deployment/quadlet/README.md)).
 

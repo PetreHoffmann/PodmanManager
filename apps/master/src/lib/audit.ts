@@ -6,7 +6,7 @@ import { getConfig } from "./config";
 export const AUDIT_ACTIONS = [
   "login.ok", "login.fail", "login.denied", "login.blocked", "logout", "password.change",
   "container.start", "container.stop", "container.restart", "pod.start", "pod.stop", "pod.restart",
-  "image.delete", "image.prune",
+  "image.delete", "image.prune", "volume.delete", "volume.prune", "network.delete", "network.prune",
   "host.add", "host.remove", "host.enable", "host.disable", "host.update", "master.update",
   "group.save", "group.delete", "user.save", "user.delete", "ldap.save", "saml.save", "branding.save", "hidden.save",
   "backup.download", "backup.restore",

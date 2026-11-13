@@ -16,7 +16,7 @@ const ITEMS: { href: string; key: Key; icon: IconName }[] = [
   { href: "/hosts", key: "nav.hosts", icon: "hard-drives" },
   { href: "/containers", key: "nav.containers", icon: "cube" },
   { href: "/pods", key: "nav.pods", icon: "squares-four" },
-  { href: "/images", key: "nav.images", icon: "stack" },
+  { href: "/resources", key: "nav.resources", icon: "stack" },
   { href: "/settings", key: "nav.settings", icon: "gear-six" },
 ];
 

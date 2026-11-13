@@ -75,7 +75,7 @@ Oben sehen Sie die **Navigationsleiste**. Von dort erreichen Sie alle Bereiche:
 | **Hosts** | Die Rechner, auf denen Ihre Anwendungen laufen, mit Zustand und Speicherplatz |
 | **Container** | Alle einzelnen Anwendungen. Hier starten, stoppen, neu starten und Logs lesen |
 | **Pods** | Anwendungen, die zusammengehören, als Gruppe |
-| **Images** | Die Programmpakete auf den Rechnern, nur zum Ansehen |
+| **Ressourcen** | Reiter **Images** (die Programmpakete), **Netzwerke** und **Volumes** (gespeicherte Daten) auf den Rechnern, nur zum Ansehen |
 | **Einstellungen** | Wer Sie sind, was Sie sehen dürfen |
 | **Hilfe** | Öffnet die Projektseite im Internet (in englischer Sprache) |
 | **Über** | Version von PodmanManager und ob eine neuere Version verfügbar ist |
@@ -188,7 +188,7 @@ Dort sehen Sie die **enthaltenen Anwendungen** mit ihrem Zustand. Der Eintrag mi
 
 ## 8. Images: die Programmpakete
 
-Ein **Image** ist das „Programmpaket“, aus dem ein Container gestartet wird. Unter **Images** sehen Sie, welche Pakete auf den Rechnern Ihrer Gruppe liegen:
+Unter **Ressourcen** finden Sie drei Reiter: **Images**, **Netzwerke** und **Volumes**. Netzwerke verbinden Container untereinander (Name, Subnetz, welche laufenden Container angeschlossen sind); Volumes sind die gespeicherten Daten der Anwendungen (Größe, „In Benutzung“ oder „Unbenutzt“). Alle drei sind für Sie nur zum Ansehen; Administratoren dürfen Unbenutztes löschen. Ein **Image** ist das „Programmpaket“, aus dem ein Container gestartet wird. Unter **Images** sehen Sie, welche Pakete auf den Rechnern Ihrer Gruppe liegen:
 
 ![Images](screenshots/handbuch/15-images.png)
 
@@ -231,7 +231,7 @@ Auf dem Handy passt sich die Seite an: Tabellen werden zu **Karten**, und die Na
 
 ![Dashboard auf dem Handy](screenshots/handbuch/12-handy-dashboard.png)
 
-1. Tippen Sie auf den **Menü-Knopf**. Die Liste mit Dashboard, Hosts, Container, Pods, Images, Einstellungen, Hilfe, Über, Abmelden und den Sprach-Flaggen klappt auf.
+1. Tippen Sie auf den **Menü-Knopf**. Die Liste mit Dashboard, Hosts, Container, Pods, Ressourcen, Einstellungen, Hilfe, Über, Abmelden und den Sprach-Flaggen klappt auf.
 2. Tippen Sie auf einen Eintrag. Das Menü schließt sich von selbst. Ein weiterer Tipp auf den Knopf (jetzt ein **X**) schließt es ebenfalls.
 
 ![Menü auf dem Handy](screenshots/handbuch/13-handy-menue.png)
