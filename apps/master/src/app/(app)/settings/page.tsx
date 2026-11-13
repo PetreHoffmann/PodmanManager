@@ -36,18 +36,18 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
   const c = getConfig();
   const local = session.kind === "local";
   const admin = session.access === "all";
-  // the local administrator manages everything; other administrators only read the logs; everybody else sees the general page
-  const tabs: Tab[] = local ? [...TABS] : admin ? ["general", "logs"] : [];
+  // administrators (local account, LDAP/SSO administrator groups) manage everything; everybody else sees the general page
+  const tabs: Tab[] = admin ? [...TABS] : [];
   // `sso` was the name of the SAML tab before OIDC could be added next to it
   const raw = (await searchParams).tab;
   const q = raw === "sso" ? "saml" : raw;
   const tab: Tab = tabs.find((x) => x === q) ?? "general";
-  const l = (local ? loadLdapConfig() : null) ?? EMPTY_LDAP;
-  const agentOptions = local ? listAgents().map((a) => ({ id: a.id, label: `${a.agent_id} (${a.hostname})` })) : [];
-  const groups = local ? listGroups() : [];
-  const hiddenText = local ? loadHiddenPatterns().join("\n") : "";
+  const l = (admin ? loadLdapConfig() : null) ?? EMPTY_LDAP;
+  const agentOptions = admin ? listAgents().map((a) => ({ id: a.id, label: `${a.agent_id} (${a.hostname})` })) : [];
+  const groups = admin ? listGroups() : [];
+  const hiddenText = admin ? loadHiddenPatterns().join("\n") : "";
   const brand = loadBranding();
-  const saml = (local ? loadSamlConfig() : null) ?? EMPTY_SAML;
+  const saml = (admin ? loadSamlConfig() : null) ?? EMPTY_SAML;
   const insecure = l.enabled && l.url.startsWith("ldap://") && !l.startTls;
   const label: Record<Tab, string> = { general: t("set.tabGeneral"), access: t("set.tabAccess"), saml: t("set.tabSaml"), ldap: t("set.tabLdap"), logs: t("set.tabLogs") };
 
@@ -91,7 +91,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
             </dl>
           </section>
 
-          {local ? (
+          {admin ? (
             <>
               <section className="card">
                 <h2 className="mb-1 font-medium">{t("brand.title")}</h2>
@@ -117,15 +117,19 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
                   </div>
                 </ActionForm>
               </section>
-              <section className="card">
-                <h2 className="mb-3 font-medium">{t("set.changePw")}</h2>
-                <ActionForm action={changePasswordAction} className="space-y-3">
-                  <input name="current" type="password" required placeholder={t("set.current")} autoComplete="current-password" className="input" />
-                  <input name="password" type="password" required minLength={10} placeholder={t("set.new")} autoComplete="new-password" className="input" />
-                  <input name="confirm" type="password" required placeholder={t("set.repeat")} autoComplete="new-password" className="input" />
-                  <button className="btn btn-primary">{t("set.changeBtn")}</button>
-                </ActionForm>
-              </section>
+              {local ? (
+                <section className="card">
+                  <h2 className="mb-3 font-medium">{t("set.changePw")}</h2>
+                  <ActionForm action={changePasswordAction} className="space-y-3">
+                    <input name="current" type="password" required placeholder={t("set.current")} autoComplete="current-password" className="input" />
+                    <input name="password" type="password" required minLength={10} placeholder={t("set.new")} autoComplete="new-password" className="input" />
+                    <input name="confirm" type="password" required placeholder={t("set.repeat")} autoComplete="new-password" className="input" />
+                    <button className="btn btn-primary">{t("set.changeBtn")}</button>
+                  </ActionForm>
+                </section>
+              ) : (
+                <p className="card text-sm text-slate-400">{t("set.pwExternal")}</p>
+              )}
             </>
           ) : (
             <p className="card text-sm text-slate-400">{t("set.localOnly")}</p>
@@ -134,7 +138,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
         </div>
       )}
 
-      {tab === "access" && local && (
+      {tab === "access" && admin && (
         <div className="space-y-5">
           <section className="card">
             <h2 className="mb-1 font-medium">{t("groups.title")}</h2>
@@ -167,7 +171,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
         </div>
       )}
 
-      {tab === "saml" && local && (
+      {tab === "saml" && admin && (
         <section className="card">
           <h2 className="mb-1 flex items-center gap-2 font-medium">{t("saml.title")} <StatusPill on={saml.enabled} text={saml.enabled ? t("set.statusOn") : t("set.statusOff")} /></h2>
           <p className="mb-3 text-xs text-slate-400">{t("saml.intro")}</p>
@@ -241,7 +245,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
         </section>
       )}
 
-      {tab === "ldap" && local && (
+      {tab === "ldap" && admin && (
         <section className="card">
           <h2 className="mb-1 flex items-center gap-2 font-medium">{t("ldap.title")} <StatusPill on={l.enabled} text={l.enabled ? t("set.statusOn") : t("set.statusOff")} /></h2>
           <p className="mb-3 text-xs text-slate-400">{t("ldap.intro")}</p>

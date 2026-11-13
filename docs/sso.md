@@ -16,7 +16,7 @@ Zusätzlich zur Anmeldung per LDAP kann der Master Benutzer per **SAML 2.0** üb
 - **Öffentliche https-Adresse des Masters**, z. B. `https://master.example.com`, in der Regel über Ihren Reverse Proxy (siehe [Master-Installation](installation-master.md#hinter-einem-reverse-proxy)). Die Anbieter erwarten für die Rückleitung normalerweise https. Der Proxy muss `POST /saml/acs` unverändert an den Master weitergeben.
 - Der Master muss die Adresse des Anbieters nicht selbst erreichen, aber der **Browser** des Benutzers. Nur der Metadaten-Import läuft vom Master aus (oder Sie fügen die XML-Datei ein).
 - **Synchrone Uhren** (NTP) beim Anbieter und im Master. Eine Abweichung bis zu 2 Minuten wird toleriert.
-- Das lokale Konto `admin` zum Einrichten (die Einstellungen sind nur für dieses Konto sichtbar).
+- Ein Administrator-Konto zum Einrichten: das lokale Konto `admin` (oder ein Mitglied der Administratoren-Gruppe von LDAP/SSO). Die Einstellungen sehen nur Administratoren.
 - Was der Anbieter können muss: SAML 2.0 mit **HTTP-Redirect** für die Anmeldeanfrage und **HTTP-POST** für die Antwort (der Normalfall), und die **Assertion muss signiert sein**. Der Master sendet **keine signierten Anfragen** (ein Anbieter, der das verlangt, z. B. Keycloak in der Voreinstellung, muss es abschalten) und unterstützt **keine verschlüsselten Assertions** und kein Single Logout.
 
 ## Die Werte für den Anbieter
@@ -45,7 +45,7 @@ Im Master werden die Gruppenwerte **genau so verglichen, wie der Anbieter sie se
 
 ## Einrichtung im Master (für alle Anbieter gleich)
 
-Unter *Einstellungen → Registerkarte „SAML“* (als lokaler `admin`):
+Unter *Einstellungen → Registerkarte „SAML“* (als Administrator):
 
 1. **Metadaten importieren:** Adresse oder XML des Anbieters eintragen, dann *Importieren*. Das füllt **Entity-ID**, **Anmeldeadresse** und das **Signaturzertifikat**. Hat der Master das Zertifikat der Anbieter-Webseite nicht im Vertrauensspeicher (Firmen-CA), siehe `NODE_EXTRA_CA_CERTS` in der [Master-Installation](installation-master.md), oder die XML-Datei einfügen. Ohne Import tragen Sie die drei Werte von Hand ein.
 2. **Öffentliche Adresse des Masters** eintragen (`https://master.example.com`, ohne Pfad).

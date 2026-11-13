@@ -92,7 +92,7 @@ export async function logoutAction(): Promise<void> {
 export async function changePasswordAction(_: FormState, fd: FormData): Promise<FormState> {
   const session = await requireAuth();
   const t = await getT();
-  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+  if (session.kind !== "local") return { ok: false, message: t("set.pwExternal") };
   if (!(await checkAdminPassword(s(fd, "current")))) return { ok: false, message: t("msg.curWrong") };
   const pw = s(fd, "password");
   if (pw.length < MIN_PW) return { ok: false, message: t("msg.pwShort", { n: MIN_PW }) };
@@ -194,7 +194,7 @@ export async function containerOpAction(agentId: number, containerId: string, ac
 export async function ldapAction(_: FormState, fd: FormData): Promise<FormState> {
   const session = await requireAuth();
   const t = await getT();
-  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
 
   const existing = loadLdapConfig();
   const parsed = parseLdapInput(
@@ -228,7 +228,7 @@ export async function ldapAction(_: FormState, fd: FormData): Promise<FormState>
 export async function groupAction(_: FormState, fd: FormData): Promise<FormState> {
   const session = await requireAuth();
   const t = await getT();
-  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
 
   const idRaw = s(fd, "id");
   const id = idRaw === "" ? undefined : Number(idRaw);
@@ -257,7 +257,7 @@ export async function checkUpdateAction(): Promise<UpdateInfo> {
 export async function hiddenAction(_: FormState, fd: FormData): Promise<FormState> {
   const session = await requireAuth();
   const t = await getT();
-  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const parsed = parsePatterns(s(fd, "patterns"));
   if (!parsed.ok) return { ok: false, message: t(parsed.error as Key, { pattern: parsed.pattern ?? "", max: MAX_PATTERNS }) };
 
@@ -364,11 +364,11 @@ export async function podLogsAction(agentId: number, podId: string): Promise<Log
   return { ok: true, lines: r.data.lines, skipped: r.data.skipped };
 }
 
-/** Custom navbar text and logo (local administrator only). */
+/** Custom navbar text and logo (administrators only). */
 export async function brandingAction(_: FormState, fd: FormData): Promise<FormState> {
   const session = await requireAuth();
   const t = await getT();
-  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const intent = s(fd, "intent");
   if (intent === "reset") {
     saveText(null);
@@ -398,7 +398,7 @@ const samlInput = (fd: FormData, enabled: boolean): SamlConfig => ({
 export async function samlAction(_: FormState, fd: FormData): Promise<FormState> {
   const session = await requireAuth();
   const t = await getT();
-  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const parsed = parseSamlInput(samlInput(fd, s(fd, "samlEnabled") === "on"));
   if (!parsed.ok) return { ok: false, message: t(parsed.error as Key) };
   const cfg = parsed.config;
@@ -428,7 +428,7 @@ export async function samlAction(_: FormState, fd: FormData): Promise<FormState>
 export async function samlImportAction(_: FormState, fd: FormData): Promise<FormState> {
   const session = await requireAuth();
   const t = await getT();
-  if (session.kind !== "local") return { ok: false, message: t("set.localOnly") };
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const input = s(fd, "metadata").trim();
   if (!input) return { ok: false, message: t("err.samlMetaParse") };
   const m = await loadIdpMetadata(input);
