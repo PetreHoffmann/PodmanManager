@@ -22,8 +22,9 @@ Secret=podmanmanager-key,type=env,target=MASTER_SECRET_KEY
 # Sicherheit: wer den Master kompromittiert, steuert die Container dieses Benutzers (siehe docs/security.md).
 # Volume=%t/podman/podman.sock:/run/podman/podman.sock
 # Environment=LOCAL_PODMAN_SOCKET=/run/podman/podman.sock
-# UserNS=keep-id
-# User=%U
+# Der Master laeuft im Container als Benutzer "node" (UID 1000): keep-id bildet Ihren Host-Benutzer darauf ab,
+# so erreicht er den Socket und darf /data schreiben (egal welche UID Ihr Host-Benutzer hat).
+# UserNS=keep-id:uid=1000,gid=1000
 # SecurityLabelDisable=true
 Environment=HEARTBEAT_INTERVAL=30
 Environment=AGENT_TIMEOUT=5
