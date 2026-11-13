@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     return json(500, false, t("err.restoreFile"));
   }
   if (!r.ok) {
-    console.warn(`database restore refused: ${r.error}${r.unreadable ? ` (${r.unreadable} host tokens not readable with the current MASTER_SECRET_KEY)` : ""}`);
+    console.warn(`database restore refused: ${r.error}${r.why ? ` (${r.why})` : ""}${r.unreadable ? ` (${r.unreadable} host tokens not readable with the current MASTER_SECRET_KEY)` : ""}`);
     await audit(admin, "backup.restore", { ok: false, detail: r.error === "err.restoreKey" ? "host tokens not readable" : "invalid file" });
     return json(400, false, r.error === "err.restoreKey" ? t("err.restoreKey", { n: r.unreadable ?? 0 }) : t("err.restoreFile"));
   }

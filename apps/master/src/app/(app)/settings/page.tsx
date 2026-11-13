@@ -26,7 +26,7 @@ import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
-const TABS = ["general", "access", "users", "audit", "saml", "ldap", "logs"] as const;
+const TABS = ["general", "access", "users", "saml", "ldap", "logs", "audit"] as const;
 type Tab = (typeof TABS)[number];
 type SP = Promise<Record<string, string | undefined>>;
 
