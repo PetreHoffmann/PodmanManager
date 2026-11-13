@@ -5,6 +5,8 @@ export async function register() {
     pushAppLog("info", "master started");
     const { getSecretKey } = await import("./lib/config");
     getSecretKey(); // fail fast on bad MASTER_SECRET_KEY
+    const { ensureLocalHost } = await import("./lib/agents");
+    ensureLocalHost(); // the master's own host (LOCAL_PODMAN_SOCKET)
     const { startHeartbeat } = await import("./lib/heartbeat");
     startHeartbeat();
   }

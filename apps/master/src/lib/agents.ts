@@ -6,6 +6,7 @@ import { getConfig } from "./config";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { isHidden, isPodHidden } from "./hidden";
 import { parseAgentUrl, validToken } from "./validate";
+import { localSocket } from "./local-host";
 
 export type AgentStatus = "unknown" | "online" | "degraded" | "offline";
 
@@ -23,9 +24,11 @@ export interface AgentRow {
   last_error: string | null;
   agent_version: string | null;
   podman_version: string | null;
+  /** "local": the master's own host (in-process agent), "remote": an agent reached over the network */
+  kind: "remote" | "local";
 }
 
-const COLS = "id, agent_id, hostname, address, port, registered_at, enabled, status, fail_count, last_heartbeat, last_error, agent_version, podman_version";
+const COLS = "id, agent_id, hostname, address, port, registered_at, enabled, status, fail_count, last_heartbeat, last_error, agent_version, podman_version, kind";
 
 export function listAgents(db: DatabaseSync = getDb()): AgentRow[] {
   return db.prepare(`SELECT ${COLS} FROM agents ORDER BY hostname COLLATE NOCASE`).all() as unknown as AgentRow[];
@@ -36,10 +39,11 @@ export function getAgent(id: number, db: DatabaseSync = getDb()): AgentRow | nul
 }
 
 export function targetFor(id: number, db: DatabaseSync = getDb()): AgentTarget | null {
-  const r = db.prepare("SELECT address, port, token_enc FROM agents WHERE id = ?").get(id) as
-    | { address: string; port: number; token_enc: string }
+  const r = db.prepare("SELECT address, port, token_enc, kind FROM agents WHERE id = ?").get(id) as
+    | { address: string; port: number; token_enc: string; kind: string }
     | undefined;
   if (!r) return null;
+  if (r.kind === "local") return localSocket() ? { address: "local", port: 0, token: "", local: true } : null;
   return { address: r.address, port: r.port, token: decryptSecret(r.token_enc) };
 }
 
@@ -74,6 +78,24 @@ export async function registerAgent(urlInput: string, token: string, db: Databas
       h.data.agentStatus === "ok" ? "online" : "degraded", now, h.data.agentVersion, h.data.podmanVersion,
     );
   return { ok: true, data: Number(r.lastInsertRowid) };
+}
+
+/**
+ * Keeps the row of the master's own host in step with LOCAL_PODMAN_SOCKET: created when the variable is set, removed
+ * (with its group memberships) when it is not. The row has no address and no token.
+ */
+export function ensureLocalHost(db: DatabaseSync = getDb()): void {
+  const existing = db.prepare("SELECT id FROM agents WHERE kind = 'local'").get();
+  if (!localSocket()) {
+    if (existing) db.prepare("DELETE FROM agents WHERE kind = 'local'").run();
+    return;
+  }
+  if (existing) return;
+  const taken = db.prepare("SELECT 1 FROM agents WHERE agent_id = 'local'").get();
+  db.prepare(
+    `INSERT INTO agents (agent_id, hostname, address, port, token_enc, registered_at, enabled, status, fail_count, kind)
+     VALUES (?, 'local', 'local', 0, '', ?, 1, 'unknown', 0, 'local')`,
+  ).run(taken ? "local-master" : "local", new Date().toISOString());
 }
 
 export function removeAgent(id: number, db: DatabaseSync = getDb()): void {

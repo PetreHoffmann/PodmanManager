@@ -10,6 +10,8 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Feste Allowlist aus 6 Routen mit fest verdrahteten Podman-Pfaden; Container-IDs per Regex validiert; Request-Bodys werden ignoriert.
 - Kein Docker, kein Compose, kein Fallback auf andere Runtimes.
 
+**Lokaler Host (ohne Agent):** Wird `LOCAL_PODMAN_SOCKET` gesetzt, liegt der Podman-Socket im Master-Container. Wer den Master kompromittiert, steuert dann die Container dieses Benutzers (rootless, nie root-Rechte des Hosts). Bewusster Kompromiss gegenüber dem Ressourcenbedarf eines eigenen Agents; ohne die Variable bleibt der Socket außerhalb des Masters.
+
 **Master ↔ Agent**
 - Pro Agent ein zufälliger 256-Bit-Token (`Authorization: Bearer`), Prüfung per SHA-256 + `timingSafeEqual`.
 - Der **Agent** speichert nur den Hash. Der **Master** muss den Token im Klartext senden und speichert ihn deshalb **AES-256-GCM-verschlüsselt** (Schlüssel `MASTER_SECRET_KEY` aus der Umgebung, nicht in der DB).

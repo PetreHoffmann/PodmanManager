@@ -8,6 +8,8 @@
 | Läuft als | unprivilegierter Systemdienst-Benutzer | normaler Benutzer (systemd User-Service) |
 | Zustand | SQLite: Agents, Admin, Sessions | keiner |
 
+**Lokaler Host:** Mit `LOCAL_PODMAN_SOCKET` enthält der Master den Agent-Code und spricht ohne Netzwerk im Prozess mit dem Podman-Socket seines Hosts (kein separater Agent nötig).
+
 Der Browser spricht nur mit dem Master. Der Master fragt Agents serverseitig ab; Agents sprechen ausschließlich mit dem Podman-Socket `$XDG_RUNTIME_DIR/podman/podman.sock` ihres eigenen Benutzers.
 
 ## Datenfluss

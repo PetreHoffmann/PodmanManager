@@ -1,11 +1,14 @@
 import type { ImageDeleteResult, ImageInfo, ImagePruneResult, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
+import { localCall } from "./local-host";
 import { CONTAINER_ID_RE } from "./validate";
 
 export interface AgentTarget {
   address: string;
   port: number;
   token: string;
+  /** the master's own host: answered in-process (lib/local-host.ts), no network */
+  local?: boolean;
 }
 
 export type CallResult<T> =
@@ -13,6 +16,7 @@ export type CallResult<T> =
   | { ok: false; code: string; message: string; unreachable: boolean };
 
 async function call<T>(t: AgentTarget, method: "GET" | "POST" | "DELETE", path: string, timeoutSec: number): Promise<CallResult<T>> {
+  if (t.local) return localCall<T>(method, path);
   try {
     const res = await fetch(`http://${t.address}:${t.port}${path}`, {
       method,
@@ -103,3 +107,4 @@ export function agentImageDelete(t: AgentTarget, id: string, tag: string | null)
   return call<ImageDeleteResult>(t, "DELETE", `/api/v1/images/${id}${tag ? `?tag=${encodeURIComponent(tag)}` : ""}`, 60);
 }
 export const agentImagePrune = (t: AgentTarget) => call<ImagePruneResult>(t, "POST", "/api/v1/images/prune", 130);
+export const agentSelfInfo = (t: AgentTarget) => call<UpdateInfo>(t, "GET", "/api/v1/system/update", 15);

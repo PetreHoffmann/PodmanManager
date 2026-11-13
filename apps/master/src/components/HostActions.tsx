@@ -6,7 +6,7 @@ import ActionForm from "./ActionForm";
 import { useT } from "./I18nProvider";
 import Icon from "./Icon";
 
-export default function HostActions({ id, enabled, hostname }: { id: number; enabled: boolean; hostname: string }) {
+export default function HostActions({ id, enabled, hostname, local = false }: { id: number; enabled: boolean; hostname: string; local?: boolean }) {
   const t = useT();
   const [confirm, setConfirm] = useState(false);
   return (
@@ -20,7 +20,7 @@ export default function HostActions({ id, enabled, hostname }: { id: number; ena
         <input type="hidden" name="enable" value={enabled ? "0" : "1"} />
         <button className="btn !px-2.5 !py-1 text-xs">{enabled ? <Icon name="prohibit" /> : <Icon name="power" />}{enabled ? t("hosts.disable") : t("hosts.enable")}</button>
       </ActionForm>
-      {confirm ? (
+      {local ? null : confirm ? (
         <ActionForm action={removeAgentAction} inline>
           <input type="hidden" name="id" value={id} />
           <span className="mr-1 text-xs text-amber-300">{t("hosts.removeQ", { name: hostname })}</span>
