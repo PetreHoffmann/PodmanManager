@@ -22,7 +22,7 @@ import {
   COOKIE, LOCAL_ADMIN, LOCAL_SESSION, adminExists, checkAdminPassword, endSession, getSession, loginBlocked, recordLoginFailure,
   requireAuth, setAdminPassword, startSession,
 } from "@/lib/session";
-import { REAUTH_COOKIE } from "@/lib/saml-http";
+import { MANUAL_COOKIE, REAUTH_COOKIE } from "@/lib/saml-http";
 import { fmtBytes } from "@/components/ui";
 import { isAction, CONTAINER_ID_RE } from "@/lib/validate";
 
@@ -82,6 +82,8 @@ export async function logoutAction(): Promise<void> {
   const jar = await cookies();
   const kind = getSession(jar.get(COOKIE)?.value)?.kind;
   await endSession();
+  // Seamless sign-on must not send the user straight back in after an explicit logout
+  jar.set(MANUAL_COOKIE, "1", { httpOnly: true, sameSite: "lax", path: "/" });
   // After an SSO logout the next SSO login must ask for credentials again (otherwise the identity provider logs the user straight back in)
   if (kind === "saml") jar.set(REAUTH_COOKIE, "1", { httpOnly: true, sameSite: "lax", path: "/saml", maxAge: 30 * 24 * 3600 });
   redirect("/login");
@@ -389,7 +391,7 @@ export async function brandingAction(_: FormState, fd: FormData): Promise<FormSt
 
 const samlInput = (fd: FormData, enabled: boolean): SamlConfig => ({
   enabled, publicUrl: s(fd, "publicUrl"), idpEntityId: s(fd, "idpEntityId"), idpSsoUrl: s(fd, "idpSsoUrl"), idpCert: s(fd, "idpCert"),
-  usernameClaim: s(fd, "usernameClaim"), groupClaim: s(fd, "groupClaim"), adminGroup: s(fd, "adminGroup"), buttonLabel: s(fd, "buttonLabel"), nameIdFormat: s(fd, "nameIdFormat"),
+  usernameClaim: s(fd, "usernameClaim"), groupClaim: s(fd, "groupClaim"), adminGroup: s(fd, "adminGroup"), buttonLabel: s(fd, "buttonLabel"), nameIdFormat: s(fd, "nameIdFormat"), autoSignIn: s(fd, "autoSignIn") === "on",
 });
 
 /** SSO (SAML 2.0 / ADFS) settings: save or check. Local administrator only. */

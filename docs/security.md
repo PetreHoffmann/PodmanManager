@@ -36,6 +36,7 @@ Die gesamte Kommunikation (Browser ↔ Master ↔ Agent) läuft **unverschlüsse
 - Zusätzliche Laufzeit-Abhängigkeit: `ldapts` (reines TypeScript, nur im Master).
 
 **SSO (SAML 2.0, optional)**
+- *Nahtlose Anmeldung* (optional, aus) leitet Besucher ohne Sitzung direkt zum Identitätsanbieter; das ist dieselbe Anmeldung wie über den Knopf (einmalige Anfrage, signierte Antwort, Gruppenprüfung). Nach dem Abmelden und nach einem Fehler wird die Anmeldeseite gezeigt (Cookie `pm_sso_manual`, Sitzungscookie ohne Geheimnis), das lokale Konto bleibt unter `/login?local=1` erreichbar.
 - Antworten werden nur mit **gültiger Signatur der Assertion** (konfiguriertes Zertifikat des Identitätsanbieters), passendem Aussteller, Empfänger und Zeitfenster akzeptiert; jede Antwort gehört zu einer **einmaligen Anfrage** (8 Minuten) und lässt sich **nicht wiederverwenden**. Bei https bindet ein `SameSite=None`-Cookie die Antwort an den auslösenden Browser. Rechte wie bei LDAP (Administrator-Gruppe, Agent-Gruppen, sonst abgewiesen). Die SSO-Einstellungen sind nur für das lokale `admin`-Konto sichtbar. Details und Grenzen: [SSO mit SAML 2.0](sso.md#sicherheit).
 
 **Container-Logs**
