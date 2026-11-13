@@ -67,7 +67,7 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
     if (cfg?.enabled) {
       const r = await authenticateLdap(cfg, username, password, mappedGroups());
       if (r.ok) {
-        await startSession({ username: r.username, kind: "ldap", access: r.admin ? "all" : "groups", groupIds: r.groupIds });
+        await startSession({ username: r.username, kind: "ldap", access: r.admin ? "all" : "groups", groupIds: r.groupIds, displayName: r.displayName });
         redirect("/");
       }
       if (r.reason === "unavailable") return { ok: false, message: `${t("msg.ldapUnavailable")} (${errText(t, r.code)})` };
@@ -391,7 +391,7 @@ export async function brandingAction(_: FormState, fd: FormData): Promise<FormSt
 
 const samlInput = (fd: FormData, enabled: boolean): SamlConfig => ({
   enabled, publicUrl: s(fd, "publicUrl"), idpEntityId: s(fd, "idpEntityId"), idpSsoUrl: s(fd, "idpSsoUrl"), idpCert: s(fd, "idpCert"),
-  usernameClaim: s(fd, "usernameClaim"), groupClaim: s(fd, "groupClaim"), adminGroup: s(fd, "adminGroup"), buttonLabel: s(fd, "buttonLabel"), nameIdFormat: s(fd, "nameIdFormat"), autoSignIn: s(fd, "autoSignIn") === "on",
+  usernameClaim: s(fd, "usernameClaim"), groupClaim: s(fd, "groupClaim"), displayNameClaim: s(fd, "displayNameClaim"), adminGroup: s(fd, "adminGroup"), buttonLabel: s(fd, "buttonLabel"), nameIdFormat: s(fd, "nameIdFormat"), autoSignIn: s(fd, "autoSignIn") === "on",
 });
 
 /** SSO (SAML 2.0 / ADFS) settings: save or check. Local administrator only. */

@@ -111,6 +111,8 @@ Unter **Einstellungen → Registerkarte „LDAP“** (nur für Administratoren s
 
 **Bestätigt:** Die LDAP-Anmeldung funktioniert mit einem echten Active Directory (vom Betreiber getestet). Für Besonderheiten Ihres Verzeichnisses (verschachtelte Gruppen, interne CA, StartTLS) zuerst *Test connection* nutzen.
 
+Bei „Angemeldet als“ (Einstellungen) zeigt der Master LDAP-Benutzern „Anzeigename (Kontoname)“, z. B. „Max Mustermann (MustermannM)“. Beides liest er in derselben Suche, die den Benutzer findet (`displayName`, `sAMAccountName`), eine Änderung im AD ist dafür nicht nötig; fehlt `displayName`, steht nur der Kontoname dort.
+
 Das lokale Konto `admin` bleibt als Notzugang immer aktiv (ein AD-Benutzer namens `admin` kann sich deshalb nicht per LDAP anmelden). **Administratoren** sind das lokale `admin`-Konto und die Mitglieder der Administratoren-Gruppe (LDAP bzw. SSO): Sie haben dieselben Rechte, auch für die Einstellungen; nur das Passwort des lokalen Kontos ändert allein dieses Konto.
 
 | Feld | Beispiel | | Beispiel |

@@ -302,6 +302,24 @@ describe("other identity providers (Entra ID, Okta, Keycloak): presets, claims a
     assert.equal(loadSamlConfig(db)?.nameIdFormat, "", "stored garbage falls back to none; old configs without the field work");
   });
 
+  it("display name: shown as \"Display Name (account)\" with the account taken from the UPN; without the claim or the value the UPN is shown", async () => {
+    const DN = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";
+    const withClaim = { ...cfg, displayNameClaim: DN };
+    const r = await login(withClaim, { upn: "MustermannM@corp.example.com", extra: { [DN]: "Max Mustermann" } });
+    assert.ok(r.ok && r.displayName === "Max Mustermann (MustermannM)" && r.username === "MustermannM@corp.example.com", JSON.stringify(r));
+    const none = await login(withClaim, { upn: "MustermannM@corp.example.com" });
+    assert.ok(none.ok && !("displayName" in none), "claim configured but not sent: the UPN stays");
+    const off = await login(cfg, { upn: "MustermannM@corp.example.com", extra: { [DN]: "Max Mustermann" } });
+    assert.ok(off.ok && !("displayName" in off), "no claim configured: not used");
+    const noAt = await login(withClaim, { upn: "mustermannm", extra: { [DN]: "Max Mustermann" } });
+    assert.ok(noAt.ok && noAt.displayName === "Max Mustermann (mustermannm)", "a name without @ is used as the account as it is");
+    const weird = await login(withClaim, { upn: "x@corp.example.com", extra: { [DN]: "  Eve\u0000  \n Example  " } });
+    assert.ok(weird.ok && weird.displayName === "Eve Example (x)", "control characters and blanks are cleaned");
+    assert.equal(parseSamlInput({ ...EMPTY_SAML, displayNameClaim: "a b" }).ok, false);
+    const parsed = parseSamlInput({ ...EMPTY_SAML, displayNameClaim: " " + DN + " " });
+    assert.ok(parsed.ok && parsed.config.displayNameClaim === DN);
+  });
+
   it("seamless sign-on is off by default, saved when enabled, and old configs without the field stay off", () => {
     const base = { ...EMPTY_SAML, enabled: false };
     const on = parseSamlInput({ ...base, autoSignIn: true });

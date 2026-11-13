@@ -49,7 +49,7 @@ Unter *Einstellungen → Registerkarte „SAML“* (als Administrator):
 
 1. **Metadaten importieren:** Adresse oder XML des Anbieters eintragen, dann *Importieren*. Das füllt **Entity-ID**, **Anmeldeadresse** und das **Signaturzertifikat**. Hat der Master das Zertifikat der Anbieter-Webseite nicht im Vertrauensspeicher (Firmen-CA), siehe `NODE_EXTRA_CA_CERTS` in der [Master-Installation](installation-master.md), oder die XML-Datei einfügen. Ohne Import tragen Sie die drei Werte von Hand ein.
 2. **Öffentliche Adresse des Masters** eintragen (`https://master.example.com`, ohne Pfad).
-3. **Vorlage für den Anbieter** wählen (füllt Claim-Namen und NameID-Format) und anpassen.
+3. **Vorlage für den Anbieter** wählen (füllt Claim-Namen und NameID-Format) und anpassen. Optional den **Claim mit dem Anzeigenamen** eintragen (bei ADFS siehe „Regel 3“): dann steht bei „Angemeldet als“ „Anzeigename (Kontoname)“, sonst der Benutzername.
 4. **Administrator-Gruppe** eintragen (Wert wie in der Tabelle oben; leer lassen, wenn es keine SSO-Administratoren geben soll).
 5. Optional die **Beschriftung des SSO-Knopfs** anpassen (bis 60 Zeichen, gilt für alle Sprachen), z. B. „Mit Acme Inc anmelden“. Leer lassen = Standardtext (in der jeweiligen Sprache).
 6. **Prüfen** zeigt Zertifikat (Ablaufdatum), die Werte für den Anbieter und Hinweise (z. B. wenn die Adresse http statt https nutzt). Dann **SSO aktivieren** und **Speichern**.
@@ -95,6 +95,8 @@ Add-AdfsRelyingPartyTrust -Name "PodmanManager" -MetadataUrl "https://master.exa
 
 - **Variante A: alle Gruppen des Benutzers.** Vorlage *LDAP-Attribute als Ansprüche senden*, Attribut **Token-Groups – Qualified by Domain Name**, ausgehender Anspruchstyp **Group**. Das liefert `DOMÄNE\Gruppenname` für jede Gruppe. Bei Benutzern in sehr vielen Gruppen wird die Antwort groß.
 - **Variante B: nur benötigte Gruppen (empfohlen).** Pro benötigter Gruppe eine Regel mit der Vorlage *Gruppenmitgliedschaft als Anspruch senden*: Benutzergruppe wählen, Ausgehender Anspruchstyp **Group**, Ausgehender Anspruchswert z. B. `CORP\Team-A`. Der Wert, den Sie hier eintippen, muss mit dem Eintrag im Master übereinstimmen.
+
+**Regel 3 (optional): Anzeigename.** Soll bei „Angemeldet als“ statt des UPN „Max Mustermann (MustermannM)“ stehen, eine weitere Regel mit der Vorlage *LDAP-Attribute als Ansprüche senden*: LDAP-Attribut **Display-Name**, ausgehender Anspruchstyp **Name** (`http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name`). Im Master dann bei *Claim mit dem Anzeigenamen* denselben Anspruchstyp eintragen. Der Kontoname in Klammern ist der Teil des UPN vor dem `@`; sendet ADFS den Anspruch nicht (oder ist das Feld leer), zeigt der Master wie bisher den UPN. Angemeldet wird weiterhin mit dem UPN, Rechte und Logs ändern sich nicht.
 
 Der Anspruchstyp **Group** hat die Kennung `http://schemas.xmlsoap.org/claims/Group`, UPN die Kennung `http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn`. Das sind die Voreinstellungen im Master.
 
