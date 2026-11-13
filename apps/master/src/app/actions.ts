@@ -62,8 +62,13 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
       await startSession(LOCAL_SESSION);
       redirect("/");
     }
+    console.warn(`local login denied: wrong password for "${LOCAL_ADMIN}"`);
   } else {
     const cfg = loadLdapConfig();
+    if (!cfg?.enabled) {
+      // the typed name is not logged: it may be a mistyped password
+      console.warn("login denied: unknown user (only the local account exists, LDAP login is not enabled)");
+    }
     if (cfg?.enabled) {
       const r = await authenticateLdap(cfg, username, password, mappedGroups());
       if (r.ok) {
@@ -84,7 +89,10 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
       );
     }
   }
-  recordLoginFailure(username);
+  // the fifth failure blocks this name for a minute: say so once (not for every further attempt, which would flood the log)
+  if (recordLoginFailure(username) === 5) {
+    console.warn(`login blocked for 60 s after 5 failed attempts (${username.toLowerCase() === LOCAL_ADMIN ? `"${LOCAL_ADMIN}"` : "one login name, not shown"})`);
+  }
   return { ok: false, message: t("msg.pwInvalid") };
 }
 
