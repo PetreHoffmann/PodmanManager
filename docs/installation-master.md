@@ -47,6 +47,12 @@ Beispiel-Units und Anleitung (Secret für `MASTER_SECRET_KEY`, Volume, Start ohn
 ## Manueller Start
 `deployment/master/start.sh [env-datei]` (oder Variablen setzen). Ändere den Port über `MASTER_PORT`.
 
+## Lokale Benutzer (optional)
+
+Für kleine Umgebungen und Testlabore legt der lokale `admin` unter *Einstellungen → Benutzer* weitere Benutzer an (in der SQLite-Datenbank, Passwort als scrypt-Hash, mindestens 10 Zeichen). Die Rechte folgen den Agent-Gruppen: Mitglieder einer Gruppe sehen deren Agents, **Administratoren** sehen alle Agents und haben alle Einstellungen (wie LDAP-/SSO-Administratoren). Gruppen ohne AD-/SAML-Zuordnung sind erlaubt und dienen nur lokalen Benutzern. Die Zuordnung steht beim Benutzer.
+
+Ein Benutzer ohne Gruppe (und kein Administrator) wird mit Hinweis abgewiesen. Optional muss ein Benutzer bei der nächsten Anmeldung ein neues Passwort wählen. Deaktivieren, Löschen, Passwort- oder Rechteänderung beenden laufende Sitzungen sofort. Der Name `admin` ist reserviert; ein lokaler Benutzer gleichen Namens wie ein LDAP-Konto hat Vorrang (keine Weiterleitung an LDAP). Fehlversuche stehen mit Benutzername im Log, unbekannte Namen nie.
+
 ## Eigener Host ohne separaten Agent (optional)
 
 Der Master kann den Podman-Socket seines eigenen Hosts direkt nutzen; ein Agent-Container auf diesem Host ist dann überflüssig (spart Ressourcen). Aktivierung über die Umgebungsvariable `LOCAL_PODMAN_SOCKET` (Pfad des Sockets im Master-Prozess, Standard: aus). Beim Start entsteht der Host „lokal (dieser Master)“ mit dem echten Hostnamen; er lässt sich deaktivieren, aber nicht entfernen. Der Master aktualisiert sich selbst im Prozess (Button in „Über“; braucht festen Tag `:latest` und systemd `Restart=always`, kein `UPDATE_UNIT`).

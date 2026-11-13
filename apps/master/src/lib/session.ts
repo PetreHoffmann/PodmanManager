@@ -47,7 +47,13 @@ export function getSession(token: string | undefined, db: DatabaseSync = getDb()
   } catch {
     /* ignore */
   }
-  const kind = r.kind === "ldap" ? "ldap" : r.kind === "saml" ? "saml" : "local";
+  const kind = r.kind === "ldap" ? "ldap" : r.kind === "saml" ? "saml" : r.kind === "user" ? "user" : "local";
+  if (kind === "user") {
+    // a disabled or deleted local user loses the session at once
+    const u = db.prepare("SELECT enabled, must_change FROM users WHERE username = ?").get(r.username) as { enabled: number; must_change: number } | undefined;
+    if (!u || !u.enabled) return null;
+    return { username: r.username, kind, access: r.access === "all" ? "all" : "groups", groupIds, ...(r.display_name ? { displayName: r.display_name } : {}), ...(u.must_change ? { mustChange: true } : {}) };
+  }
   // Unknown or missing access values never widen permissions: only local sessions default to "all".
   const access = r.access === "all" || (r.access === null && kind === "local") ? "all" : "groups";
   return { username: r.username, kind, access, groupIds, ...(r.display_name ? { displayName: r.display_name } : {}) };
@@ -67,10 +73,11 @@ export async function endSession(): Promise<void> {
 }
 
 /** Call at the top of every page and server action. */
-export async function requireAuth(): Promise<SessionInfo> {
+export async function requireAuth(opts: { allowMustChange?: boolean } = {}): Promise<SessionInfo> {
   if (!adminExists()) redirect("/setup");
   const s = getSession((await cookies()).get(COOKIE)?.value);
   if (!s) redirect("/login");
+  if (s.mustChange && !opts.allowMustChange) redirect("/change-password");
   return s;
 }
 

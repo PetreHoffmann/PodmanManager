@@ -21,7 +21,7 @@ export function listGroups(db: DatabaseSync = getDb()): AgentGroup[] {
 }
 
 export type GroupInput = { id?: number; name: string; adGroupDn: string; samlGroup?: string; agentIds: number[] };
-export type GroupResult = { ok: true; id: number } | { ok: false; error: "err.groupName" | "err.groupDn" | "err.groupSaml" | "err.groupNeedOne" | "err.groupDup" | "err.groupLimit" | "err.groupNotFound" };
+export type GroupResult = { ok: true; id: number } | { ok: false; error: "err.groupName" | "err.groupDn" | "err.groupSaml" | "err.groupDup" | "err.groupLimit" | "err.groupNotFound" };
 
 /** Creates or updates a group and replaces its agent membership. */
 export function saveGroup(input: GroupInput, db: DatabaseSync = getDb()): GroupResult {
@@ -31,7 +31,6 @@ export function saveGroup(input: GroupInput, db: DatabaseSync = getDb()): GroupR
   if (!name || name.length > 64 || name.includes("\0")) return { ok: false, error: "err.groupName" };
   if (dn.length > 512 || dn.includes("\0")) return { ok: false, error: "err.groupDn" };
   if (saml.length > 256 || /[\u0000-\u001f\u007f]/.test(saml)) return { ok: false, error: "err.groupSaml" };
-  if (!dn && !saml) return { ok: false, error: "err.groupNeedOne" };
   const dup = db.prepare("SELECT id FROM agent_groups WHERE name = ? COLLATE NOCASE").get(name) as { id: number } | undefined;
   if (dup && dup.id !== input.id) return { ok: false, error: "err.groupDup" };
 
