@@ -196,6 +196,12 @@ Unter **Einstellungen → Registerkarte „Zugriff“ (versteckte Container)** (
 ## Firewall
 Port 8080 nur für berechtigte Netze freigeben, nie ins Internet (siehe [Sicherheit](security.md)).
 
+## Sicherung und Wiederherstellung per Button
+
+Unter *Einstellungen → Allgemein* (nur für das lokale Konto `admin`) lädt *Sicherung herunterladen* eine konsistente Kopie der Datenbank (`podmanmanager-JJJJ-MM-TT.db`) bei laufendem Betrieb. Enthalten sind Hosts, Gruppen, lokale Benutzer, Administrator-Passwort (Hash), SSO-/LDAP-Einstellungen und Branding; Sitzungen und SSO-Zwischenspeicher nicht. Die Host-Tokens bleiben verschlüsselt und sind nur mit demselben `MASTER_SECRET_KEY` lesbar. Die Datei sicher aufbewahren.
+
+*Wiederherstellen* ersetzt Hosts, Gruppen, lokale Benutzer, Administrator-Passwort und Einstellungen durch den Inhalt der hochgeladenen Datei (auch älterer Versionen) und beendet alle Sitzungen. Vorher prüft der Master die Datei (SQLite-Kopf, Integrität, erwartete Tabellen, Lesbarkeit der Host-Tokens mit dem aktuellen Schlüssel; ohne passenden Schlüssel nur mit ausdrücklicher Option). Die bisherige Datenbank bleibt als `master.db.bak` neben der Datendatei. Alternativ von Hand: `/data/master.db` kopieren, ideal bei gestopptem Master.
+
 ## Update / Backup
 Container-Betrieb (Quadlet, `:latest`): Update per Web-UI, siehe [Quadlets](../deployment/quadlet/README.md#agent-per-web-ui-aktualisieren). Native Installation: `git pull && npm ci && npm run build -w apps/master && sudo systemctl restart podmanmanager-master`.
 Backup: `master.db` (+ `-wal`/`-shm`) und `MASTER_SECRET_KEY`.
