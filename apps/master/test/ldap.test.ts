@@ -71,7 +71,7 @@ describe("ldap against a protocol-level fake directory", () => {
 
   it("rejects non-members without ever binding as that user", async () => {
     binds.length = 0;
-    assert.deepEqual(await authenticateLdap(cfg, "bob", "bobpw"), { ok: false, reason: "not_member" });
+    assert.deepEqual(await authenticateLdap(cfg, "bob", "bobpw"), { ok: false, reason: "not_member", username: "bob" });
     assert.ok(!binds.includes(users.bob!.dn));
   });
 
@@ -123,9 +123,9 @@ describe("ldap against a protocol-level fake directory", () => {
   it("without administrators group only mapped groups grant access", async () => {
     const noAdmin = { ...cfg, groupDn: "" };
     assert.equal((await authenticateLdap(noAdmin, "carol", "carolpw", mapped)).ok, true);
-    assert.deepEqual(await authenticateLdap(noAdmin, "alice", "alicepw", mapped), { ok: false, reason: "not_member" });
-    assert.deepEqual(await authenticateLdap(noAdmin, "bob", "bobpw", mapped), { ok: false, reason: "not_member" });
-    assert.deepEqual(await authenticateLdap(noAdmin, "carol", "carolpw", []), { ok: false, reason: "not_member" });
+    assert.deepEqual(await authenticateLdap(noAdmin, "alice", "alicepw", mapped), { ok: false, reason: "not_member", username: "alice" });
+    assert.deepEqual(await authenticateLdap(noAdmin, "bob", "bobpw", mapped), { ok: false, reason: "not_member", username: "bob" });
+    assert.deepEqual(await authenticateLdap(noAdmin, "carol", "carolpw", []), { ok: false, reason: "not_member", username: "carol" });
   });
 
   it("does not verify the password of a user without any matching group", async () => {
