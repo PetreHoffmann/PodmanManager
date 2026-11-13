@@ -6,6 +6,7 @@ import { getConfig } from "@/lib/config";
 import { DEFAULT_FILTER } from "@/lib/ldap";
 import { EMPTY_LDAP, loadLdapConfig } from "@/lib/ldap-config";
 import { getT } from "@/lib/lang";
+import type { Key } from "@/lib/i18n";
 import GroupEditor from "@/components/GroupEditor";
 import LogoInput from "@/components/LogoInput";
 import SamlPreset from "@/components/SamlPreset";
@@ -13,6 +14,7 @@ import LdapPreset from "@/components/LdapPreset";
 import { listBackups } from "@/lib/autobackup";
 import BackupPanel from "@/components/BackupPanel";
 import UserEditor from "@/components/UserEditor";
+import { AUDIT_ACTIONS, DETAIL_KEYS, filterFrom, isAuditAction, listAudit } from "@/lib/audit";
 import { listUsers } from "@/lib/users";
 import { listAgents } from "@/lib/agents";
 import { groupNames, listGroups } from "@/lib/groups";
@@ -24,9 +26,9 @@ import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
-const TABS = ["general", "access", "users", "saml", "ldap", "logs"] as const;
+const TABS = ["general", "access", "users", "audit", "saml", "ldap", "logs"] as const;
 type Tab = (typeof TABS)[number];
-type SP = Promise<{ tab?: string }>;
+type SP = Promise<Record<string, string | undefined>>;
 
 function StatusPill({ on, text }: { on: boolean; text: string }) {
   return (
@@ -45,7 +47,8 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
   // administrators (local account, LDAP/SSO administrator groups) manage everything; everybody else sees the general page
   const tabs: Tab[] = admin ? [...TABS] : [];
   // `sso` was the name of the SAML tab before OIDC could be added next to it
-  const raw = (await searchParams).tab;
+  const sp = await searchParams;
+  const raw = sp.tab;
   const q = raw === "sso" ? "saml" : raw;
   const tab: Tab = tabs.find((x) => x === q) ?? "general";
   const l = (admin ? loadLdapConfig() : null) ?? EMPTY_LDAP;
@@ -56,7 +59,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
   const brand = loadBranding();
   const saml = (admin ? loadSamlConfig() : null) ?? EMPTY_SAML;
   const insecure = l.enabled && l.url.startsWith("ldap://") && !l.startTls;
-  const label: Record<Tab, string> = { general: t("set.tabGeneral"), access: t("set.tabAccess"), users: t("set.tabUsers"), saml: t("set.tabSaml"), ldap: t("set.tabLdap"), logs: t("set.tabLogs") };
+  const label: Record<Tab, string> = { general: t("set.tabGeneral"), access: t("set.tabAccess"), users: t("set.tabUsers"), audit: t("set.tabAudit"), saml: t("set.tabSaml"), ldap: t("set.tabLdap"), logs: t("set.tabLogs") };
 
   const pwCard = (
     <section className="card">
@@ -167,6 +170,82 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
           </div>
         </section>
       )}
+
+      {tab === "audit" && admin && (() => {
+        const f = filterFrom(new URLSearchParams(Object.entries(sp).flatMap(([k, v]) => (v === undefined ? [] : [[k, v] as [string, string]]))));
+        const res = listAudit(f, Number(sp.page) || 1);
+        const qs = (page: number, extra = "") => {
+          const q = new URLSearchParams({ tab: "audit" });
+          for (const k of ["user", "action", "result", "from", "to"] as const) if (sp[k]) q.set(k, sp[k]!);
+          if (page > 1) q.set("page", String(page));
+          return `/settings?${q.toString()}${extra}`;
+        };
+        const csv = new URLSearchParams();
+        for (const k of ["user", "action", "result", "from", "to"] as const) if (sp[k]) csv.set(k, sp[k]!);
+        return (
+          <section className="card space-y-3">
+            <h2 className="font-medium">{t("audit.title")}</h2>
+            <p className="text-xs text-slate-400">{t("audit.intro", { days: c.auditKeepDays || 0 })}</p>
+            <form method="get" action="/settings" className="grid gap-2 sm:grid-cols-3">
+              <input type="hidden" name="tab" value="audit" />
+              <label className="block text-xs">{t("audit.user")}<input name="user" defaultValue={sp.user ?? ""} maxLength={128} className="input mt-1" /></label>
+              <label className="block text-xs">{t("audit.action")}
+                <select name="action" defaultValue={sp.action ?? ""} className="input mt-1">
+                  <option value="">{t("audit.all")}</option>
+                  {AUDIT_ACTIONS.map((a) => <option key={a} value={a}>{t(`audit.a.${a}` as Key)}</option>)}
+                </select>
+              </label>
+              <label className="block text-xs">{t("audit.result")}
+                <select name="result" defaultValue={sp.result ?? ""} className="input mt-1">
+                  <option value="">{t("audit.all")}</option>
+                  <option value="ok">{t("audit.ok")}</option>
+                  <option value="fail">{t("audit.fail")}</option>
+                </select>
+              </label>
+              <label className="block text-xs">{t("audit.from")}<input name="from" type="date" defaultValue={sp.from ?? ""} className="input mt-1" /></label>
+              <label className="block text-xs">{t("audit.to")}<input name="to" type="date" defaultValue={sp.to ?? ""} className="input mt-1" /></label>
+              <div className="flex items-end gap-2">
+                <button className="btn btn-primary"><Icon name="funnel" />{t("audit.filter")}</button>
+                <Link href="/settings?tab=audit" className="btn">{t("audit.reset")}</Link>
+              </div>
+            </form>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+              <span>{t("audit.count", { n: res.total })}</span>
+              <a href={`/settings/audit${csv.toString() ? `?${csv.toString()}` : ""}`} className="btn" download><Icon name="download-simple" />{t("audit.csv")}</a>
+            </div>
+            {res.rows.length === 0 ? (
+              <p className="text-sm text-slate-500">{t("audit.none")}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs" data-testid="audit-table">
+                  <thead className="text-slate-400">
+                    <tr><th className="py-1 pr-3">{t("audit.time")}</th><th className="pr-3">{t("audit.user")}</th><th className="pr-3">{t("audit.action")}</th><th className="pr-3">{t("audit.target")}</th><th className="pr-3">{t("audit.host")}</th><th>{t("audit.result")}</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {res.rows.map((r) => (
+                      <tr key={r.id} className="align-top">
+                        <td className="whitespace-nowrap py-1.5 pr-3 font-mono text-slate-400">{r.ts.slice(0, 19).replace("T", " ")}</td>
+                        <td className="pr-3">{r.username === "-" ? "–" : <>{r.username}<span className="text-slate-500"> · {r.kind}</span></>}{r.ip && <span className="block font-mono text-slate-500">{r.ip}</span>}</td>
+                        <td className="pr-3">{isAuditAction(r.action) ? t(`audit.a.${r.action}` as Key) : r.action}</td>
+                        <td className="pr-3 break-all">{r.target || "–"}</td>
+                        <td className="pr-3">{r.host || "–"}</td>
+                        <td className={r.ok ? "text-emerald-400" : "text-red-400"}>{r.ok ? t("audit.ok") : t("audit.fail")}{r.detail && <span className="block text-slate-500">{r.detail in DETAIL_KEYS ? t(`audit.d.${DETAIL_KEYS[r.detail as keyof typeof DETAIL_KEYS]}` as Key) : r.detail}</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {res.pages > 1 && (
+              <nav className="flex items-center justify-between text-xs" aria-label={t("audit.pages")}>
+                {res.page > 1 ? <Link href={qs(res.page - 1)} className="btn">{t("audit.prev")}</Link> : <span />}
+                <span className="text-slate-400">{res.page} / {res.pages}</span>
+                {res.page < res.pages ? <Link href={qs(res.page + 1)} className="btn">{t("audit.next")}</Link> : <span />}
+              </nav>
+            )}
+          </section>
+        );
+      })()}
 
       {tab === "access" && admin && (
         <div className="space-y-5">

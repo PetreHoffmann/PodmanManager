@@ -196,6 +196,12 @@ Unter **Einstellungen → Registerkarte „Zugriff“ (versteckte Container)** (
 ## Firewall
 Port 8080 nur für berechtigte Netze freigeben, nie ins Internet (siehe [Sicherheit](security.md)).
 
+## Audit-Log
+
+Unter *Einstellungen → Audit* (alle Administratoren) steht, wer wann was getan hat: Anmeldungen (erfolgreich, fehlgeschlagen, abgewiesen, gesperrt) und Abmeldungen, Passwortänderungen, Start/Stopp/Neustart von Containern und Pods, Löschen und Aufräumen von Images, Hosts hinzufügen/entfernen/aktivieren/deaktivieren, Agent- und Master-Updates, Änderungen an Gruppen, lokalen Benutzern, LDAP, SSO, Branding und Ausblenden-Regeln sowie Backup-Download und Restore. Lesezugriffe (Seiten, Logs) werden nicht protokolliert. Es gibt Filter (Benutzer, Aktion, Ergebnis, Zeitraum), Seitenanzeige und einen CSV-Export (Zellen mit `=`, `+`, `-`, `@` am Anfang werden entschärft).
+
+Einträge lassen sich in der Oberfläche weder ändern noch löschen. `AUDIT_KEEP_DAYS` (Standard `365`, `0` = unbegrenzt, höchstens 3650) löscht ältere Einträge automatisch. Die Tabelle ist Teil der Datenbank-Sicherung; ein Restore **ersetzt das aktuelle Log nicht**, der Restore selbst steht darin. Namen unbekannter Benutzer werden nie gespeichert (ein getippter Name kann ein Passwort sein), nur der Hinweis „unbekannter Benutzer“. Die angezeigte Adresse stammt aus `X-Forwarded-For` bzw. `X-Real-IP` des Reverse-Proxys und ist ohne Proxy, der diese Header selbst setzt, nicht verlässlich. Ein Fehler beim Schreiben des Logs blockiert nie die Aktion.
+
 ## Sicherung und Wiederherstellung per Button
 
 Unter *Einstellungen → Allgemein* (nur für das lokale Konto `admin`) lädt *Sicherung herunterladen* eine konsistente Kopie der Datenbank (`podmanmanager-JJJJ-MM-TT.db`) bei laufendem Betrieb. Enthalten sind Hosts, Gruppen, lokale Benutzer, Administrator-Passwort (Hash), SSO-/LDAP-Einstellungen und Branding; Sitzungen und SSO-Zwischenspeicher nicht. Die Host-Tokens bleiben verschlüsselt und sind nur mit demselben `MASTER_SECRET_KEY` lesbar. Die Datei sicher aufbewahren.

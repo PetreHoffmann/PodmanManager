@@ -7,6 +7,8 @@ export async function register() {
     getSecretKey(); // fail fast on bad MASTER_SECRET_KEY
     const { ensureLocalHost } = await import("./lib/agents");
     ensureLocalHost(); // the master's own host (LOCAL_PODMAN_SOCKET)
+    const { startAuditPrune } = await import("./lib/audit");
+    startAuditPrune();
     const { startAutoBackup } = await import("./lib/autobackup");
     startAutoBackup();
     const { startHeartbeat } = await import("./lib/heartbeat");
