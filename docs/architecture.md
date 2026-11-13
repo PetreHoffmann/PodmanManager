@@ -16,7 +16,7 @@ Der Browser spricht nur mit dem Master. Der Master fragt Agents serverseitig ab;
 - **Aktionen:** UI → Server Action (Login geprüft) → Agent `POST /containers/:id/{start|stop|restart}` → Podman. Danach liefert der Agent den frischen Containerzustand zurück.
 
 ## Anmeldung
-Der Master kennt drei Arten, sich anzumelden. Welche verfügbar sind, legt der lokale `admin` in den Einstellungen fest:
+Der Master kennt drei Arten, sich anzumelden. Welche verfügbar sind, legt ein Administrator in den Einstellungen fest:
 
 | Art | Zugangsdaten | Wer pflegt Benutzer und Gruppen |
 |---|---|---|
@@ -28,7 +28,7 @@ Ablauf bei SSO: `/saml/login` legt eine einmalige Anfrage an und leitet zum Iden
 
 Optional leitet die **nahtlose Anmeldung** Besucher ohne Sitzung schon von `/login` direkt nach `/saml/login`; nach dem Abmelden, nach einem SSO-Fehler und bei `/login?local=1` bleibt die Anmeldeseite sichtbar.
 
-Nach der Anmeldung sind alle Arten gleich: Die Sitzung (Cookie, 8 Stunden) hat `access = all` (lokaler `admin`, Mitglieder der Administratoren-Gruppe) oder `access = groups` (nur die Agents der zugeordneten Gruppen; Mitglieder ohne Gruppe werden abgewiesen). Der Zugriffsbereich wird serverseitig bei jeder Seite und jeder Aktion geprüft. Einstellungen, Host-Verwaltung, Logs, Updates und das Löschen von Images sind nur mit `access = all` möglich; die Einstellungen (Passwort, LDAP, SSO, Gruppen, Branding) zusätzlich nur für den lokalen `admin`. SSO meldet beim Abmelden nur die Master-Sitzung ab (kein Single Logout); der nächste SSO-Login danach verlangt per `ForceAuthn` eine erneute Authentifizierung beim Anbieter.
+Nach der Anmeldung sind alle Arten gleich: Die Sitzung (Cookie, 8 Stunden) hat `access = all` (lokaler `admin`, Mitglieder der Administratoren-Gruppe) oder `access = groups` (nur die Agents der zugeordneten Gruppen; Mitglieder ohne Gruppe werden abgewiesen). Der Zugriffsbereich wird serverseitig bei jeder Seite und jeder Aktion geprüft. Einstellungen, Host-Verwaltung, Logs, Updates und das Löschen von Images sind nur mit `access = all` möglich; die Einstellungen (LDAP, SSO, Gruppen, versteckte Container, Darstellung) können alle Administratoren ändern; das Passwort ändert nur das lokale `admin`-Konto. SSO meldet beim Abmelden nur die Master-Sitzung ab (kein Single Logout); der nächste SSO-Login danach verlangt per `ForceAuthn` eine erneute Authentifizierung beim Anbieter.
 
 ## Host-Status
 `unknown` (noch nicht geprüft) · `online` · `degraded` (Agent erreichbar, Podman-Socket/API defekt) · `offline` · `disabled` (kein Zugriff, keine Aktionen).
