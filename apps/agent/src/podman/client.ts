@@ -11,6 +11,7 @@ export type PodmanErrorCode =
   | "IMAGE_NOT_FOUND"
   | "IMAGE_IN_USE"
   | "IMAGE_PROTECTED"
+  | "STATS_UNAVAILABLE"
   | "VOLUME_NOT_FOUND"
   | "VOLUME_IN_USE"
   | "NETWORK_NOT_FOUND"

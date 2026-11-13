@@ -196,6 +196,14 @@ Unter **Einstellungen → Registerkarte „Zugriff“ (versteckte Container)** (
 ## Firewall
 Port 8080 nur für berechtigte Netze freigeben, nie ins Internet (siehe [Sicherheit](security.md)).
 
+## Auslastung der Container (Metriken)
+
+Auf der Container-Detailseite (laufende Container) zeigt die Karte *Auslastung* Verläufe für CPU, Arbeitsspeicher (mit Limit), Netzwerk (ein/aus) und Platte (lesen/schreiben); die Container-Liste zeigt CPU und RAM des letzten Messwerts. Der Master fragt dafür alle `METRICS_INTERVAL` Sekunden (Standard `30`, 5 bis 3600) pro Host einmal die Zähler aller laufenden Container ab (`GET /api/v1/stats` am Agent) und rechnet die Raten aus zwei Messungen: CPU in Prozent **eines Kerns** (100 % = ein voller Kern; bei mehreren Kernen sind mehr als 100 % möglich), Netzwerk und Platte in Byte pro Sekunde.
+
+Die Verläufe liegen **nur im Arbeitsspeicher** des Masters (nichts in der Datenbank, nach einem Neustart des Masters beginnen sie neu). `METRICS_KEEP_MIN` bestimmt, wie viele Minuten bleiben (Standard `60`, höchstens 1440, `0` = Messung aus, dann entfällt auch die Abfrage); je Container höchstens 2000 Punkte. Startet ein Container neu (Zähler springt zurück) oder war der Host nicht erreichbar, bleibt eine Lücke statt eines Ausreißers. Sichtbarkeit wie beim Container selbst (Agent-Gruppen, ausgeblendete Container).
+
+**Voraussetzung:** Podman liefert diese Statistik nur auf Hosts mit **cgroup v2**. Auf cgroup v1 (z. B. ältere Enterprise-Distributionen) zeigt die Karte den Hinweis „nur mit cgroup v2“; prüfen mit `stat -fc %T /sys/fs/cgroup` (`cgroup2fs` = v2). Agent und Master müssen mindestens diese Version haben (der Agent braucht die Route `/api/v1/stats`).
+
 ## Audit-Log
 
 Unter *Einstellungen → Audit* (alle Administratoren) steht, wer wann was getan hat: Anmeldungen (erfolgreich, fehlgeschlagen, abgewiesen, gesperrt) und Abmeldungen, Passwortänderungen, Start/Stopp/Neustart von Containern und Pods, Löschen und Aufräumen von Images, Hosts hinzufügen/entfernen/aktivieren/deaktivieren, Agent- und Master-Updates, Änderungen an Gruppen, lokalen Benutzern, LDAP, SSO, Branding und Ausblenden-Regeln sowie Backup-Download und Restore. Lesezugriffe (Seiten, Logs) werden nicht protokolliert. Es gibt Filter (Benutzer, Aktion, Ergebnis, Zeitraum), Seitenanzeige und einen CSV-Export (Zellen mit `=`, `+`, `-`, `@` am Anfang werden entschärft).

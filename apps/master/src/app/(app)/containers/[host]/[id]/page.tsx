@@ -1,12 +1,16 @@
 import Link from "next/link";
 import ContainerActions from "@/components/ContainerActions";
 import ContainerLogs from "@/components/ContainerLogs";
+import AutoRefresh from "@/components/AutoRefresh";
+import { MetricsCard } from "@/components/MetricsCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { fmt } from "@/components/ui";
 import { agentInspect } from "@/lib/agent-client";
 import { getAgent, targetFor } from "@/lib/agents";
 import { errText } from "@/lib/i18n";
-import { getT } from "@/lib/lang";
+import { getConfig } from "@/lib/config";
+import { getT, getLang } from "@/lib/lang";
+import { hostState, seriesFor } from "@/lib/metrics";
 import { allowedAgentIds, mayAccessAgent } from "@/lib/groups";
 import { hiddenPatternsFor, isHidden } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
@@ -45,6 +49,12 @@ export default async function Detail({ params }: { params: Promise<{ host: strin
         {rows.map(([k, v]) => (<><dt key={k} className="text-slate-400">{k}</dt><dd key={k + "v"}>{v}</dd></>))}
       </dl>
       <ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} />
+      {c.state === "running" && (
+        <>
+          <MetricsCard t={t} lang={await getLang()} points={seriesFor(agent.id, c.id)?.points ?? null} host={hostState(agent.id)} keepMin={getConfig().metricsKeepMin} />
+          {getConfig().metricsKeepMin > 0 && <AutoRefresh seconds={getConfig().metricsIntervalSec} />}
+        </>
+      )}
       <ContainerLogs agentId={agent.id} containerId={c.id} />
     </div>
   );

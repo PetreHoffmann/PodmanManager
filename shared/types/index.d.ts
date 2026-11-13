@@ -172,3 +172,26 @@ export interface NetworkInfo {
 export interface RemoveResult {
   result: "removed";
 }
+
+/** Raw counters of one running container; rates are computed by the master from two reports. */
+export interface ContainerStatsRaw {
+  id: string;
+  name: string;
+  /** cumulative CPU time of the container in nanoseconds */
+  cpuNano: number;
+  memUsage: number;
+  /** 0 when the container has no memory limit */
+  memLimit: number;
+  /** cumulative bytes */
+  netIn: number;
+  netOut: number;
+  blockIn: number;
+  blockOut: number;
+  pids: number;
+}
+
+export interface StatsReport {
+  /** when the agent took the sample (ms since epoch) */
+  ts: number;
+  containers: ContainerStatsRaw[];
+}

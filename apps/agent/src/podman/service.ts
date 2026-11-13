@@ -1,4 +1,4 @@
-import type { ContainerAction, ContainerInfo, ImageDeleteResult, ImageInfo, ImagePruneResult, LogLine, NetworkInfo, PodInfo, PodLogs, RemoveResult, StorageInfo, VolumeInfo } from "../../../../shared/types/index.js";
+import type { ContainerAction, ContainerInfo, ContainerStatsRaw, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, LogLine, NetworkInfo, PodInfo, PodLogs, RemoveResult, StorageInfo, VolumeInfo } from "../../../../shared/types/index.js";
 import { PodmanClient, PodmanError, TOO_LARGE_MESSAGE, type PodmanResponse } from "./client.js";
 import { parseLogStream } from "./logs.js";
 
@@ -196,6 +196,29 @@ export function mapNetwork(raw: unknown, containers: string[]): NetworkInfo {
     containers: [...new Set(containers)].sort(),
     protected: name === "podman",
   };
+}
+
+export function mapStats(raw: unknown, ts: number): StatsReport {
+  const stats = Array.isArray(rec(raw).Stats) ? (rec(raw).Stats as unknown[]) : [];
+  const containers: ContainerStatsRaw[] = [];
+  for (const s of stats) {
+    const o = rec(s);
+    const id = str(o.ContainerID);
+    if (!id) continue;
+    containers.push({
+      id,
+      name: str(o.Name),
+      cpuNano: num(o.CPUNano),
+      memUsage: num(o.MemUsage),
+      memLimit: num(o.MemLimit),
+      netIn: num(o.NetInput),
+      netOut: num(o.NetOutput),
+      blockIn: num(o.BlockInput),
+      blockOut: num(o.BlockOutput),
+      pids: num(o.PIDs),
+    });
+  }
+  return { ts, containers };
 }
 
 export class PodmanService {
@@ -412,6 +435,19 @@ export class PodmanService {
     if (res.status === 409) throw new PodmanError("IMAGE_IN_USE", upstreamMessage(res), 409);
     if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     return { result: untag ? "untagged" : "removed" };
+  }
+
+  /**
+   * Counters of all running containers (Podman serves them only with cgroup v2; cgroup v1 hosts answer 409).
+   * Percentages are not taken from Podman: the master derives rates from two reports.
+   */
+  async containerStats(): Promise<StatsReport> {
+    await this.client.checkSocket();
+    const ts = Date.now();
+    const res = await this.client.call("GET", `${await this.libpod()}/containers/stats?stream=false`, { timeoutMs: 20_000 });
+    if (res.status === 409 || /cgroup v2/i.test(upstreamMessage(res))) throw new PodmanError("STATS_UNAVAILABLE", upstreamMessage(res), 409);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    return mapStats(json(res), ts);
   }
 
   /** Volumes with usage (from the "dangling" filter) and, if the host answers in time, their size. */

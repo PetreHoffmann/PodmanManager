@@ -48,6 +48,7 @@ function statusFor(e: PodmanError): number {
     case "IMAGE_IN_USE":
     case "IMAGE_PROTECTED":
     case "VOLUME_IN_USE":
+    case "STATS_UNAVAILABLE":
     case "NETWORK_IN_USE":
     case "NETWORK_PROTECTED":
       return 409;
@@ -130,6 +131,11 @@ export function createAgentHandler(deps: HandlerDeps): AgentHandler {
         return reply(200, { ok: true, data: r });
       }
       return failR(404, "NOT_FOUND", "Not found");
+    }
+
+    if (route[0] === "stats" && route.length === 1) {
+      if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+      return reply(200, { ok: true, data: await podman.containerStats() });
     }
 
     if (route[0] === "volumes" || route[0] === "networks") {

@@ -1,4 +1,4 @@
-import type { ImageDeleteResult, ImageInfo, ImagePruneResult, NetworkInfo, RemoveResult, VolumeInfo, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
+import type { StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, NetworkInfo, RemoveResult, VolumeInfo, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { localCall } from "./local-host";
 import { CONTAINER_ID_RE } from "./validate";
@@ -113,4 +113,5 @@ export const agentVolumes = (t: AgentTarget) => call<VolumeInfo[]>(t, "GET", "/a
 export const agentVolumeDelete = (t: AgentTarget, name: string) => (RESOURCE_NAME_RE.test(name) ? call<RemoveResult>(t, "DELETE", `/api/v1/volumes/${encodeURIComponent(name)}`, 60) : badName<RemoveResult>());
 export const agentNetworks = (t: AgentTarget) => call<NetworkInfo[]>(t, "GET", "/api/v1/networks", 40);
 export const agentNetworkDelete = (t: AgentTarget, name: string) => (RESOURCE_NAME_RE.test(name) ? call<RemoveResult>(t, "DELETE", `/api/v1/networks/${encodeURIComponent(name)}`, 60) : badName<RemoveResult>());
+export const agentStats = (t: AgentTarget) => call<StatsReport>(t, "GET", "/api/v1/stats", 30);
 export const agentSelfInfo = (t: AgentTarget) => call<UpdateInfo>(t, "GET", "/api/v1/system/update", 15);

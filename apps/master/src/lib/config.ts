@@ -18,6 +18,9 @@ export function getConfig() {
     /** daily automatic database copies to keep in <data dir>/backups; 0 = off */
     /** days to keep audit entries; 0 = forever */
     auditKeepDays: num("AUDIT_KEEP_DAYS", 365, 0, 3650),
+    /** minutes of container metrics to keep in memory; 0 = off */
+    metricsKeepMin: num("METRICS_KEEP_MIN", 60, 0, 1440),
+    metricsIntervalSec: num("METRICS_INTERVAL", 30, 5, 3600),
     backupKeep: num("BACKUP_KEEP", 0, 0, 365),
   };
 }
