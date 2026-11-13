@@ -213,7 +213,7 @@ Als Benutzer können Sie Images **nur ansehen**. Löschen und Aufräumen sind Ad
 
 ![Einstellungen](screenshots/handbuch/09-einstellungen.png)
 
-Hier (Registerkarte **Allgemein**) sehen Sie, als wer Sie angemeldet sind (wenn Ihr Unternehmen den Anzeigenamen mitliefert, zum Beispiel „Max Mustermann (MustermannM)“), **auf welche Rechner Sie zugreifen dürfen** (Ihre Gruppen) und wie oft PodmanManager die Rechner prüft. Ändern können Sie als Benutzer hier nichts, das ist dem Administrator vorbehalten („Nur Administratoren können das ändern“). Ihr **Passwort** ändern Sie nicht hier, sondern wie gewohnt im Firmennetz.
+Hier (Registerkarte **Allgemein**) sehen Sie, als wer und wie (lokales Konto, SSO oder Verzeichnis) Sie angemeldet sind (wenn Ihr Unternehmen den Anzeigenamen mitliefert, zum Beispiel „Max Mustermann (MustermannM)“), **auf welche Rechner Sie zugreifen dürfen** (Ihre Gruppen) und wie oft PodmanManager die Rechner prüft. Ändern können Sie als Benutzer hier nichts, das ist dem Administrator vorbehalten („Nur Administratoren können das ändern“). Ihr **Passwort** ändern Sie nicht hier, sondern wie gewohnt im Firmennetz.
 
 **Über**
 

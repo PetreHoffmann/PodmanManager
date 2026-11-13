@@ -9,6 +9,7 @@ import { getT } from "@/lib/lang";
 import GroupEditor from "@/components/GroupEditor";
 import LogoInput from "@/components/LogoInput";
 import SamlPreset from "@/components/SamlPreset";
+import LdapPreset from "@/components/LdapPreset";
 import { listAgents } from "@/lib/agents";
 import { groupNames, listGroups } from "@/lib/groups";
 import { loadHiddenPatterns } from "@/lib/hidden";
@@ -77,6 +78,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
         <div className="space-y-5">
           <section className="card space-y-1">
             <p className="text-sm">{t("set.signedIn", { name: session.displayName ?? session.username })}</p>
+            <p className="text-xs text-slate-400">{t("set.via", { kind: t(session.kind === "saml" ? "set.viaSaml" : session.kind === "ldap" ? "set.viaLdap" : "set.viaLocal") })}</p>
             <p className="text-xs text-slate-400">
               {admin ? t("set.accessAll") : t("set.accessGroups", { groups: groupNames(session).join(", ") || "—" })}
             </p>
@@ -280,10 +282,33 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
             <label className="block text-sm">{t("ldap.baseDn")}
               <input name="baseDn" defaultValue={l.baseDn} placeholder="DC=example,DC=com" required className="input mt-1" />
             </label>
+            <LdapPreset />
             <label className="block text-sm">{t("ldap.filter")}
               <input name="filter" defaultValue={l.filter || DEFAULT_FILTER} className="input mt-1 font-mono text-xs" />
               <span className="text-xs text-slate-500">{t("ldap.filterHint")}</span>
             </label>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="block text-sm">{t("ldap.accountAttr")}
+                <input name="accountAttr" defaultValue={l.accountAttr} className="input mt-1 font-mono text-xs" />
+              </label>
+              <label className="block text-sm">{t("ldap.displayAttr")}
+                <input name="displayAttr" defaultValue={l.displayAttr} className="input mt-1 font-mono text-xs" />
+              </label>
+            </div>
+            <p className="-mt-2 text-xs text-slate-500">{t("ldap.attrHint")}</p>
+            <div className="grid gap-3">
+              <label className="block text-sm">{t("ldap.groupMode")}
+                <select name="groupMode" defaultValue={l.groupMode} className="input mt-1">
+                  <option value="chain">{t("ldap.groupModeChain")}</option>
+                  <option value="user">{t("ldap.groupModeUser")}</option>
+                  <option value="group">{t("ldap.groupModeGroup")}</option>
+                </select>
+              </label>
+              <label className="block text-sm">{t("ldap.memberAttr")}
+                <input name="memberAttr" defaultValue={l.memberAttr} className="input mt-1 font-mono text-xs" />
+              </label>
+            </div>
+            <p className="-mt-2 text-xs text-slate-500">{t("ldap.groupModeHint")}</p>
             <label className="block text-sm">{t("ldap.groupDn")}
               <input name="groupDn" defaultValue={l.groupDn} placeholder="CN=PodmanManager-Admins,OU=Groups,DC=example,DC=com" className="input mt-1" />
             </label>

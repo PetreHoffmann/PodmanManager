@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import { after, before, describe, it } from "node:test";
 import ldap from "ldapjs";
+import { AD_ATTRS } from "../src/lib/ldap-presets";
 import { DEFAULT_FILTER, authenticateLdap, escapeFilterValue, testLdap, type LdapConfig, type MappedGroup } from "../src/lib/ldap";
 import { parseLdapInput } from "../src/lib/ldap-config";
 
@@ -55,7 +56,7 @@ describe("ldap against a protocol-level fake directory", () => {
     });
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
     const port = ((server as any).server.address() as AddressInfo).port;
-    cfg = { enabled: true, url: `ldap://127.0.0.1:${port}`, startTls: false, caCert: "", bindDn: SVC.dn, bindPassword: SVC.pw, baseDn: BASE, filter: DEFAULT_FILTER, groupDn: GROUP };
+    cfg = { enabled: true, url: `ldap://127.0.0.1:${port}`, startTls: false, caCert: "", bindDn: SVC.dn, bindPassword: SVC.pw, baseDn: BASE, groupDn: GROUP, ...AD_ATTRS };
   });
   after(() => new Promise<void>((r) => server.close(() => r())));
 

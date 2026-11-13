@@ -1,5 +1,7 @@
 import { Client, InvalidCredentialsError } from "ldapts";
 import { formatDisplayName } from "./display-name";
+import { DEFAULT_FILTER, type GroupMode } from "./ldap-presets";
+export { DEFAULT_FILTER };
 
 export interface LdapConfig {
   enabled: boolean;
@@ -11,10 +13,13 @@ export interface LdapConfig {
   baseDn: string;
   filter: string;
   groupDn: string;
+  /** attribute names; the defaults are those of Active Directory (see ldap-presets.ts) */
+  accountAttr: string;
+  displayAttr: string;
+  groupMode: GroupMode;
+  memberAttr: string;
 }
 
-export const DEFAULT_FILTER =
-  "(&(objectClass=user)(objectCategory=person)(|(sAMAccountName={username})(userPrincipalName={username})))";
 /** AD matching rule "in chain": direct and nested group membership. */
 export const CHAIN_OID = "1.2.840.113556.1.4.1941";
 
@@ -107,7 +112,7 @@ export async function findUser(c: LdapClientLike, cfg: LdapConfig, username: str
     const { searchEntries } = await c.search(cfg.baseDn, {
       scope: "sub",
       filter,
-      attributes: ["dn", "sAMAccountName", "displayName"],
+      attributes: ["dn", cfg.accountAttr, cfg.displayAttr],
       sizeLimit: 2,
     });
     return searchEntries.length === 1 ? searchEntries[0]! : null;
@@ -117,17 +122,42 @@ export async function findUser(c: LdapClientLike, cfg: LdapConfig, username: str
   }
 }
 
-/** Direct or nested membership of userDn in groupDn. */
-export async function isMember(c: LdapClientLike, userDn: string, groupDn: string): Promise<boolean> {
+/** The value of an attribute of an entry; attribute names are compared case-insensitively (servers return them in their own spelling). */
+export function attrValue(entry: LdapEntry, name: string): unknown {
+  const key = Object.keys(entry).find((k) => k.toLowerCase() === name.toLowerCase());
+  return key === undefined ? undefined : entry[key];
+}
+
+/** The first non-empty text of an attribute (ldapts returns a string, or a list for multi-valued attributes). */
+export function attrText(entry: LdapEntry, name: string): string {
+  const v = attrValue(entry, name);
+  const first = Array.isArray(v) ? v[0] : v;
+  return typeof first === "string" ? first.trim() : "";
+}
+
+export interface LdapUser {
+  dn: string;
+  /** account (login) name as the directory knows it */
+  account: string;
+}
+
+/** Membership of the user in a group, as configured (cfg.groupMode); only Active Directory's mode includes nested groups. */
+export async function isMember(c: LdapClientLike, cfg: Pick<LdapConfig, "groupMode" | "memberAttr">, user: LdapUser, groupDn: string): Promise<boolean> {
   try {
-    const { searchEntries } = await c.search(userDn, {
-      scope: "base",
-      filter: `(memberOf:${CHAIN_OID}:=${escapeFilterValue(groupDn)})`,
-      attributes: ["dn"],
-      sizeLimit: 1,
-    });
+    if (cfg.groupMode === "group") {
+      // the group entry lists its members: by DN (member, uniqueMember) or by login name (memberUid)
+      const attr = cfg.memberAttr || "member";
+      const value = attr.toLowerCase() === "memberuid" ? user.account : user.dn;
+      if (!value) return false;
+      const { searchEntries } = await c.search(groupDn, { scope: "base", filter: `(${attr}=${escapeFilterValue(value)})`, attributes: ["dn"], sizeLimit: 1 });
+      return searchEntries.length === 1;
+    }
+    const filter = cfg.groupMode === "user" ? `(${cfg.memberAttr || "memberOf"}=${escapeFilterValue(groupDn)})` : `(memberOf:${CHAIN_OID}:=${escapeFilterValue(groupDn)})`;
+    const { searchEntries } = await c.search(user.dn, { scope: "base", filter, attributes: ["dn"], sizeLimit: 1 });
     return searchEntries.length === 1;
   } catch (e) {
+    // a group that does not exist is simply no membership
+    if ((e as { code?: unknown })?.code === 32) return false;
     throw mapError(e, "LDAP_SEARCH");
   }
 }
@@ -158,6 +188,7 @@ export async function authenticateLdap(
   }
 
   let user: LdapEntry | null;
+  let member: LdapUser = { dn: "", account: username };
   let admin = false;
   const groupIds: number[] = [];
   const svc = await serviceBind(cfg, factory).catch((e: LdapError) => e);
@@ -166,9 +197,10 @@ export async function authenticateLdap(
     user = await findUser(svc, cfg, username);
     if (!user) return { ok: false, reason: "invalid" };
     // Administrators group first (full access); otherwise collect the mapped agent groups.
-    admin = cfg.groupDn ? await isMember(svc, user.dn, cfg.groupDn) : false;
+    member = { dn: user.dn, account: attrText(user, cfg.accountAttr) || username };
+    admin = cfg.groupDn ? await isMember(svc, cfg, member, cfg.groupDn) : false;
     if (!admin) {
-      for (const g of mapped) if (await isMember(svc, user.dn, g.dn)) groupIds.push(g.id);
+      for (const g of mapped) if (await isMember(svc, cfg, member, g.dn)) groupIds.push(g.id);
     }
     if (!admin && groupIds.length === 0) return { ok: false, reason: "not_member" };
   } catch (e) {
@@ -187,9 +219,8 @@ export async function authenticateLdap(
   } finally {
     await uc?.unbind().catch(() => {});
   }
-  const sam = user["sAMAccountName"];
-  const account = typeof sam === "string" && sam ? sam : username;
-  const display = formatDisplayName(user["displayName"], account);
+  const account = attrText(user, cfg.accountAttr) || username;
+  const display = formatDisplayName(attrText(user, cfg.displayAttr), account);
   return { ok: true, username: account, dn: user.dn, admin, groupIds: admin ? [] : groupIds, ...(display ? { displayName: display } : {}) };
 }
 
@@ -231,11 +262,11 @@ export async function testLdap(
       const u = await findUser(c, cfg, testUser);
       if (!u) {
         steps.push({ key: "userNone", ok: false });
-      } else if (cfg.groupDn && (await isMember(c, u.dn, cfg.groupDn))) {
+      } else if (cfg.groupDn && (await isMember(c, cfg, { dn: u.dn, account: attrText(u, cfg.accountAttr) || testUser }, cfg.groupDn))) {
         steps.push({ key: "userOk", ok: true, name: accessAll });
       } else {
         const names: string[] = [];
-        for (const g of mapped) if (await isMember(c, u.dn, g.dn)) names.push(g.name);
+        for (const g of mapped) if (await isMember(c, cfg, { dn: u.dn, account: attrText(u, cfg.accountAttr) || testUser }, g.dn)) names.push(g.name);
         steps.push(names.length ? { key: "userOk", ok: true, name: names.join(", ") } : { key: "userNoMember", ok: false });
       }
     }

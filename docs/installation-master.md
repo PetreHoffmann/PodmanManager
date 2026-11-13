@@ -113,6 +113,27 @@ Unter **Einstellungen → Registerkarte „LDAP“** (nur für Administratoren s
 
 Bei „Angemeldet als“ (Einstellungen) zeigt der Master LDAP-Benutzern „Anzeigename (Kontoname)“, z. B. „Max Mustermann (MustermannM)“. Beides liest er in derselben Suche, die den Benutzer findet (`displayName`, `sAMAccountName`), eine Änderung im AD ist dafür nicht nötig; fehlt `displayName`, steht nur der Kontoname dort.
 
+### Andere Verzeichnisserver als Active Directory
+
+Die Voreinstellungen sind die von Active Directory. Für OpenLDAP, FreeIPA, 389 DS und andere gibt es in der Registerkarte „LDAP“ die **Vorlage für den Verzeichnisserver** (Auswahlliste). Sie trägt **Benutzerfilter**, **Attribute für Konto- und Anzeigenamen** und die **Gruppenprüfung** mit den üblichen Werten ein; gespeichert wird erst mit „Speichern“. Die Werte stammen aus der Dokumentation der Hersteller und sind **nicht gegen echte Server geprüft**: Prüfen Sie sie mit „Verbindung testen“ und einem Testbenutzer.
+
+| Vorlage | Konto-Attribut | Anzeigename | Gruppenprüfung |
+|---|---|---|---|
+| Active Directory, Samba AD | `sAMAccountName` | `displayName` | verschachtelt (Matching Rule *in chain*) |
+| OpenLDAP (groupOfNames) | `uid` | `cn` | Attribut an der Gruppe: `member` |
+| OpenLDAP (groupOfUniqueNames) | `uid` | `cn` | Attribut an der Gruppe: `uniqueMember` |
+| OpenLDAP (posixGroup) | `uid` | `cn` | Attribut an der Gruppe: `memberUid` (Anmeldename) |
+| OpenLDAP (memberOf-Overlay), JumpCloud, Univention | `uid` | `cn` bzw. `displayName` | Attribut am Benutzer: `memberOf` |
+| FreeIPA / Red Hat IdM | `uid` | `displayName` | Attribut am Benutzer: `memberOf` |
+| 389 Directory Server, Apache Directory Server | `uid` | `cn` | Attribut an der Gruppe: `member` |
+| OpenText / Novell eDirectory | `cn` | `fullName` | Attribut an der Gruppe: `member` |
+| Oracle Unified Directory / DSEE | `uid` | `cn` | Attribut am Benutzer: `isMemberOf` |
+
+- **Welche Namen ein Benutzer eintippen darf** (Kontoname, Mailadresse, User Principal Name), bestimmt der **Benutzerfilter**; die Vorlagen enthalten die üblichen Varianten, `{username}` wird durch die Eingabe ersetzt.
+- **Gruppenprüfung:** *Active Directory* erkennt auch **verschachtelte** Gruppen. Die beiden anderen Arten prüfen nur die **direkte** Mitgliedschaft: *Attribut am Benutzer* (der Benutzereintrag nennt seine Gruppen, z. B. `memberOf`) oder *Attribut an der Gruppe* (der Gruppeneintrag nennt seine Mitglieder: `member`/`uniqueMember` mit dem DN des Benutzers, `memberUid` mit dem Anmeldenamen). Der Attributname steht im Feld *Attribut der Gruppenmitgliedschaft*.
+- **Angezeigt** wird bei „Angemeldet als“ „Anzeigename (Kontoname)“ aus den beiden Attributen. Der Kontoname ist auch der Benutzername der Sitzung.
+- Die Gruppen-DNs (Administratoren-Gruppe und die Gruppen der Agent-Gruppen) tragen Sie wie bei Active Directory ein; bei `memberUid` muss der Gruppeneintrag selbst existieren (`posixGroup`).
+
 Das lokale Konto `admin` bleibt als Notzugang immer aktiv (ein AD-Benutzer namens `admin` kann sich deshalb nicht per LDAP anmelden). **Administratoren** sind das lokale `admin`-Konto und die Mitglieder der Administratoren-Gruppe (LDAP bzw. SSO): Sie haben dieselben Rechte, auch für die Einstellungen; nur das Passwort des lokalen Kontos ändert allein dieses Konto.
 
 | Feld | Beispiel | | Beispiel |
