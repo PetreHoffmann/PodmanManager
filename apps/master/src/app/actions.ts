@@ -201,6 +201,7 @@ export async function ldapAction(_: FormState, fd: FormData): Promise<FormState>
     {
       enabled: s(fd, "enabled") === "on", url: s(fd, "url"), startTls: s(fd, "startTls") === "on", caCert: s(fd, "caCert"),
       bindDn: s(fd, "bindDn"), bindPassword: s(fd, "bindPassword"), baseDn: s(fd, "baseDn"), filter: s(fd, "filter"), groupDn: s(fd, "groupDn"),
+      accountAttr: s(fd, "accountAttr"), displayAttr: s(fd, "displayAttr"), groupMode: s(fd, "groupMode"), memberAttr: s(fd, "memberAttr"),
     },
     existing,
   );

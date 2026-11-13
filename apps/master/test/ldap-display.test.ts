@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { DEFAULT_FILTER, authenticateLdap, type ClientFactory, type LdapConfig, type LdapEntry } from "../src/lib/ldap";
+import { authenticateLdap, type ClientFactory, type LdapConfig, type LdapEntry } from "../src/lib/ldap";
+import { AD_ATTRS } from "../src/lib/ldap-presets";
 import { accountFromUpn, formatDisplayName } from "../src/lib/display-name";
 
 const ADMINS = "CN=Admins,OU=Groups,DC=ex,DC=com";
-const cfg: LdapConfig = { enabled: true, url: "ldaps://dc.example", startTls: false, caCert: "", bindDn: "CN=svc,DC=ex,DC=com", bindPassword: "svc", baseDn: "DC=ex,DC=com", filter: DEFAULT_FILTER, groupDn: ADMINS };
+const cfg: LdapConfig = { enabled: true, url: "ldaps://dc.example", startTls: false, caCert: "", bindDn: "CN=svc,DC=ex,DC=com", bindPassword: "svc", baseDn: "DC=ex,DC=com", groupDn: ADMINS, ...AD_ATTRS };
 
 /** A directory double: one user whose attributes are whatever the test passes (as ldapts returns them: strings or lists). */
 const directory = (attrs: Record<string, unknown>): ClientFactory => () => ({
@@ -27,7 +28,7 @@ describe("display name of LDAP users", () => {
 
   it("works when the directory returns lists, and falls back to the login name without a display name", async () => {
     const list = await authenticateLdap(cfg, "x", "pw", [], directory({ sAMAccountName: ["MustermannM"], displayName: ["Max Mustermann"] }));
-    assert.ok(list.ok && list.displayName === "Max Mustermann (x)", JSON.stringify(list));
+    assert.ok(list.ok && list.displayName === "Max Mustermann (MustermannM)", JSON.stringify(list));
     for (const attrs of [{ sAMAccountName: "MustermannM" }, { sAMAccountName: "MustermannM", displayName: "  " }, { displayName: [] as string[] }]) {
       const r = await authenticateLdap(cfg, "mustermannm", "pw", [], directory(attrs));
       assert.ok(r.ok && !("displayName" in r), JSON.stringify(attrs));
