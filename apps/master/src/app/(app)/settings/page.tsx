@@ -56,7 +56,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
       <h1 className="text-xl font-semibold">{t("set.title")}</h1>
 
       {tabs.length > 0 && (
-        <nav aria-label={t("set.tabs")} className="-mx-4 overflow-x-auto border-b border-slate-800 px-4 md:mx-0 md:px-0">
+        <nav aria-label={t("set.tabs")} className="-mx-4 overflow-x-auto overflow-y-hidden border-b border-slate-800 px-4 md:mx-0 md:px-0">
           <ul className="flex min-w-max gap-1">
             {tabs.map((x) => (
               <li key={x}>
