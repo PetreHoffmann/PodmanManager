@@ -575,21 +575,33 @@ export async function agentUpdateAction(agentId: number): Promise<{ ok: boolean;
   return { ok: true, message: t("update.started") };
 }
 
-export type MasterUpdateAgents = { ok: true; agents: { id: number; label: string }[] } | { ok: false };
+export type MasterUpdateAgents = { ok: true; agents: { id: number; label: string; local?: boolean }[]; blocked?: Key } | { ok: false };
+
+/** Why the master (running on its own host) cannot update itself, in the master's own wording. */
+const MASTER_REASONS: Record<string, Key> = {
+  pinned_tag: "mupdate.reason.pinned_tag",
+  not_systemd: "mupdate.reason.not_systemd",
+  no_container: "mupdate.reason.no_container",
+  inspect_failed: "mupdate.reason.inspect_failed",
+};
 
 /** Agents that are set up (UPDATE_UNIT) to update this master. Admins only. */
 export async function masterUpdateAgentsAction(): Promise<MasterUpdateAgents> {
   const session = await requireAuth();
   if (session.access !== "all") return { ok: false };
+  let blocked: Key | undefined;
   const found = await Promise.all(
     listAgents().filter((a) => a.enabled && a.status !== "offline").map(async (a) => {
       const tg = targetFor(a.id);
       // the master's own host updates the master itself; other agents update the master through the peer route
       const r = tg ? await (tg.local ? agentSelfInfo(tg) : agentPeerInfo(tg)) : null;
-      return r && r.ok && r.data.possible ? { id: a.id, label: `${a.agent_id} (${a.hostname})` } : null;
+      if (tg?.local && r && r.ok && !r.data.possible && r.data.reason) blocked = MASTER_REASONS[r.data.reason];
+      return r && r.ok && r.data.possible ? { id: a.id, label: `${a.agent_id} (${a.hostname})`, ...(tg?.local ? { local: true } : {}) } : null;
     }),
   );
-  return { ok: true, agents: found.filter((x): x is { id: number; label: string } => x !== null) };
+  const agents = found.filter((x): x is { id: number; label: string; local?: boolean } => x !== null);
+  // the reason is only shown when nothing else could update the master
+  return { ok: true, agents, ...(agents.length === 0 && blocked ? { blocked } : {}) };
 }
 
 /** Let the given agent pull the master image and restart the master unit. Admins only. */
@@ -605,13 +617,28 @@ export async function masterUpdateStartAction(agentId: number): Promise<{ ok: bo
   const r = await (tg.local ? agentUpdateStart(tg) : agentPeerStart(tg));
   if (!r.ok) {
     if (r.code === "UPDATE_NOT_POSSIBLE") {
-      const k = UPDATE_REASONS[r.message];
+      const k = tg.local ? MASTER_REASONS[r.message] : UPDATE_REASONS[r.message];
       return { ok: false, message: k ? t(k) : errText(t, r.code, r.message) };
     }
     return { ok: false, message: errText(t, r.code, r.message) };
   }
   await audit(session, "master.update", { host: a.hostname });
   return { ok: true, message: t("mupdate.started") };
+}
+
+export type MasterUpdateStatus = { state: "pulling" | "restarting" | "current" | "error" | "idle"; message?: string };
+
+/** Progress of the master's update of itself (only for the master's own host). Admins only. */
+export async function masterUpdateStatusAction(agentId: number): Promise<MasterUpdateStatus | null> {
+  const session = await requireAuth();
+  if (session.access !== "all") return null;
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  const tg = a ? targetFor(a.id) : null;
+  if (!tg?.local) return null;
+  const r = await agentSelfInfo(tg);
+  if (!r.ok) return null;
+  const st = r.data.state;
+  return { state: st === "pulling" || st === "restarting" || st === "current" || st === "error" ? st : "idle", ...(r.data.message ? { message: r.data.message } : {}) };
 }
 
 const IMAGE_TAG_RE = /^[A-Za-z0-9._\-/:@]{1,255}$/;
