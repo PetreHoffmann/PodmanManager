@@ -42,7 +42,7 @@ export function createBackup(db: Db = getDb()): Buffer {
 export type RestoreErr = "err.restoreFile" | "err.restoreKey";
 export type RestoreResult =
   | { ok: true; agents: number; users: number; groups: number }
-  | { ok: false; error: RestoreErr; unreadable?: number };
+  | { ok: false; error: RestoreErr; unreadable?: number; why?: string };
 
 const count = (db: Db, table: string) => (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
 
@@ -51,7 +51,7 @@ const count = (db: Db, table: string) => (db.prepare(`SELECT COUNT(*) AS n FROM 
  * Everything runs in one transaction; the previous database is saved next to it as `<db>.bak` first.
  */
 export function restoreBackup(data: Buffer, opts: { key?: Buffer; force?: boolean } = {}, db: Db = getDb(), bakPath: string | null = defaultBakPath(db)): RestoreResult {
-  if (data.length < 512 || data.length > MAX_BACKUP_BYTES || data.subarray(0, 16).toString("latin1") !== HEADER) return { ok: false, error: "err.restoreFile" };
+  if (data.length < 512 || data.length > MAX_BACKUP_BYTES || data.subarray(0, 16).toString("latin1") !== HEADER) return { ok: false, error: "err.restoreFile", why: `size or header (${data.length} bytes)` };
   return withTmp((dir) => {
     const file = join(dir, "upload.db");
     writeFileSync(file, data, { mode: 0o600 });
@@ -59,26 +59,26 @@ export function restoreBackup(data: Buffer, opts: { key?: Buffer; force?: boolea
     try {
       const ro = new DatabaseSync(file, { readOnly: true });
       try {
-        if ((ro.prepare("PRAGMA integrity_check").get() as { integrity_check: string }).integrity_check !== "ok") return { ok: false, error: "err.restoreFile" } as const;
+        if ((ro.prepare("PRAGMA integrity_check").get() as { integrity_check: string }).integrity_check !== "ok") return { ok: false, error: "err.restoreFile", why: "integrity check" } as const;
         const names = (ro.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]).map((r) => r.name);
-        if (!REQUIRED.every((n) => names.includes(n))) return { ok: false, error: "err.restoreFile" } as const;
+        if (!REQUIRED.every((n) => names.includes(n))) return { ok: false, error: "err.restoreFile", why: "tables missing" } as const;
       } finally {
         ro.close();
       }
-    } catch {
-      return { ok: false, error: "err.restoreFile" } as const;
+    } catch (e) {
+      return { ok: false, error: "err.restoreFile", why: `cannot read: ${e instanceof Error ? e.message : String(e)}` } as const;
     }
     // bring an older backup to the current schema (on the temporary copy only)
     let src: Db;
     try {
       src = openDb(file);
-    } catch {
-      return { ok: false, error: "err.restoreFile" } as const;
+    } catch (e) {
+      return { ok: false, error: "err.restoreFile", why: `cannot open: ${e instanceof Error ? e.message : String(e)}` } as const;
     }
     let unreadable = 0;
     try {
       // without an administrator the master would fall back to its first-run page, where anybody could set one
-      if (count(src, "admin") === 0) return { ok: false, error: "err.restoreFile" } as const;
+      if (count(src, "admin") === 0) return { ok: false, error: "err.restoreFile", why: "no administrator" } as const;
       if (opts.key) {
         const rows = src.prepare("SELECT token_enc FROM agents WHERE kind = 'remote' AND token_enc <> ''").all() as { token_enc: string }[];
         for (const r of rows) {

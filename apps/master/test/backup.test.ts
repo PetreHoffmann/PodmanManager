@@ -11,6 +11,7 @@ import { saveGroup } from "../src/lib/groups";
 import { createSession, getSession } from "../src/lib/session";
 import { getUserByName, saveUser } from "../src/lib/users";
 
+const errOf = (r: ReturnType<typeof restoreBackup>) => (r.ok ? null : r.error);
 const K1 = Buffer.alloc(32, 1);
 const K2 = Buffer.alloc(32, 2);
 
@@ -73,8 +74,8 @@ describe("database restore", () => {
 
   it("rejects files that are not a backup", () => {
     const db = openDb(":memory:");
-    assert.deepEqual(restoreBackup(Buffer.from("hello"), {}, db, null), { ok: false, error: "err.restoreFile" });
-    assert.deepEqual(restoreBackup(Buffer.alloc(4096, 1), {}, db, null), { ok: false, error: "err.restoreFile" });
+    assert.equal(errOf(restoreBackup(Buffer.from("hello"), {}, db, null)), "err.restoreFile");
+    assert.equal(errOf(restoreBackup(Buffer.alloc(4096, 1), {}, db, null)), "err.restoreFile");
     // a valid SQLite file that is not ours
     const dir = mkdtempSync(join(tmpdir(), "bt-"));
     try {
@@ -82,7 +83,7 @@ describe("database restore", () => {
       const o = new DatabaseSync(f);
       o.exec("CREATE TABLE t (a); INSERT INTO t VALUES (1);");
       o.close();
-      assert.deepEqual(restoreBackup(require("node:fs").readFileSync(f), {}, db, null), { ok: false, error: "err.restoreFile" });
+      assert.equal(errOf(restoreBackup(require("node:fs").readFileSync(f), {}, db, null)), "err.restoreFile");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -91,7 +92,7 @@ describe("database restore", () => {
   it("refuses a backup without an administrator (it would reopen the first-run setup)", () => {
     const empty = openDb(":memory:");
     const dst = seed(K1);
-    assert.deepEqual(restoreBackup(createBackup(empty), {}, dst, null), { ok: false, error: "err.restoreFile" });
+    assert.equal(errOf(restoreBackup(createBackup(empty), {}, dst, null)), "err.restoreFile");
     assert.equal((dst.prepare("SELECT COUNT(*) AS n FROM admin").get() as { n: number }).n, 1);
   });
 
