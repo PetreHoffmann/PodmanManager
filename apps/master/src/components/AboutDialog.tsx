@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { checkUpdateAction, masterUpdateAgentsAction, masterUpdateStartAction, type MasterUpdateAgents } from "@/app/actions";
+import { checkUpdateAction, masterUpdateAgentsAction, masterUpdateStartAction, masterUpdateStatusAction, type MasterUpdateAgents } from "@/app/actions";
 import type { UpdateInfo } from "@/lib/update-check";
 import { AUTHOR, APP_NAME, COPYRIGHT_YEAR, REPO_URL } from "@/lib/brand";
 import { useT } from "./I18nProvider";
@@ -24,6 +24,30 @@ export default function AboutDialog({ version }: { version: string }) {
     const r = await masterUpdateStartAction(agentId);
     setUpd({ ok: r.ok, text: r.message });
     if (!r.ok) return setBusy(false);
+    // the master's own host reports what its update does: "unchanged image" ends here, no restart follows
+    if (agents?.ok && agents.agents.find((x) => x.id === agentId)?.local) {
+      setUpd({ ok: true, text: t("mupdate.checking") });
+      for (let i = 0; i < 60; i++) {
+        await new Promise((res) => setTimeout(res, 2000));
+        let s;
+        try {
+          s = await masterUpdateStatusAction(agentId);
+        } catch {
+          break; // the master is already gone: it is restarting
+        }
+        if (!s) break;
+        if (s.state === "current") {
+          setUpd({ ok: true, text: t("mupdate.current") });
+          return setBusy(false);
+        }
+        if (s.state === "error") {
+          setUpd({ ok: false, text: s.message ?? t("errc.INTERNAL") });
+          return setBusy(false);
+        }
+        if (s.state === "restarting") break;
+      }
+      setUpd({ ok: true, text: t("mupdate.started") });
+    }
     // wait until the master has gone away and answers again, then reload
     let down = false;
     const t0 = Date.now();
@@ -105,7 +129,7 @@ export default function AboutDialog({ version }: { version: string }) {
                       )}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-500">{t("mupdate.noAgent")}</p>
+                    <p className="text-xs text-slate-500">{agents.blocked ? t(agents.blocked) : t("mupdate.noAgent")}</p>
                   )
                 )}
                 {upd && <p className={`text-xs ${upd.ok ? "text-emerald-300" : "text-amber-300"}`}>{upd.text}</p>}
