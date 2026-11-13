@@ -9,6 +9,8 @@ export async function register() {
     ensureLocalHost(); // the master's own host (LOCAL_PODMAN_SOCKET)
     const { startAuditPrune } = await import("./lib/audit");
     startAuditPrune();
+    const { startMetrics } = await import("./lib/metrics");
+    startMetrics();
     const { startAutoBackup } = await import("./lib/autobackup");
     startAutoBackup();
     const { startHeartbeat } = await import("./lib/heartbeat");
