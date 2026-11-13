@@ -48,7 +48,7 @@ export default async function Hosts() {
               <tr key={a.id} className="transition hover:bg-slate-900">
                 <td className="td font-medium">{a.hostname}</td>
                 <td className="td font-mono text-xs">{a.agent_id}</td>
-                <td className="td font-mono text-xs">{a.address}:{a.port}</td>
+                <td className="td font-mono text-xs">{a.kind === "local" ? <span className="font-sans">{t("hosts.local")}</span> : <>{a.address}:{a.port}</>}</td>
                 <td className="td">
                   <StatusBadge status={a.enabled ? a.status : "disabled"} />
                   {a.enabled && a.last_error && a.status !== "online" && (
@@ -62,7 +62,7 @@ export default async function Hosts() {
                 <td className="td max-w-[15rem]">
                   {a.enabled && a.status !== "offline" ? <Suspense fallback={<span className="animate-pulse text-slate-500">…</span>}><HostStorage agentId={a.id} /></Suspense> : <span className="text-slate-500">—</span>}
                 </td>
-                {canManage && <td className="td w-px"><HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} /></td>}
+                {canManage && <td className="td w-px"><HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} local={a.kind === "local"} /></td>}
               </tr>
             ))}
           </tbody>
@@ -77,14 +77,14 @@ export default async function Hosts() {
               <div className="font-medium">{a.agent_id}</div>
               <StatusBadge status={a.enabled ? a.status : "disabled"} />
             </div>
-            <div className="font-mono text-xs text-slate-400">{a.hostname} · {a.address}:{a.port}</div>
+            <div className="font-mono text-xs text-slate-400">{a.hostname} · {a.kind === "local" ? t("hosts.local") : `${a.address}:${a.port}`}</div>
             <div className="text-xs text-slate-500">{t("hosts.cardMeta", { hb: fmt(a.last_heartbeat), pv: a.podman_version ?? "—", av: a.agent_version ?? "—", n: result.ok ? result.data.length : t("common.na") })}</div>
             {a.enabled && a.status !== "offline" && (
               <div className="text-xs text-slate-500">{t("hosts.storage")}: <Suspense fallback="…"><HostStorage agentId={a.id} compact /></Suspense></div>
             )}
             {a.enabled && a.last_error && a.status !== "online" && <div className="break-all text-xs text-slate-500">{lastErrText(t, a.last_error)}</div>}
             {outdated(a.agent_version) && <div className="flex flex-wrap items-start gap-2 text-xs"><span className="text-amber-300">{t("update.outdated")}</span>{canManage && a.enabled && a.status !== "offline" && <AgentUpdate id={a.id} />}</div>}
-            {canManage && <HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} />}
+            {canManage && <HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} local={a.kind === "local"} />}
           </div>
         ))}
       </div>

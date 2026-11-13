@@ -5,6 +5,8 @@ const standalone = process.env.NEXT_OUTPUT === "standalone";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // the master runs the agent code in-process for its own host (apps/agent/src, imported as @agent/*)
+  experimental: { externalDir: true },
   // Only for container images: self-contained server in .next/standalone
   ...(standalone && {
     output: "standalone",
@@ -23,6 +25,8 @@ const nextConfig = {
     }];
   },
   webpack: (config, { isServer }) => {
+    // the agent sources import each other with .js endings (NodeNext); resolve them to the .ts files
+    config.resolve.extensionAlias = { ...config.resolve.extensionAlias, ".js": [".ts", ".tsx", ".js"] };
     if (isServer) {
       config.externals = [...(config.externals ?? []), { "node:sqlite": "commonjs node:sqlite" }];
     }

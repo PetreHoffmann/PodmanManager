@@ -15,7 +15,9 @@ export function resolveVersion(env: Record<string, string | undefined>, fileVers
 
 function readBuildVersion(): string | null {
   try {
-    const v = (JSON.parse(readFileSync(new URL("../version.json", import.meta.url), "utf8")) as { version?: unknown }).version;
+    // via a variable: bundlers (the master compiles this file too) must not treat it as an asset reference
+    const here = import.meta.url;
+    const v = (JSON.parse(readFileSync(new URL("../version.json", here), "utf8")) as { version?: unknown }).version;
     return typeof v === "string" ? v : null;
   } catch {
     return null;
@@ -24,11 +26,11 @@ function readBuildVersion(): string | null {
 
 export const AGENT_VERSION = resolveVersion(process.env, readBuildVersion());
 
-export async function collectHealth(agentId: string, podman: PodmanService): Promise<HealthInfo> {
+export async function collectHealth(agentId: string, podman: PodmanService, hostName?: string): Promise<HealthInfo> {
   const info: HealthInfo = {
     agentId,
     agentVersion: AGENT_VERSION,
-    hostname: hostname(),
+    hostname: hostName || hostname(),
     podmanVersion: null,
     podmanApiVersion: null,
     socketStatus: "ok",

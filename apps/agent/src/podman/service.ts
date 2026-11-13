@@ -318,6 +318,22 @@ export class PodmanService {
     return { id, imageName: s.imageName, imageId: s.imageId };
   }
 
+  private hostNameCache: { at: number; value: string | undefined } | null = null;
+
+  /** The real host name as Podman reports it (cached for 10 minutes); undefined if it cannot be read. */
+  async hostName(): Promise<string | undefined> {
+    if (this.hostNameCache && Date.now() - this.hostNameCache.at < 600_000) return this.hostNameCache.value;
+    await this.client.checkSocket();
+    const res = await this.client.call("GET", `${await this.libpod()}/info`);
+    let value: string | undefined;
+    if (res.status === 200) {
+      const h = rec(rec(json(res)).host).hostname;
+      if (typeof h === "string" && /^[A-Za-z0-9._-]{1,253}$/.test(h)) value = h;
+    }
+    this.hostNameCache = { at: Date.now(), value };
+    return value;
+  }
+
   /** Counts of containers per image id (all containers, running or not). */
   private async imageUsage(): Promise<Map<string, number>> {
     const res = await this.client.call("GET", `${await this.libpod()}/containers/json?all=true`);

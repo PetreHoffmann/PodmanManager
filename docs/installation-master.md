@@ -47,6 +47,14 @@ Beispiel-Units und Anleitung (Secret für `MASTER_SECRET_KEY`, Volume, Start ohn
 ## Manueller Start
 `deployment/master/start.sh [env-datei]` (oder Variablen setzen). Ändere den Port über `MASTER_PORT`.
 
+## Eigener Host ohne separaten Agent (optional)
+
+Der Master kann den Podman-Socket seines eigenen Hosts direkt nutzen; ein Agent-Container auf diesem Host ist dann überflüssig (spart Ressourcen). Aktivierung über die Umgebungsvariable `LOCAL_PODMAN_SOCKET` (Pfad des Sockets im Master-Prozess, Standard: aus). Beim Start entsteht der Host „lokal (dieser Master)“ mit dem echten Hostnamen; er lässt sich deaktivieren, aber nicht entfernen. Der Master aktualisiert sich selbst im Prozess (Button in „Über“; braucht festen Tag `:latest` und systemd `Restart=always`, kein `UPDATE_UNIT`).
+
+Quadlet: im Master die auskommentierten Zeilen `Volume=%t/podman/podman.sock:…`, `Environment=LOCAL_PODMAN_SOCKET=…`, `UserNS=keep-id`, `User=%U` und (SELinux) `SecurityLabelDisable=true` aktivieren. Ohne Quadlet: `-v $XDG_RUNTIME_DIR/podman/podman.sock:/run/podman/podman.sock --userns=keep-id --user $(id -u) -e LOCAL_PODMAN_SOCKET=/run/podman/podman.sock`.
+
+**Migration:** Den bisherigen Agent-Eintrag dieses Hosts unter *Hosts* entfernen und den Agent-Container stoppen (`systemctl --user disable --now podmanmanager-agent`). Weitere Hosts brauchen weiterhin einen Agent.
+
 ## Hinter einem Reverse-Proxy
 TLS, eigene Domain und Zugriffsschutz lassen sich einem Reverse-Proxy (nginx, Apache, Traefik, Caddy, HAProxy) überlassen; der Master selbst bleibt HTTP. Der Proxy muss den **ursprünglichen Host** weiterreichen, sonst lehnt der CSRF-Schutz von Next.js jede Formular-Aktion (Anmelden, Hosts, Container) ab: die Seite zeigt „Application error“ und das Master-Log meldet `x-forwarded-host header … does not match origin header … Invalid Server Actions request`.
 

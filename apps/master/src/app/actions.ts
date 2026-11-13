@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentImageDelete, agentImagePrune, agentPeerInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
+import { agentImageDelete, agentImagePrune, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
 import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
 import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
@@ -145,6 +145,7 @@ export async function removeAgentAction(_: FormState, fd: FormData): Promise<For
   if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const id = idOf(fd);
   if (!id) return { ok: false, message: t("msg.invalidAgent") };
+  if (getAgent(id)?.kind === "local") return { ok: false, message: t("msg.localHost") };
   removeAgent(id);
   revalidatePath("/hosts");
   return { ok: true, message: t("msg.agentRemoved") };
@@ -476,6 +477,7 @@ export async function agentUpdateAction(agentId: number): Promise<{ ok: boolean;
   if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
   if (!a) return { ok: false, message: t("msg.unknownHost") };
+  if (a.kind === "local") return { ok: false, message: t("msg.localHost") };
   if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
   const tg = targetFor(agentId);
   if (!tg) return { ok: false, message: t("msg.noCreds") };
@@ -501,7 +503,8 @@ export async function masterUpdateAgentsAction(): Promise<MasterUpdateAgents> {
   const found = await Promise.all(
     listAgents().filter((a) => a.enabled && a.status !== "offline").map(async (a) => {
       const tg = targetFor(a.id);
-      const r = tg ? await agentPeerInfo(tg) : null;
+      // the master's own host updates the master itself; other agents update the master through the peer route
+      const r = tg ? await (tg.local ? agentSelfInfo(tg) : agentPeerInfo(tg)) : null;
       return r && r.ok && r.data.possible ? { id: a.id, label: `${a.agent_id} (${a.hostname})` } : null;
     }),
   );
@@ -518,7 +521,7 @@ export async function masterUpdateStartAction(agentId: number): Promise<{ ok: bo
   if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
   const tg = targetFor(agentId);
   if (!tg) return { ok: false, message: t("msg.noCreds") };
-  const r = await agentPeerStart(tg);
+  const r = await (tg.local ? agentUpdateStart(tg) : agentPeerStart(tg));
   if (!r.ok) {
     if (r.code === "UPDATE_NOT_POSSIBLE") {
       const k = UPDATE_REASONS[r.message];

@@ -7,6 +7,9 @@ COPY apps/master/package.json apps/master/
 COPY apps/agent/package.json apps/agent/
 RUN npm ci --no-audit --no-fund
 COPY apps/master apps/master
+# the master runs the agent code in-process for its own host (imported from apps/agent/src)
+COPY apps/agent/src apps/agent/src
+COPY apps/agent/package.json apps/agent/tsconfig.json apps/agent/
 COPY shared shared
 ENV NEXT_OUTPUT=standalone NEXT_TELEMETRY_DISABLED=1
 RUN MASTER_SECRET_KEY=build-only npm run build -w apps/master
