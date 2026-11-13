@@ -184,6 +184,10 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="samlEnabled" defaultChecked={saml.enabled} /> {t("saml.enabled")}
             </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" name="autoSignIn" defaultChecked={saml.autoSignIn} className="mt-1" />
+              <span>{t("saml.autoSignIn")}<span className="block text-xs text-slate-500">{t("saml.autoSignInHint")}</span></span>
+            </label>
             <label className="block text-sm">{t("saml.buttonLabel")}
               <input name="buttonLabel" defaultValue={saml.buttonLabel} maxLength={MAX_BUTTON_LABEL} placeholder={t("auth.ssoSignIn")} autoComplete="off" className="input mt-1" />
               <span className="text-xs text-slate-500">{t("saml.buttonHint")}</span>

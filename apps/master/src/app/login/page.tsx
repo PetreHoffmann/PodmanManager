@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import ActionForm from "@/components/ActionForm";
 import { loginAction } from "@/app/actions";
@@ -7,17 +8,20 @@ import { getT } from "@/lib/lang";
 import { getVersion } from "@/lib/version";
 import { APP_NAME } from "@/lib/brand";
 import { loadSamlConfig, samlReady } from "@/lib/saml-config";
+import { MANUAL_COOKIE } from "@/lib/saml-http";
 import { adminExists } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ sso?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ sso?: string; local?: string }> }) {
   const t = await getT();
-  const { sso } = await searchParams;
+  const { sso, local } = await searchParams;
   const samlCfg = loadSamlConfig();
   const saml = samlReady(samlCfg);
   if (!adminExists()) redirect("/setup");
   const brand = loadBranding();
+  // Seamless sign-on: go straight to the identity provider, unless the user just logged out, SSO failed, or the local form was asked for
+  if (saml && samlCfg?.autoSignIn && !sso && !local && (await cookies()).get(MANUAL_COOKIE)?.value !== "1") redirect("/saml/login");
   return (
     <div className="mx-auto mt-24 max-w-sm px-4">
       <div className="mb-4 flex flex-col items-center gap-3">

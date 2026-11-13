@@ -302,6 +302,21 @@ describe("other identity providers (Entra ID, Okta, Keycloak): presets, claims a
     assert.equal(loadSamlConfig(db)?.nameIdFormat, "", "stored garbage falls back to none; old configs without the field work");
   });
 
+  it("seamless sign-on is off by default, saved when enabled, and old configs without the field stay off", () => {
+    const base = { ...EMPTY_SAML, enabled: false };
+    const on = parseSamlInput({ ...base, autoSignIn: true });
+    assert.ok(on.ok && on.config.autoSignIn === true);
+    const off = parseSamlInput({ ...base });
+    assert.ok(off.ok && off.config.autoSignIn === false);
+    const db = openDb(":memory:");
+    saveSamlConfig({ ...EMPTY_SAML, autoSignIn: true }, db);
+    assert.equal(loadSamlConfig(db)?.autoSignIn, true);
+    db.prepare("UPDATE settings SET value = ? WHERE key = 'saml'").run(JSON.stringify({ buttonLabel: "x" }));
+    assert.equal(loadSamlConfig(db)?.autoSignIn, false);
+    db.prepare("UPDATE settings SET value = ? WHERE key = 'saml'").run(JSON.stringify({ autoSignIn: "yes" }));
+    assert.equal(loadSamlConfig(db)?.autoSignIn, false, "only a real true counts");
+  });
+
   it("an error status from any provider is explained without naming only ADFS", async () => {
     const cache = new DbCacheProvider(openDb(":memory:"));
     const id = requestIdFrom(await startLogin(cfg, "n./x", cache));

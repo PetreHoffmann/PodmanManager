@@ -141,6 +141,15 @@ Checkliste, wenn Ihr Anbieter nicht oben steht:
 5. Verlangt der Anbieter ein NameID-Format, bei *Angefordertes NameID-Format* eintragen.
 6. *Audience* der Assertion muss die Entity-ID des Masters sein, *Recipient* die ACS-Adresse, der *Issuer* die Entity-ID aus den Anbieter-Metadaten.
 
+## Nahtlose Anmeldung (Seamless Sign-on, optional)
+
+In der Registerkarte „SAML“ lässt sich **Nahtlose Anmeldung** einschalten (Voreinstellung: aus). Dann erscheint die Anmeldeseite für Besucher ohne Sitzung gar nicht erst: der Master leitet sofort zum Identitätsanbieter, und nach der Anmeldung landet der Benutzer direkt im Dashboard (bei Domänen-Rechnern mit Windows-Anmeldung oft ohne jede Eingabe).
+
+- **Nach „Abmelden“** wird die Anmeldeseite gezeigt (kein sofortiges Wiederanmelden). Das gilt, bis man sich per SSO-Knopf neu anmeldet oder den Browser schließt; danach ist wieder alles nahtlos. Der SSO-Knopf nutzt nach dem Abmelden weiterhin [ForceAuthn](#abmelden).
+- **Schlägt SSO fehl** (Anbieter nicht erreichbar, Konto in keiner Gruppe, ungültige Antwort), erscheint die Anmeldeseite mit der Fehlermeldung. Es gibt keine Weiterleitungsschleife.
+- **Lokales Administratorkonto:** `https://master.example.com/login?local=1` zeigt immer die Anmeldeseite mit dem Formular. Merken Sie sich diese Adresse, bevor Sie die Option einschalten; sie ist der Weg zurück, falls der Anbieter ausfällt.
+- Läuft die Sitzung nach 8 Stunden ab, meldet der Master den Benutzer (wenn der Anbieter noch eine Sitzung hat) ohne Eingabe wieder an.
+
 ## Agent-Gruppen zuordnen
 
 Unter *Agent-Gruppen* bekommt jede Gruppe das Feld **SAML-Gruppe** (z. B. `CORP\Team-A`). Eine Gruppe braucht eine **AD-Gruppe** (für LDAP) und/oder eine **SAML-Gruppe** (für SSO); beide dürfen gesetzt sein. Wer in mehreren Gruppen ist, sieht die Agents aller Gruppen.

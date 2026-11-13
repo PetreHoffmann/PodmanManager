@@ -35,13 +35,15 @@ export interface SamlConfig {
   buttonLabel: string;
   /** NameID format to request (one of NAMEID_FORMATS); empty = none */
   nameIdFormat: string;
+  /** seamless sign-on: visitors who are not signed in go straight to the identity provider (the login page stays reachable after a logout and at /login?local=1) */
+  autoSignIn: boolean;
 }
 
 export const MAX_BUTTON_LABEL = 60;
 
 export const EMPTY_SAML: SamlConfig = {
   enabled: false, publicUrl: "", idpEntityId: "", idpSsoUrl: "", idpCert: "",
-  usernameClaim: DEFAULT_USERNAME_CLAIM, groupClaim: DEFAULT_GROUP_CLAIM, adminGroup: "", buttonLabel: "", nameIdFormat: "",
+  usernameClaim: DEFAULT_USERNAME_CLAIM, groupClaim: DEFAULT_GROUP_CLAIM, adminGroup: "", buttonLabel: "", nameIdFormat: "", autoSignIn: false,
 };
 
 export function loadSamlConfig(db: DatabaseSync = getDb()): SamlConfig | null {
@@ -56,6 +58,7 @@ export function loadSamlConfig(db: DatabaseSync = getDb()): SamlConfig | null {
       usernameClaim: typeof o.usernameClaim === "string" ? o.usernameClaim : DEFAULT_USERNAME_CLAIM,
       groupClaim: str(o.groupClaim) || DEFAULT_GROUP_CLAIM, adminGroup: str(o.adminGroup), buttonLabel: normalizeButtonLabel(str(o.buttonLabel)),
       nameIdFormat: (NAMEID_FORMATS as readonly string[]).includes(str(o.nameIdFormat)) ? str(o.nameIdFormat) : "",
+      autoSignIn: o.autoSignIn === true,
     };
   } catch {
     return null;
@@ -156,7 +159,7 @@ export function parseSamlInput(input: SamlConfig): SamlParseResult {
   if ([...buttonLabel].length > MAX_BUTTON_LABEL) return { ok: false, error: "err.samlButtonLabel" };
   const nameIdFormat = (input.nameIdFormat ?? "").trim();
   if (!(NAMEID_FORMATS as readonly string[]).includes(nameIdFormat)) return { ok: false, error: "err.samlNameId" };
-  const config: SamlConfig = { enabled: input.enabled, publicUrl, idpEntityId, idpSsoUrl, idpCert: certs.join("\n"), usernameClaim, groupClaim, adminGroup, buttonLabel, nameIdFormat };
+  const config: SamlConfig = { enabled: input.enabled, publicUrl, idpEntityId, idpSsoUrl, idpCert: certs.join("\n"), usernameClaim, groupClaim, adminGroup, buttonLabel, nameIdFormat, autoSignIn: input.autoSignIn === true };
   if (config.enabled && !samlReady(config)) return { ok: false, error: !publicUrl ? "err.samlPublicUrl" : !idpSsoUrl ? "err.samlSsoUrl" : !idpEntityId ? "err.samlEntityId" : "err.samlCert" };
   return { ok: true, config };
 }
