@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
   const access = resolveSamlAccess(cfg, r.groups, listGroups().filter((g) => g.saml_group).map((g) => ({ id: g.id, name: g.name, samlGroup: g.saml_group })));
   if (!access.ok) {
-    console.warn(`saml login denied: ${r.username}: no matching group (received: ${r.groups.slice(0, 20).join(", ").slice(0, 300) || "none"})`);
+    console.warn(`saml login denied: ${r.username}${r.displayName ? ` (${r.displayName})` : ""}: no matching group (received: ${r.groups.slice(0, 20).join(", ").slice(0, 300) || "none"})`);
     return htmlRedirect("/login?sso=denied");
   }
   jar.delete({ name: MANUAL_COOKIE, path: "/" });

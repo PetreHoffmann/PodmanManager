@@ -70,8 +70,18 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
         await startSession({ username: r.username, kind: "ldap", access: r.admin ? "all" : "groups", groupIds: r.groupIds, displayName: r.displayName });
         redirect("/");
       }
-      if (r.reason === "unavailable") return { ok: false, message: `${t("msg.ldapUnavailable")} (${errText(t, r.code)})` };
-      console.warn(`ldap login denied: ${r.reason}`);
+      if (r.reason === "unavailable") {
+        console.warn(`ldap login failed: directory unavailable (${r.code})`);
+        return { ok: false, message: `${t("msg.ldapUnavailable")} (${errText(t, r.code)})` };
+      }
+      // not_member: the user was found in the directory, so the name is the directory's (never what was typed, which may be a mistyped password)
+      console.warn(
+        r.reason === "not_member"
+          ? `ldap login denied: ${r.displayName ?? r.username}: not in the administrators group or in a group assigned to an agent group (no access)`
+          : r.reason === "invalid"
+            ? "ldap login denied: unknown user or wrong password"
+            : `ldap login denied: ${r.reason}`,
+      );
     }
   }
   recordLoginFailure(username);

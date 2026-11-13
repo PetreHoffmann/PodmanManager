@@ -35,6 +35,23 @@ describe("display name of LDAP users", () => {
     }
   });
 
+  it("a user who is in no group is reported with the name from the directory (never the typed text), for the log", async () => {
+    const noGroups: ClientFactory = () => ({
+      async startTLS() {},
+      async bind() {},
+      async search(_b, o): Promise<{ searchEntries: LdapEntry[] }> {
+        if (o.filter.includes("1.2.840.113556.1.4.1941")) return { searchEntries: [] };
+        return { searchEntries: [{ dn: "CN=Max,OU=Users,DC=ex,DC=com", sAMAccountName: "MustermannM", displayName: "Max Mustermann" }] };
+      },
+      async unbind() {},
+    });
+    const r = await authenticateLdap(cfg, "mustermannm@ex.example", "pw", [], noGroups);
+    assert.deepEqual(r, { ok: false, reason: "not_member", username: "MustermannM", displayName: "Max Mustermann (MustermannM)" });
+    const none: ClientFactory = () => ({ async startTLS() {}, async bind() {}, async search() { return { searchEntries: [] }; }, async unbind() {} });
+    const u = await authenticateLdap(cfg, "SecretPassw0rd!", "pw", [], none);
+    assert.deepEqual(u, { ok: false, reason: "invalid" }, "an unknown typed name (maybe a mistyped password) is not reported");
+  });
+
   it("formatting: cleaned, bounded, no duplicate when both are the same", () => {
     assert.equal(formatDisplayName("  Eve\u0000  \n Example ", "eve"), "Eve Example (eve)");
     assert.equal(formatDisplayName("eve", "EVE"), "eve");

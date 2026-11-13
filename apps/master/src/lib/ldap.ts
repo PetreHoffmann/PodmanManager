@@ -171,7 +171,9 @@ export interface MappedGroup {
 
 export type LdapAuthResult =
   | { ok: true; username: string; dn: string; admin: boolean; groupIds: number[]; displayName?: string }
-  | { ok: false; reason: "invalid" | "not_member" | "disabled" }
+  | { ok: false; reason: "invalid" | "disabled" }
+  /** the user exists in the directory (found by the filter) but is in none of the groups; `username` is the account name as the directory knows it */
+  | { ok: false; reason: "not_member"; username: string; displayName?: string }
   | { ok: false; reason: "unavailable"; code: LdapErrorCode };
 
 export async function authenticateLdap(
@@ -202,7 +204,10 @@ export async function authenticateLdap(
     if (!admin) {
       for (const g of mapped) if (await isMember(svc, cfg, member, g.dn)) groupIds.push(g.id);
     }
-    if (!admin && groupIds.length === 0) return { ok: false, reason: "not_member" };
+    if (!admin && groupIds.length === 0) {
+      const display = formatDisplayName(attrText(user, cfg.displayAttr), member.account);
+      return { ok: false, reason: "not_member", username: member.account, ...(display ? { displayName: display } : {}) };
+    }
   } catch (e) {
     return { ok: false, reason: "unavailable", code: (e as LdapError).code ?? "LDAP_SEARCH" };
   } finally {
