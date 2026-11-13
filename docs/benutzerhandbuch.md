@@ -59,7 +59,7 @@ Gut zu wissen:
 
 **Abmelden**
 
-Öffnen Sie **Einstellungen** und klicken Sie unten auf **Abmelden**. Das sollten Sie tun, wenn Sie einen Rechner mit anderen teilen.
+Klicken Sie oben rechts in der Navigationsleiste auf **Abmelden** (auf dem Handy im Menü). Das sollten Sie tun, wenn Sie einen Rechner mit anderen teilen.
 
 **Hinweis bei SSO:** Das Abmelden beendet Ihre Sitzung in PodmanManager; Ihre Anmeldung im Firmennetz bleibt bestehen. Nach dem Abmelden verlangt PodmanManager beim nächsten Klick auf **Mit SSO anmelden**, dass Sie sich **erneut anmelden** (Benutzername und Passwort). Haben Sie einen Firmenrechner mit automatischer Windows-Anmeldung, kann das ohne Eingabe gehen, weil Ihr Windows-Konto die Anmeldung übernimmt. Auf einem fremden oder gemeinsam genutzten Rechner melden Sie sich daher zusätzlich vom Windows-Konto bzw. Firmennetz ab und schließen den Browser.
 
@@ -76,9 +76,10 @@ Oben sehen Sie die **Navigationsleiste**. Von dort erreichen Sie alle Bereiche:
 | **Container** | Alle einzelnen Anwendungen. Hier starten, stoppen, neu starten und Logs lesen |
 | **Pods** | Anwendungen, die zusammengehören, als Gruppe |
 | **Images** | Die Programmpakete auf den Rechnern, nur zum Ansehen |
-| **Einstellungen** | Wer Sie sind, was Sie sehen dürfen, Abmelden |
+| **Einstellungen** | Wer Sie sind, was Sie sehen dürfen |
 | **Hilfe** | Öffnet die Projektseite im Internet (in englischer Sprache) |
 | **Über** | Version von PodmanManager und ob eine neuere Version verfügbar ist |
+| **Abmelden** | Beendet Ihre Sitzung |
 | **Flaggen** | Sprache wechseln: Englisch, Deutsch, Rumänisch, Spanisch |
 
 **Wichtig:** Sie sehen nur die Rechner, für die Ihre **Gruppe** freigegeben ist. Das steht auf jeder Seite oben, zum Beispiel: *„Sie sehen nur die Agents Ihrer Gruppen: Team A.“* Fehlt ein Rechner, den Sie erwarten, ist er nicht für Ihre Gruppe freigegeben (siehe [Kapitel 12](#12-wenn-etwas-nicht-klappt)).
@@ -212,7 +213,7 @@ Als Benutzer können Sie Images **nur ansehen**. Löschen und Aufräumen sind Ad
 
 ![Einstellungen](screenshots/handbuch/09-einstellungen.png)
 
-Hier (Registerkarte **Allgemein**) sehen Sie, als wer Sie angemeldet sind, **auf welche Rechner Sie zugreifen dürfen** (Ihre Gruppen) und wie oft PodmanManager die Rechner prüft. Ändern können Sie als Benutzer hier nichts, das ist dem Administrator vorbehalten („Nur der lokale Administrator kann das ändern“). Ihr **Passwort** ändern Sie nicht hier, sondern wie gewohnt im Firmennetz. Unten finden Sie **Abmelden**.
+Hier (Registerkarte **Allgemein**) sehen Sie, als wer Sie angemeldet sind, **auf welche Rechner Sie zugreifen dürfen** (Ihre Gruppen) und wie oft PodmanManager die Rechner prüft. Ändern können Sie als Benutzer hier nichts, das ist dem Administrator vorbehalten („Nur der lokale Administrator kann das ändern“). Ihr **Passwort** ändern Sie nicht hier, sondern wie gewohnt im Firmennetz.
 
 **Über**
 
@@ -230,7 +231,7 @@ Auf dem Handy passt sich die Seite an: Tabellen werden zu **Karten**, und die Na
 
 ![Dashboard auf dem Handy](screenshots/handbuch/12-handy-dashboard.png)
 
-1. Tippen Sie auf den **Menü-Knopf**. Die Liste mit Dashboard, Hosts, Container, Pods, Images, Einstellungen, Hilfe, Über und den Sprach-Flaggen klappt auf.
+1. Tippen Sie auf den **Menü-Knopf**. Die Liste mit Dashboard, Hosts, Container, Pods, Images, Einstellungen, Hilfe, Über, Abmelden und den Sprach-Flaggen klappt auf.
 2. Tippen Sie auf einen Eintrag. Das Menü schließt sich von selbst. Ein weiterer Tipp auf den Knopf (jetzt ein **X**) schließt es ebenfalls.
 
 ![Menü auf dem Handy](screenshots/handbuch/13-handy-menue.png)

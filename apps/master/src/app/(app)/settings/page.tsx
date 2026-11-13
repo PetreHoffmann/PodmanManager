@@ -1,7 +1,7 @@
 import Link from "next/link";
 import AppLogs from "@/components/AppLogs";
 import ActionForm from "@/components/ActionForm";
-import { appLogsAction, brandingAction, samlAction, samlImportAction, changePasswordAction, hiddenAction, ldapAction, logoutAction } from "@/app/actions";
+import { appLogsAction, brandingAction, samlAction, samlImportAction, changePasswordAction, hiddenAction, ldapAction } from "@/app/actions";
 import { getConfig } from "@/lib/config";
 import { DEFAULT_FILTER } from "@/lib/ldap";
 import { EMPTY_LDAP, loadLdapConfig } from "@/lib/ldap-config";
@@ -131,7 +131,6 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
             <p className="card text-sm text-slate-400">{t("set.localOnly")}</p>
           )}
 
-          <form action={logoutAction}><button className="btn">{t("set.logout")}</button></form>
         </div>
       )}
 

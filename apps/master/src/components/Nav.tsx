@@ -8,6 +8,7 @@ import { useT } from "./I18nProvider";
 import AboutDialog from "./AboutDialog";
 import LangSelect from "./LangSelect";
 import { APP_NAME, REPO_URL } from "@/lib/brand";
+import { logoutAction } from "@/app/actions";
 
 const ITEMS: { href: string; key: Key }[] = [
   { href: "/", key: "nav.dashboard" },
@@ -71,6 +72,11 @@ export default function Nav({ version, brand }: { version: string; brand: { text
               {t("nav.help")}
             </a>
             <AboutDialog version={version} />
+            <form action={logoutAction}>
+              <button type="submit" className="rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white md:py-1.5">
+                {t("set.logout")}
+              </button>
+            </form>
             <LangSelect className="ml-2" />
           </div>
         </div>
