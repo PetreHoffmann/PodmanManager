@@ -196,6 +196,25 @@ Unter **Einstellungen → Registerkarte „Zugriff“ (versteckte Container)** (
 ## Firewall
 Port 8080 nur für berechtigte Netze freigeben, nie ins Internet (siehe [Sicherheit](security.md)).
 
+## Zwei-Faktor-Anmeldung (TOTP)
+
+Der lokale Administrator `admin` und lokale Benutzer können unter *Einstellungen → Allgemein* einen zweiten Faktor einrichten: nach dem Passwort folgt ein 6-stelliger Code aus einer Authenticator-App (Aegis, Google Authenticator, Microsoft Authenticator, 2FAS u. a.; Standard-TOTP, SHA-1, 30 Sekunden). Der Master zeigt dazu einen QR-Code, den er selbst erzeugt (nichts geht an einen Dienst im Internet), und den Schlüssel zur Handeingabe. Aktiv wird der zweite Faktor erst, wenn ein gültiger Code eingegeben wurde. Dann erscheinen **10 Wiederherstellungscodes**, die nur einmal angezeigt werden und je einmal gelten (gespeichert wird nur ein Hash).
+
+- Ein Code gilt nur einmal; eine Abweichung der Uhr von einem Schritt (30 s) wird toleriert. Fehlversuche zählen in dieselbe Sperre wie Passwörter (5 pro Minute und Konto); nach fünf falschen Codes endet die Anmeldung.
+- Ausschalten und neue Wiederherstellungscodes verlangen das aktuelle Passwort. Das TOTP-Geheimnis liegt verschlüsselt (AES-256-GCM mit `MASTER_SECRET_KEY`) in der Datenbank.
+- *Zweiten Faktor für lokale Konten verlangen* (nur Administratoren): Konten ohne zweiten Faktor müssen ihn beim nächsten Seitenaufruf einrichten, ausschalten ist dann gesperrt. LDAP- und SSO-Konten sind nicht betroffen, dort liegt der zweite Faktor beim Verzeichnis bzw. Identitätsanbieter.
+- Administratoren setzen den zweiten Faktor eines lokalen Benutzers im Reiter *Lokale Benutzer* zurück.
+- Im Audit-Log stehen Einschalten, Ausschalten, neue Codes, Zurücksetzen sowie bei der Anmeldung „mit zweitem Faktor“ bzw. „mit Wiederherstellungscode“.
+- Die Daten sind Teil der Datenbank-Sicherung. Passt nach einem Restore der `MASTER_SECRET_KEY` nicht, sind nur noch die Wiederherstellungscodes (oder der Notweg) nutzbar.
+
+**Notweg (Gerät und Codes verloren):** Auf dem Host des Masters setzt ein Skript im Image den zweiten Faktor eines Kontos zurück, ohne Passwort (wer im Container Befehle ausführen darf, kontrolliert die Datenbank ohnehin):
+
+```bash
+podman exec podmanmanager-master node /app/reset-2fa.mjs admin
+```
+
+Danach genügt das Passwort, und der zweite Faktor lässt sich neu einrichten. Der Eingriff steht im Audit-Log (Benutzer „host“).
+
 ## Auslastung der Container (Metriken)
 
 Auf der Container-Detailseite (laufende Container) zeigt die Karte *Auslastung* Verläufe für CPU, Arbeitsspeicher (mit Limit), Netzwerk (ein/aus) und Platte (lesen/schreiben); die Container-Liste zeigt CPU und RAM des letzten Messwerts. Der Master fragt dafür alle `METRICS_INTERVAL` Sekunden (Standard `30`, 5 bis 3600) pro Host einmal die Zähler aller laufenden Container ab (`GET /api/v1/stats` am Agent) und rechnet die Raten aus zwei Messungen: CPU in Prozent **eines Kerns** (100 % = ein voller Kern; bei mehreren Kernen sind mehr als 100 % möglich), Netzwerk und Platte in Byte pro Sekunde.

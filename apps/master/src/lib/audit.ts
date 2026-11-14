@@ -9,7 +9,7 @@ export const AUDIT_ACTIONS = [
   "image.delete", "image.prune", "volume.delete", "volume.prune", "network.delete", "network.prune",
   "host.add", "host.remove", "host.enable", "host.disable", "host.update", "master.update",
   "group.save", "group.delete", "user.save", "user.delete", "ldap.save", "saml.save", "branding.save", "hidden.save",
-  "backup.download", "backup.restore",
+  "backup.download", "backup.restore", "mfa.enable", "mfa.disable", "mfa.codes", "mfa.reset",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export const isAuditAction = (v: unknown): v is AuditAction => typeof v === "string" && (AUDIT_ACTIONS as readonly string[]).includes(v);
@@ -18,7 +18,7 @@ export const isAuditAction = (v: unknown): v is AuditAction => typeof v === "str
 export const DETAIL_KEYS = {
   "unknown user": "unknown", "wrong password": "wrongpw", "disabled": "disabled", "no agent group": "nogroup", "directory unavailable": "unavailable",
   "unknown user or wrong password": "unknownorwrong", "host tokens not readable": "tokens", "invalid file": "invalidfile", "error": "error",
-  "created": "created", "changed": "changed", "enabled": "enabled", "reset": "reset", "metadata import": "metaimport",
+  "created": "created", "invalid code": "invalidcode", "second factor": "secondfactor", "recovery code": "recoverycode", "changed": "changed", "enabled": "enabled", "reset": "reset", "metadata import": "metaimport",
 } as const;
 
 export interface Actor { username: string; kind: string }

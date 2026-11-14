@@ -71,6 +71,19 @@ CREATE TABLE IF NOT EXISTS audit (
   ip TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS audit_ts ON audit (ts);
+CREATE TABLE IF NOT EXISTS mfa (
+  username TEXT PRIMARY KEY COLLATE NOCASE,
+  totp_secret_enc TEXT NOT NULL,
+  last_step INTEGER NOT NULL DEFAULT 0,
+  recovery TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS pending_logins (
+  token_hash TEXT PRIMARY KEY,
+  username TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS saml_cache (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL,

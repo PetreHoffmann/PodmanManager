@@ -67,6 +67,7 @@ function statusFor(e: PodmanError): number {
 /** The routes of the agent API without any HTTP: authentication, rate limiting and body handling belong to the caller. */
 export function createAgentHandler(deps: HandlerDeps): AgentHandler {
   const { podman, log, updater, peer } = deps;
+  let statsUnavailableLogged = false;
   return async (method, pathname, query) => {
     try {
     const segs = pathname.split("/").filter(Boolean);
@@ -215,7 +216,9 @@ export function createAgentHandler(deps: HandlerDeps): AgentHandler {
       const where = `${method || "?"} ${pathname.slice(0, 120)}`;
       if (e instanceof PodmanError) {
         const up = e.upstreamStatus ? ` (Podman HTTP ${e.upstreamStatus})` : "";
-        log.error(`podman error ${e.code} on ${where}${up}: ${e.message}`.slice(0, 500));
+        // a host without cgroup v2 answers every statistics request the same way: say so once, not every 30 seconds
+        if (e.code !== "STATS_UNAVAILABLE" || !statsUnavailableLogged) log.error(`podman error ${e.code} on ${where}${up}: ${e.message}`.slice(0, 500));
+        if (e.code === "STATS_UNAVAILABLE") statsUnavailableLogged = true;
         return failR(statusFor(e), e.code, e.message);
       }
       log.error(`internal error on ${where}: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500));

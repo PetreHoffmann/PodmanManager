@@ -69,3 +69,20 @@ describe("container statistics", () => {
     assert.equal((await get("/stats/x")).status, 404);
   });
 });
+
+describe("statistics on a host without cgroup v2", () => {
+  it("logs the refusal once, not for every request", async () => {
+    const lines: string[] = [];
+    const fake = await startFakePodman((req, res) => {
+      if ((req.url ?? "").startsWith("/libpod/containers/stats")) return jsonRes(res, 409, { message: "container stats resource only available for cgroup v2", response: 409 });
+      jsonRes(res, 404, { message: "x" });
+    });
+    const { createAgentHandler } = await import("../src/api/handler.js");
+    const { PodmanClient } = await import("../src/podman/client.js");
+    const { PodmanService } = await import("../src/podman/service.js");
+    const handle = createAgentHandler({ agentId: "a", podman: new PodmanService(new PodmanClient(fake.socketPath)), log: { info() {}, error: (m: string) => void lines.push(m) } });
+    for (let i = 0; i < 3; i++) assert.equal((await handle("GET", "/api/v1/stats", new URLSearchParams())).status, 409);
+    await fake.close();
+    assert.equal(lines.length, 1, lines.join("\n"));
+  });
+});

@@ -8,4 +8,6 @@ export interface SessionInfo {
   displayName?: string;
   /** local user must choose a new password before anything else */
   mustChange?: boolean;
+  /** the administrator requires a second factor of local accounts and this one has none yet */
+  mustMfa?: boolean;
 }

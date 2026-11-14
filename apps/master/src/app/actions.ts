@@ -19,7 +19,12 @@ import { loadIdpMetadata } from "@/lib/saml-metadata";
 import { LdapError, authenticateLdap, testLdap, type MappedGroup } from "@/lib/ldap";
 import { getUserByName, authenticateUser, checkUserPassword, deleteUser, listUsers, saveUser, sessionFor, setUserPassword } from "@/lib/users";
 import { audit } from "@/lib/audit";
+import { MFA_COOKIE, createPending, disableMfa, enableMfa, endPending, failPending, generateSecret, getPending, hasMfa, mfaRequired, regenerateRecovery, setMfaRequired, verifySecondFactor } from "@/lib/mfa";
+import { otpauthUrl } from "@/lib/totp";
+import { qrDataUri } from "@/lib/qr";
+import { APP_NAME } from "@/lib/brand";
 import { allowedAgentIds, deleteGroup, listGroups, mayAccessAgent, saveGroup } from "@/lib/groups";
+import type { SessionInfo } from "@/lib/session-types";
 import {
   COOKIE, LOCAL_ADMIN, LOCAL_SESSION, adminExists, checkAdminPassword, endSession, getSession, loginBlocked, recordLoginFailure,
   requireAuth, setAdminPassword, startSession,
@@ -52,6 +57,17 @@ export async function setupAction(_: FormState, fd: FormData): Promise<FormState
   redirect("/");
 }
 
+/** Password was right: with a second factor the sign-in waits for the code, otherwise the session starts. Never returns. */
+async function passwordAccepted(info: SessionInfo): Promise<never> {
+  if (hasMfa(info.username)) {
+    (await cookies()).set(MFA_COOKIE, createPending(info.username), { httpOnly: true, sameSite: "strict", path: "/", maxAge: 300 });
+    redirect("/login/2fa");
+  }
+  await startSession(info);
+  await audit(info, "login.ok");
+  redirect("/");
+}
+
 export async function loginAction(_: FormState, fd: FormData): Promise<FormState> {
   if (!adminExists()) redirect("/setup");
   const t = await getT();
@@ -60,21 +76,13 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
   if (loginBlocked(username)) return { ok: false, message: t("msg.tooMany") };
 
   if (username.toLowerCase() === LOCAL_ADMIN) {
-    if (await checkAdminPassword(password)) {
-      await startSession(LOCAL_SESSION);
-      await audit(LOCAL_SESSION, "login.ok");
-      redirect("/");
-    }
+    if (await checkAdminPassword(password)) return passwordAccepted(LOCAL_SESSION);
     console.warn(`local login denied: wrong password for "${LOCAL_ADMIN}"`);
     await audit({ username: LOCAL_ADMIN, kind: "local" }, "login.fail", { ok: false, detail: "wrong password" });
   } else if (getUserByName(username)) {
     // a local user of that name never falls through to LDAP
     const r = await authenticateUser(username, password);
-    if (r.ok) {
-      await startSession(sessionFor(r.user));
-      await audit(sessionFor(r.user), "login.ok");
-      redirect("/");
-    }
+    if (r.ok) return passwordAccepted(sessionFor(r.user));
     if (r.reason === "no_group") {
       console.warn(`local login denied: user "${username}": not an administrator and in no agent group (no access)`);
       await audit({ username, kind: "user" }, "login.denied", { ok: false, detail: "no agent group" });
@@ -330,6 +338,15 @@ export async function userAction(_: FormState, fd: FormData): Promise<FormState>
     await audit(session, "user.delete", { target: uname });
     revalidatePath("/settings");
     return { ok: true, message: t("msg.userDeleted") };
+  }
+
+  if (s(fd, "intent") === "resetMfa") {
+    const uname = id === undefined ? undefined : listUsers().find((u) => u.id === id)?.username;
+    if (!uname) return { ok: false, message: t("err.userNotFound") };
+    disableMfa(uname);
+    await audit(session, "mfa.reset", { target: uname });
+    revalidatePath("/settings");
+    return { ok: true, message: t("mfa.resetDone") };
   }
 
   const groupIds = fd.getAll("groups").map((v) => Number(v)).filter((n) => Number.isInteger(n) && n > 0);
@@ -751,4 +768,128 @@ export async function volumesPruneAction(agentIds: number[]): Promise<{ ok: bool
 }
 export async function networksPruneAction(agentIds: number[]): Promise<{ ok: boolean; message: string }> {
   return resourcePrune("network", agentIds);
+}
+
+/** Second step of the sign-in: authenticator code or recovery code. */
+export async function mfaLoginAction(_: FormState, fd: FormData): Promise<FormState> {
+  const t = await getT();
+  const jar = await cookies();
+  const token = jar.get(MFA_COOKIE)?.value;
+  const pending = getPending(token);
+  if (!token || !pending) {
+    jar.delete(MFA_COOKIE);
+    redirect("/login");
+  }
+  const name = pending.username;
+  const actor = { username: name, kind: name.toLowerCase() === LOCAL_ADMIN ? "local" : "user" };
+  if (loginBlocked(name)) return { ok: false, message: t("msg.tooMany") };
+  const r = verifySecondFactor(name, s(fd, "code"));
+  if (!r.ok) {
+    recordLoginFailure(name);
+    const n = failPending(token);
+    console.warn(`second factor denied for "${name}" (attempt ${n})`);
+    await audit(actor, "login.fail", { ok: false, detail: "invalid code" });
+    if (n >= 5) {
+      jar.delete(MFA_COOKIE);
+      return { ok: false, message: t("msg.mfaExpired") };
+    }
+    return { ok: false, message: t("msg.mfaInvalid") };
+  }
+  // the account may have changed since the password step
+  let info: SessionInfo | null = null;
+  if (name.toLowerCase() === LOCAL_ADMIN) info = LOCAL_SESSION;
+  else {
+    const u = getUserByName(name);
+    if (u && u.enabled && (u.isAdmin || u.groupIds.length > 0)) info = sessionFor(u);
+  }
+  endPending(token);
+  jar.delete(MFA_COOKIE);
+  if (!info) redirect("/login");
+  await startSession(info);
+  await audit(info, "login.ok", { detail: r.via === "recovery" ? "recovery code" : "second factor" });
+  redirect("/");
+}
+
+/** Cancels the second step (back to the sign-in page). */
+export async function mfaCancelAction(): Promise<void> {
+  const jar = await cookies();
+  const token = jar.get(MFA_COOKIE)?.value;
+  if (token) endPending(token);
+  jar.delete(MFA_COOKIE);
+  redirect("/login");
+}
+
+type Own = { session: SessionInfo; t: Awaited<ReturnType<typeof getT>> };
+
+/** Only the built-in admin and local users have a second factor here (LDAP/SSO: the directory or identity provider). */
+async function ownAccount(): Promise<Own | { error: string }> {
+  const session = await requireAuth({ allowMustChange: true });
+  const t = await getT();
+  if (session.kind !== "local" && session.kind !== "user") return { error: t("set.pwExternal") };
+  return { session, t };
+}
+
+async function ownPasswordOk(session: SessionInfo, pw: string): Promise<boolean> {
+  if (loginBlocked(session.username)) return false;
+  const ok = await (session.kind === "user" ? checkUserPassword(session.username, pw) : checkAdminPassword(pw));
+  if (!ok) recordLoginFailure(session.username);
+  return ok;
+}
+
+export type MfaBegin = { ok: true; secret: string; qr: string } | { ok: false; message: string };
+
+/** Step 1 of the set-up: a fresh key and its QR code (nothing is stored before the code is confirmed). */
+export async function mfaBeginAction(): Promise<MfaBegin> {
+  const o = await ownAccount();
+  if ("error" in o) return { ok: false, message: o.error };
+  if (hasMfa(o.session.username)) return { ok: false, message: o.t("msg.forbidden") };
+  const secret = generateSecret();
+  return { ok: true, secret, qr: qrDataUri(otpauthUrl(secret, o.session.username, APP_NAME)) };
+}
+
+/** Step 2: the code from the app proves it works; the recovery codes come back once. */
+export async function mfaConfirmAction(secret: string, code: string): Promise<{ ok: true; codes: string[] } | { ok: false; message: string }> {
+  const o = await ownAccount();
+  if ("error" in o) return { ok: false, message: o.error };
+  if (loginBlocked(o.session.username)) return { ok: false, message: o.t("msg.tooMany") };
+  const r = enableMfa(o.session.username, String(secret ?? ""), String(code ?? ""));
+  if (!r.ok) {
+    if (r.reason === "code") recordLoginFailure(o.session.username);
+    return { ok: false, message: o.t(r.reason === "code" ? "mfa.invalidCode" : "msg.forbidden") };
+  }
+  await audit(o.session, "mfa.enable");
+  revalidatePath("/settings");
+  return { ok: true, codes: r.recoveryCodes };
+}
+
+export async function mfaDisableAction(password: string): Promise<{ ok: boolean; message: string }> {
+  const o = await ownAccount();
+  if ("error" in o) return { ok: false, message: o.error };
+  if (mfaRequired()) return { ok: false, message: o.t("mfa.noDisable") };
+  if (!(await ownPasswordOk(o.session, String(password ?? "")))) return { ok: false, message: o.t("msg.curWrong") };
+  disableMfa(o.session.username);
+  await audit(o.session, "mfa.disable");
+  revalidatePath("/settings");
+  return { ok: true, message: o.t("mfa.disabled") };
+}
+
+export async function mfaCodesAction(password: string): Promise<{ ok: true; codes: string[] } | { ok: false; message: string }> {
+  const o = await ownAccount();
+  if ("error" in o) return { ok: false, message: o.error };
+  if (!(await ownPasswordOk(o.session, String(password ?? "")))) return { ok: false, message: o.t("msg.curWrong") };
+  const codes = regenerateRecovery(o.session.username);
+  if (!codes) return { ok: false, message: o.t("msg.forbidden") };
+  await audit(o.session, "mfa.codes");
+  revalidatePath("/settings");
+  return { ok: true, codes };
+}
+
+/** Require a second factor of all local accounts. Administrators only. */
+export async function mfaPolicyAction(_: FormState, fd: FormData): Promise<FormState> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  setMfaRequired(s(fd, "required") === "on");
+  revalidatePath("/settings");
+  return { ok: true, message: t("mfa.policySaved") };
 }
