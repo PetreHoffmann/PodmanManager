@@ -14,12 +14,13 @@ const db = new DatabaseSync(path);
 db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;");
 try {
   const r = db.prepare("DELETE FROM mfa WHERE username = ? COLLATE NOCASE").run(user);
+  const pk = db.prepare("DELETE FROM passkeys WHERE username = ? COLLATE NOCASE").run(user);
   db.prepare("DELETE FROM pending_logins WHERE username = ? COLLATE NOCASE").run(user);
-  if (Number(r.changes) === 0) {
-    console.log(`"${user}" has no second factor set up; nothing changed.`);
+  if (Number(r.changes) === 0 && Number(pk.changes) === 0) {
+    console.log(`"${user}" has no second factor or passkey; nothing changed.`);
   } else {
     db.prepare("INSERT INTO audit (ts, username, kind, action, target) VALUES (?, 'host', 'cli', 'mfa.reset', ?)").run(new Date().toISOString(), user);
-    console.log(`Second factor of "${user}" removed. It can sign in with the password and set up a new one.`);
+    console.log(`Second factor and passkeys of "${user}" removed. It can sign in with the password and set up new ones.`);
   }
 } catch (e) {
   console.error(`Failed: ${e instanceof Error ? e.message : String(e)}`);

@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, agentVolumeDelete, agentVolumes, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
@@ -19,6 +19,8 @@ import { loadIdpMetadata } from "@/lib/saml-metadata";
 import { LdapError, authenticateLdap, testLdap, type MappedGroup } from "@/lib/ldap";
 import { getUserByName, authenticateUser, checkUserPassword, deleteUser, listUsers, saveUser, sessionFor, setUserPassword } from "@/lib/users";
 import { audit } from "@/lib/audit";
+import { MAX_PASSKEYS, addPasskey, consumeChallenge, deleteAllPasskeys, deletePasskey, findPasskey, issueChallenge, listPasskeys, recordPasskeyUse, userHandleFor } from "@/lib/passkeys";
+import { WebAuthnError, b64u, fromB64u, parseClientData, verifyAssertion, verifyRegistration } from "@/lib/webauthn";
 import { MFA_COOKIE, createPending, disableMfa, enableMfa, endPending, failPending, generateSecret, getPending, hasMfa, mfaRequired, regenerateRecovery, setMfaRequired, verifySecondFactor } from "@/lib/mfa";
 import { otpauthUrl } from "@/lib/totp";
 import { qrDataUri } from "@/lib/qr";
@@ -344,6 +346,7 @@ export async function userAction(_: FormState, fd: FormData): Promise<FormState>
     const uname = id === undefined ? undefined : listUsers().find((u) => u.id === id)?.username;
     if (!uname) return { ok: false, message: t("err.userNotFound") };
     disableMfa(uname);
+    deleteAllPasskeys(uname);
     await audit(session, "mfa.reset", { target: uname });
     revalidatePath("/settings");
     return { ok: true, message: t("mfa.resetDone") };
@@ -892,4 +895,137 @@ export async function mfaPolicyAction(_: FormState, fd: FormData): Promise<FormS
   setMfaRequired(s(fd, "required") === "on");
   revalidatePath("/settings");
   return { ok: true, message: t("mfa.policySaved") };
+}
+
+// ---- Passkeys (WebAuthn) ----
+
+/** Relying party id and origin as the browser sees them (a proxy must pass Host/X-Forwarded-Host and X-Forwarded-Proto). IP addresses cannot be relying party ids. */
+async function webauthnContext(): Promise<{ rpId: string; origin: string } | null> {
+  const h = await headers();
+  const host = (h.get("x-forwarded-host") ?? h.get("host") ?? "").split(",")[0]!.trim();
+  const hostname = host.replace(/:\d+$/, "");
+  if (!hostname || /^[\d.]+$/.test(hostname) || hostname.includes(":") || hostname.includes("[")) return null;
+  const proto = h.get("x-forwarded-proto")?.split(",")[0]!.trim() || (hostname === "localhost" ? "http" : "https");
+  if (proto !== "http" && proto !== "https") return null;
+  return { rpId: hostname, origin: `${proto}://${host}` };
+}
+
+export interface PasskeyCreateOptions {
+  challenge: string;
+  rp: { id: string; name: string };
+  user: { id: string; name: string; displayName: string };
+  pubKeyCredParams: { type: "public-key"; alg: number }[];
+  authenticatorSelection: { residentKey: "required"; requireResidentKey: true; userVerification: "required" };
+  attestation: "none";
+  timeout: number;
+  excludeCredentials: { type: "public-key"; id: string }[];
+}
+
+/** Step 1 of adding a passkey to the signed-in account. */
+export async function passkeyRegisterOptionsAction(): Promise<{ ok: true; options: PasskeyCreateOptions } | { ok: false; message: string }> {
+  const o = await ownAccount();
+  if ("error" in o) return { ok: false, message: o.error };
+  const ctx = await webauthnContext();
+  if (!ctx) return { ok: false, message: o.t("pk.noHost") };
+  const existing = listPasskeys(o.session.username);
+  if (existing.length >= MAX_PASSKEYS) return { ok: false, message: o.t("pk.limit") };
+  return {
+    ok: true,
+    options: {
+      challenge: issueChallenge("register", o.session.username),
+      rp: { id: ctx.rpId, name: APP_NAME },
+      user: { id: userHandleFor(o.session.username), name: o.session.username, displayName: o.session.username },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+      authenticatorSelection: { residentKey: "required", requireResidentKey: true, userVerification: "required" },
+      attestation: "none",
+      timeout: 120_000,
+      excludeCredentials: existing.map((p) => ({ type: "public-key" as const, id: p.credentialId })),
+    },
+  };
+}
+
+/** Step 2: the browser's answer; stores the passkey when everything checks out. */
+export async function passkeyRegisterVerifyAction(resp: { id: string; clientDataJSON: string; attestationObject: string }, name: string): Promise<{ ok: boolean; message: string }> {
+  const o = await ownAccount();
+  if ("error" in o) return { ok: false, message: o.error };
+  const ctx = await webauthnContext();
+  if (!ctx) return { ok: false, message: o.t("pk.noHost") };
+  try {
+    const clientDataJSON = fromB64u(String(resp.clientDataJSON ?? ""));
+    const challenge = parseClientData(clientDataJSON).challenge;
+    const ch = consumeChallenge(challenge, "register");
+    if (!ch || ch.username.toLowerCase() !== o.session.username.toLowerCase()) throw new WebAuthnError("challenge unknown, used or expired");
+    const reg = verifyRegistration({ clientDataJSON, attestationObject: fromB64u(String(resp.attestationObject ?? "")) }, { rpId: ctx.rpId, origin: ctx.origin, challenge });
+    if (b64u(reg.credentialId) !== resp.id) throw new WebAuthnError("credential id mismatch");
+    const r = addPasskey(o.session.username, reg, String(name ?? ""), userHandleFor(o.session.username));
+    if (!r.ok) return { ok: false, message: o.t(r.reason === "limit" ? "pk.limit" : "pk.exists") };
+    await audit(o.session, "passkey.add", { target: String(name ?? "").slice(0, 64) });
+    revalidatePath("/settings");
+    return { ok: true, message: o.t("pk.added") };
+  } catch (e) {
+    const msg = e instanceof WebAuthnError ? e.message : "invalid response";
+    console.warn(`passkey registration refused for "${o.session.username}": ${msg}`);
+    return { ok: false, message: o.t("pk.failed", { msg }) };
+  }
+}
+
+export async function passkeyDeleteAction(id: number): Promise<{ ok: boolean; message: string }> {
+  const o = await ownAccount();
+  if ("error" in o) return { ok: false, message: o.error };
+  const row = listPasskeys(o.session.username).find((p) => p.id === id);
+  if (!row || !deletePasskey(o.session.username, id)) return { ok: false, message: o.t("msg.forbidden") };
+  await audit(o.session, "passkey.remove", { target: row.name });
+  revalidatePath("/settings");
+  return { ok: true, message: o.t("pk.removed") };
+}
+
+/** Sign-in page: a challenge for the browser's passkey prompt (the account is not known yet). */
+export async function passkeyLoginOptionsAction(): Promise<{ ok: true; challenge: string; rpId: string; timeout: number } | { ok: false; message: string }> {
+  const t = await getT();
+  if (!adminExists()) return { ok: false, message: t("msg.forbidden") };
+  const ctx = await webauthnContext();
+  if (!ctx) return { ok: false, message: t("pk.noHost") };
+  if (loginBlocked("passkey")) return { ok: false, message: t("msg.tooMany") };
+  return { ok: true, challenge: issueChallenge("login"), rpId: ctx.rpId, timeout: 120_000 };
+}
+
+/** Sign-in with a passkey instead of the password; user verification (fingerprint, PIN, ...) is required, so this is two factors in one. */
+export async function passkeyLoginVerifyAction(resp: { id: string; clientDataJSON: string; authenticatorData: string; signature: string }): Promise<{ ok: boolean; message: string }> {
+  const t = await getT();
+  const denied = async (who: { username: string; kind: string } | null, why: string) => {
+    recordLoginFailure("passkey");
+    console.warn(`passkey login denied${who ? ` for "${who.username}"` : ""}: ${why}`);
+    await audit(who, "login.fail", { ok: false, detail: "passkey" });
+    return { ok: false, message: t("msg.passkeyFailed") };
+  };
+  if (!adminExists()) return { ok: false, message: t("msg.forbidden") };
+  if (loginBlocked("passkey")) return { ok: false, message: t("msg.tooMany") };
+  const ctx = await webauthnContext();
+  if (!ctx) return { ok: false, message: t("pk.noHost") };
+  let row: ReturnType<typeof findPasskey> = null;
+  try {
+    const clientDataJSON = fromB64u(String(resp.clientDataJSON ?? ""));
+    const challenge = parseClientData(clientDataJSON).challenge;
+    if (!consumeChallenge(challenge, "login")) return await denied(null, "challenge unknown, used or expired");
+    row = findPasskey(String(resp.id ?? ""));
+    if (!row) return await denied(null, "unknown passkey");
+    const v = verifyAssertion(
+      { clientDataJSON, authenticatorData: fromB64u(String(resp.authenticatorData ?? "")), signature: fromB64u(String(resp.signature ?? "")) },
+      { alg: row.alg, jwk: row.jwk, signCount: row.signCount },
+      { rpId: ctx.rpId, origin: ctx.origin, challenge },
+    );
+    let info: SessionInfo | null = null;
+    if (row.username.toLowerCase() === LOCAL_ADMIN) info = LOCAL_SESSION;
+    else {
+      const u = getUserByName(row.username);
+      if (u && u.enabled && (u.isAdmin || u.groupIds.length > 0)) info = sessionFor(u);
+    }
+    if (!info) return await denied({ username: row.username, kind: "user" }, "account disabled or without access");
+    recordPasskeyUse(row.id, v.signCount);
+    await startSession({ ...info, strong: true });
+    await audit(info, "login.ok", { detail: "passkey" });
+    return { ok: true, message: "" };
+  } catch (e) {
+    return await denied(row ? { username: row.username, kind: row.username.toLowerCase() === LOCAL_ADMIN ? "local" : "user" } : null, e instanceof WebAuthnError ? e.message : "invalid response");
+  }
 }

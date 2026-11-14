@@ -12,6 +12,8 @@ import LogoInput from "@/components/LogoInput";
 import SamlPreset from "@/components/SamlPreset";
 import LdapPreset from "@/components/LdapPreset";
 import { listBackups } from "@/lib/autobackup";
+import PasskeyPanel from "@/components/PasskeyPanel";
+import { listPasskeys } from "@/lib/passkeys";
 import MfaPanel from "@/components/MfaPanel";
 import { hasMfa, mfaRequired, mfaStatus } from "@/lib/mfa";
 import { mfaPolicyAction } from "@/app/actions";
@@ -69,6 +71,12 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
     <section className="card">
       <h2 className="mb-2 font-medium">{t("mfa.title")}</h2>
       <MfaPanel enabled={mfaOn.enabled} recoveryLeft={mfaOn.recoveryLeft} required={mfaRequired()} />
+    </section>
+  ) : null;
+  const passkeyCard = canPw ? (
+    <section className="card">
+      <h2 className="mb-2 font-medium">{t("pk.title")}</h2>
+      <PasskeyPanel items={listPasskeys(session.username).map((p) => ({ id: p.id, name: p.name, createdAt: p.createdAt, lastUsed: p.lastUsed }))} />
     </section>
   ) : null;
   const pwCard = (
@@ -152,6 +160,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
               </section>
               {canPw ? pwCard : <p className="card text-sm text-slate-400">{t("set.pwExternal")}</p>}
               {mfaCard}
+              {passkeyCard}
               <section className="card">
                 <h2 className="mb-2 font-medium">{t("mfa.requiredTitle")}</h2>
                 <ActionForm action={mfaPolicyAction} className="space-y-3">
@@ -172,6 +181,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
               <p className="card text-sm text-slate-400">{t("set.localOnly")}</p>
               {canPw ? pwCard : <p className="card text-sm text-slate-400">{t("set.pwExternal")}</p>}
               {mfaCard}
+              {passkeyCard}
             </>
           )}
 

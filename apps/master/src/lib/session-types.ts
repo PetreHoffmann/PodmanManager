@@ -10,4 +10,6 @@ export interface SessionInfo {
   mustChange?: boolean;
   /** the administrator requires a second factor of local accounts and this one has none yet */
   mustMfa?: boolean;
+  /** signed in with a passkey (user verification = two factors in one step) */
+  strong?: boolean;
 }

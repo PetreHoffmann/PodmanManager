@@ -84,6 +84,25 @@ CREATE TABLE IF NOT EXISTS pending_logins (
   expires_at INTEGER NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS passkeys (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT NOT NULL COLLATE NOCASE,
+  credential_id TEXT NOT NULL UNIQUE,
+  user_handle TEXT NOT NULL,
+  public_key TEXT NOT NULL,
+  alg INTEGER NOT NULL,
+  sign_count INTEGER NOT NULL DEFAULT 0,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_used TEXT
+);
+CREATE INDEX IF NOT EXISTS passkeys_user ON passkeys (username);
+CREATE TABLE IF NOT EXISTS webauthn_challenges (
+  challenge TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  username TEXT NOT NULL DEFAULT '',
+  expires_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS saml_cache (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL,
@@ -111,6 +130,7 @@ export function openDb(path: string): DatabaseSync {
     db.exec("DELETE FROM sessions; ALTER TABLE sessions ADD COLUMN access TEXT; ALTER TABLE sessions ADD COLUMN group_ids TEXT;");
   }
   if (!cols.includes("display_name")) db.exec("ALTER TABLE sessions ADD COLUMN display_name TEXT");
+  if (!cols.includes("strong")) db.exec("ALTER TABLE sessions ADD COLUMN strong INTEGER NOT NULL DEFAULT 0");
   const agentCols = (db.prepare("PRAGMA table_info(agents)").all() as { name: string }[]).map((c) => c.name);
   if (!agentCols.includes("kind")) db.exec("ALTER TABLE agents ADD COLUMN kind TEXT NOT NULL DEFAULT 'remote'");
   const groupCols = (db.prepare("PRAGMA table_info(agent_groups)").all() as { name: string }[]).map((c) => c.name);
