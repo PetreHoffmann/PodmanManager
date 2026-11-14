@@ -29,16 +29,16 @@ export async function checkAdminPassword(pw: string, db: DatabaseSync = getDb())
 export function createSession(info: SessionInfo, db: DatabaseSync = getDb()): string {
   const token = randomToken();
   db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
-  db.prepare("INSERT INTO sessions (token_hash, expires_at, username, kind, access, group_ids, display_name) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-    sha256(token), Date.now() + TTL_MS, info.username, info.kind, info.access, JSON.stringify(info.groupIds), info.displayName ?? null,
+  db.prepare("INSERT INTO sessions (token_hash, expires_at, username, kind, access, group_ids, display_name, strong) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(
+    sha256(token), Date.now() + TTL_MS, info.username, info.kind, info.access, JSON.stringify(info.groupIds), info.displayName ?? null, info.strong ? 1 : 0,
   );
   return token;
 }
 
 export function getSession(token: string | undefined, db: DatabaseSync = getDb()): SessionInfo | null {
   if (!token) return null;
-  const r = db.prepare("SELECT expires_at, username, kind, access, group_ids, display_name FROM sessions WHERE token_hash = ?").get(sha256(token)) as
-    | { expires_at: number; username: string | null; kind: string | null; access: string | null; group_ids: string | null; display_name: string | null }
+  const r = db.prepare("SELECT expires_at, username, kind, access, group_ids, display_name, strong FROM sessions WHERE token_hash = ?").get(sha256(token)) as
+    | { strong: number; expires_at: number; username: string | null; kind: string | null; access: string | null; group_ids: string | null; display_name: string | null }
     | undefined;
   if (!r || r.expires_at <= Date.now() || !r.username) return null;
   let groupIds: number[] = [];
@@ -50,16 +50,17 @@ export function getSession(token: string | undefined, db: DatabaseSync = getDb()
   }
   const kind = r.kind === "ldap" ? "ldap" : r.kind === "saml" ? "saml" : r.kind === "user" ? "user" : "local";
   // local accounts must set up a second factor when the administrator requires it
-  const mustMfa = (kind === "local" || kind === "user") && mfaRequired(db) && !hasMfa(r.username, db);
+  const strong = r.strong === 1;
+  const mustMfa = (kind === "local" || kind === "user") && !strong && mfaRequired(db) && !hasMfa(r.username, db);
   if (kind === "user") {
     // a disabled or deleted local user loses the session at once
     const u = db.prepare("SELECT enabled, must_change FROM users WHERE username = ?").get(r.username) as { enabled: number; must_change: number } | undefined;
     if (!u || !u.enabled) return null;
-    return { username: r.username, kind, access: r.access === "all" ? "all" : "groups", groupIds, ...(r.display_name ? { displayName: r.display_name } : {}), ...(u.must_change ? { mustChange: true } : {}), ...(mustMfa ? { mustMfa: true } : {}) };
+    return { username: r.username, kind, access: r.access === "all" ? "all" : "groups", groupIds, ...(r.display_name ? { displayName: r.display_name } : {}), ...(u.must_change ? { mustChange: true } : {}), ...(mustMfa ? { mustMfa: true } : {}), ...(strong ? { strong: true } : {}) };
   }
   // Unknown or missing access values never widen permissions: only local sessions default to "all".
   const access = r.access === "all" || (r.access === null && kind === "local") ? "all" : "groups";
-  return { username: r.username, kind, access, groupIds, ...(r.display_name ? { displayName: r.display_name } : {}), ...(mustMfa ? { mustMfa: true } : {}) };
+  return { username: r.username, kind, access, groupIds, ...(r.display_name ? { displayName: r.display_name } : {}), ...(mustMfa ? { mustMfa: true } : {}), ...(strong ? { strong: true } : {}) };
 }
 
 export async function startSession(info: SessionInfo): Promise<void> {

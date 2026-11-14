@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { logoutAction } from "@/app/actions";
 import MfaPanel from "@/components/MfaPanel";
 import LangSelect from "@/components/LangSelect";
 import { loadBranding } from "@/lib/branding";
@@ -31,6 +32,9 @@ export default async function Page() {
       </div>
       <p className="mb-3 text-center text-sm text-slate-400">{t("mfa.requiredHint")}</p>
       <div className="card"><MfaPanel enabled={st.enabled} recoveryLeft={st.recoveryLeft} required forced /></div>
+      <form action={logoutAction} className="mt-4 text-center">
+        <button className="text-xs text-slate-400 hover:text-white">{t("set.logout")}</button>
+      </form>
       <p className="mt-6 text-center text-xs text-slate-500">{t("about.version")} {getVersion()}</p>
     </div>
   );

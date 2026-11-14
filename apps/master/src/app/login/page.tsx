@@ -11,6 +11,7 @@ import { loadSamlConfig, samlReady } from "@/lib/saml-config";
 import { MANUAL_COOKIE } from "@/lib/saml-http";
 import { adminExists } from "@/lib/session";
 import Icon from "@/components/Icon";
+import PasskeyLogin from "@/components/PasskeyLogin";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
         
         <button className="btn btn-primary w-full justify-center"><Icon name="sign-in" />{t("auth.signIn")}</button>
       </ActionForm>
+      <PasskeyLogin />
       {sso === "failed" && <p role="alert" className="mt-3 text-sm text-red-400">{t("msg.ssoFailed")}</p>}
       {sso === "denied" && <p role="alert" className="mt-3 text-sm text-amber-300">{t("msg.ssoDenied")}</p>}
       {saml && (

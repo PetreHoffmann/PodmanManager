@@ -10,7 +10,7 @@ import { getDb, openDb } from "../database/db";
 export const MAX_BACKUP_BYTES = 64 * 1024 * 1024;
 const HEADER = "SQLite format 3\0";
 /** Parents last: delete in this order, insert in reverse. */
-const TABLES = ["mfa", "user_groups", "users", "agent_group_members", "agent_groups", "agents", "admin", "settings"] as const;
+const TABLES = ["passkeys", "mfa", "user_groups", "users", "agent_group_members", "agent_groups", "agents", "admin", "settings"] as const;
 const REQUIRED = ["agents", "admin", "agent_groups", "agent_group_members", "settings"];
 
 const sqlString = (p: string) => `'${p.replace(/'/g, "''")}'`;
@@ -31,7 +31,7 @@ export function createBackup(db: Db = getDb()): Buffer {
     db.exec(`VACUUM INTO ${sqlString(file)}`);
     const copy = new DatabaseSync(file);
     try {
-      copy.exec("DELETE FROM sessions; DELETE FROM saml_cache; DELETE FROM pending_logins; VACUUM;");
+      copy.exec("DELETE FROM sessions; DELETE FROM saml_cache; DELETE FROM pending_logins; DELETE FROM webauthn_challenges; VACUUM;");
     } finally {
       copy.close();
     }
@@ -108,7 +108,7 @@ export function restoreBackup(data: Buffer, opts: { key?: Buffer; force?: boolea
           db.exec(`INSERT INTO main.${t} (${cols}) SELECT ${cols} FROM src.${t}`);
         }
         // nobody stays signed in: the restored accounts are a different set
-        db.exec("DELETE FROM main.sessions; DELETE FROM main.saml_cache; DELETE FROM main.pending_logins");
+        db.exec("DELETE FROM main.sessions; DELETE FROM main.saml_cache; DELETE FROM main.pending_logins; DELETE FROM main.webauthn_challenges");
         db.exec("COMMIT");
       } catch (e) {
         db.exec("ROLLBACK");

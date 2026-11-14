@@ -207,13 +207,24 @@ Der lokale Administrator `admin` und lokale Benutzer können unter *Einstellunge
 - Im Audit-Log stehen Einschalten, Ausschalten, neue Codes, Zurücksetzen sowie bei der Anmeldung „mit zweitem Faktor“ bzw. „mit Wiederherstellungscode“.
 - Die Daten sind Teil der Datenbank-Sicherung. Passt nach einem Restore der `MASTER_SECRET_KEY` nicht, sind nur noch die Wiederherstellungscodes (oder der Notweg) nutzbar.
 
-**Notweg (Gerät und Codes verloren):** Auf dem Host des Masters setzt ein Skript im Image den zweiten Faktor eines Kontos zurück, ohne Passwort (wer im Container Befehle ausführen darf, kontrolliert die Datenbank ohnehin):
+**Notweg (Gerät und Codes verloren):** Auf dem Host des Masters setzt ein Skript im Image den zweiten Faktor (und die Passkeys) eines Kontos zurück, ohne Passwort (wer im Container Befehle ausführen darf, kontrolliert die Datenbank ohnehin):
 
 ```bash
 podman exec podmanmanager-master node /app/reset-2fa.mjs admin
 ```
 
 Danach genügt das Passwort, und der zweite Faktor lässt sich neu einrichten. Der Eingriff steht im Audit-Log (Benutzer „host“).
+
+## Passkeys (Anmeldung ohne Passwort)
+
+`admin` und lokale Benutzer können unter *Einstellungen → Allgemein → Passkeys* beliebig viele (bis 10) Passkeys anlegen: Fingerabdruck, Gesicht, PIN, Sicherheitsschlüssel (FIDO2) oder die Passkey-Verwaltung von Betriebssystem und Passwortmanager. Auf der Anmeldeseite erscheint dann der Knopf **Mit Passkey anmelden**, ohne Benutzername und Passwort. Der Passkey verlangt Nutzerverifikation (Fingerabdruck, PIN, ...) und zählt deshalb als beide Faktoren: auch bei eingeschaltetem TOTP und bei „Zweiten Faktor verlangen“ entfällt dann der Code. Die Anmeldung mit Passwort bleibt bestehen (mit zweitem Faktor, falls eingerichtet).
+
+**Voraussetzungen**
+- **https** (oder `localhost`): Browser erlauben Passkeys nur in einem sicheren Kontext. Ein Master, der nur per `http://` im Management-Netz läuft, kann keine Passkeys anbieten (der Knopf erscheint dort nicht, das Panel erklärt es). Mit einem Reverse-Proxy mit TLS geht es.
+- **Hostname statt IP-Adresse:** Ein Passkey gehört zum Hostnamen der Adresse (`master.example.com`); IP-Adressen sind als Passkey-Domäne nicht erlaubt. Ändert sich der Hostname, gelten die Passkeys nicht mehr (Passwort bleibt).
+- **Reverse-Proxy:** Der Proxy muss `Host` bzw. `X-Forwarded-Host` und `X-Forwarded-Proto: https` unverändert an den Master geben, denn daraus leitet der Master die erwartete Adresse ab (siehe auch `ALLOWED_ORIGINS`).
+
+Geprüft werden Challenge (einmalig, 5 Minuten), Adresse (Origin) und Domäne, Nutzerpräsenz und -verifikation, Signatur (ES256 und RS256; der Master wertet den Hersteller-Nachweis nicht aus) und der Signaturzähler (ein Passkey, dessen Zähler nicht steigt, wird abgewiesen). Anlegen, Entfernen und Anmeldung stehen im Audit-Log. Das Zurücksetzen eines Benutzers (Reiter *Lokale Benutzer*) und das Notweg-Skript entfernen auch dessen Passkeys; die Passkeys gehören zur Datenbank-Sicherung.
 
 ## Auslastung der Container (Metriken)
 
