@@ -12,6 +12,9 @@ import LogoInput from "@/components/LogoInput";
 import SamlPreset from "@/components/SamlPreset";
 import LdapPreset from "@/components/LdapPreset";
 import { listBackups } from "@/lib/autobackup";
+import MfaPanel from "@/components/MfaPanel";
+import { hasMfa, mfaRequired, mfaStatus } from "@/lib/mfa";
+import { mfaPolicyAction } from "@/app/actions";
 import BackupPanel from "@/components/BackupPanel";
 import UserEditor from "@/components/UserEditor";
 import { AUDIT_ACTIONS, DETAIL_KEYS, filterFrom, isAuditAction, listAudit } from "@/lib/audit";
@@ -61,6 +64,13 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
   const insecure = l.enabled && l.url.startsWith("ldap://") && !l.startTls;
   const label: Record<Tab, string> = { general: t("set.tabGeneral"), access: t("set.tabAccess"), users: t("set.tabUsers"), audit: t("set.tabAudit"), saml: t("set.tabSaml"), ldap: t("set.tabLdap"), logs: t("set.tabLogs") };
 
+  const mfaOn = mfaStatus(session.username);
+  const mfaCard = canPw ? (
+    <section className="card">
+      <h2 className="mb-2 font-medium">{t("mfa.title")}</h2>
+      <MfaPanel enabled={mfaOn.enabled} recoveryLeft={mfaOn.recoveryLeft} required={mfaRequired()} />
+    </section>
+  ) : null;
   const pwCard = (
     <section className="card">
       <h2 className="mb-3 font-medium">{t("set.changePw")}</h2>
@@ -141,6 +151,15 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
                 </ActionForm>
               </section>
               {canPw ? pwCard : <p className="card text-sm text-slate-400">{t("set.pwExternal")}</p>}
+              {mfaCard}
+              <section className="card">
+                <h2 className="mb-2 font-medium">{t("mfa.requiredTitle")}</h2>
+                <ActionForm action={mfaPolicyAction} className="space-y-3">
+                  <label className="flex items-start gap-2 text-sm"><input id="mfa-required" type="checkbox" name="required" defaultChecked={mfaRequired()} className="mt-1" />{t("mfa.policy")}</label>
+                  <p className="text-xs text-slate-500">{t("mfa.policyHint")}</p>
+                  <button className="btn btn-primary"><Icon name="floppy-disk" />{t("brand.save")}</button>
+                </ActionForm>
+              </section>
               {session.kind === "local" && (
                 <section className="card">
                   <h2 className="mb-2 font-medium">{t("backup.title")}</h2>
@@ -152,6 +171,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
             <>
               <p className="card text-sm text-slate-400">{t("set.localOnly")}</p>
               {canPw ? pwCard : <p className="card text-sm text-slate-400">{t("set.pwExternal")}</p>}
+              {mfaCard}
             </>
           )}
 
@@ -164,7 +184,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
           <p className="mb-3 text-xs text-slate-400">{t("users.intro")}</p>
           <div className="space-y-3">
             {users.map((u) => (
-              <UserEditor key={u.id} user={u} groups={groups.map((g) => ({ id: g.id, name: g.name }))} />
+              <UserEditor key={u.id} user={{ ...u, mfa: hasMfa(u.username) }} groups={groups.map((g) => ({ id: g.id, name: g.name }))} />
             ))}
             <UserEditor key="new" user={{ username: "", isAdmin: false, enabled: true, mustChange: false, groupIds: [] }} groups={groups.map((g) => ({ id: g.id, name: g.name }))} />
           </div>

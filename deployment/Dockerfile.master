@@ -26,6 +26,7 @@ ENV APP_VERSION=$APP_VERSION NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTN
 WORKDIR /app
 COPY --from=build /app/apps/master/.next/standalone ./
 COPY --from=build /app/apps/master/.next/static ./apps/master/.next/static
+COPY --from=build /app/apps/master/scripts/reset-2fa.mjs /app/reset-2fa.mjs
 RUN mkdir /data && chown node:node /data
 USER node
 VOLUME /data

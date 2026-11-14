@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { DatabaseSync } from "node:sqlite";
 import { getDb } from "../database/db";
 import { hashPassword, randomToken, sha256, verifyPassword } from "./crypto";
+import { hasMfa, mfaRequired } from "./mfa";
 import type { SessionInfo } from "./session-types";
 
 export type { SessionInfo } from "./session-types";
@@ -48,15 +49,17 @@ export function getSession(token: string | undefined, db: DatabaseSync = getDb()
     /* ignore */
   }
   const kind = r.kind === "ldap" ? "ldap" : r.kind === "saml" ? "saml" : r.kind === "user" ? "user" : "local";
+  // local accounts must set up a second factor when the administrator requires it
+  const mustMfa = (kind === "local" || kind === "user") && mfaRequired(db) && !hasMfa(r.username, db);
   if (kind === "user") {
     // a disabled or deleted local user loses the session at once
     const u = db.prepare("SELECT enabled, must_change FROM users WHERE username = ?").get(r.username) as { enabled: number; must_change: number } | undefined;
     if (!u || !u.enabled) return null;
-    return { username: r.username, kind, access: r.access === "all" ? "all" : "groups", groupIds, ...(r.display_name ? { displayName: r.display_name } : {}), ...(u.must_change ? { mustChange: true } : {}) };
+    return { username: r.username, kind, access: r.access === "all" ? "all" : "groups", groupIds, ...(r.display_name ? { displayName: r.display_name } : {}), ...(u.must_change ? { mustChange: true } : {}), ...(mustMfa ? { mustMfa: true } : {}) };
   }
   // Unknown or missing access values never widen permissions: only local sessions default to "all".
   const access = r.access === "all" || (r.access === null && kind === "local") ? "all" : "groups";
-  return { username: r.username, kind, access, groupIds, ...(r.display_name ? { displayName: r.display_name } : {}) };
+  return { username: r.username, kind, access, groupIds, ...(r.display_name ? { displayName: r.display_name } : {}), ...(mustMfa ? { mustMfa: true } : {}) };
 }
 
 export async function startSession(info: SessionInfo): Promise<void> {
@@ -77,7 +80,10 @@ export async function requireAuth(opts: { allowMustChange?: boolean } = {}): Pro
   if (!adminExists()) redirect("/setup");
   const s = getSession((await cookies()).get(COOKIE)?.value);
   if (!s) redirect("/login");
-  if (s.mustChange && !opts.allowMustChange) redirect("/change-password");
+  if (!opts.allowMustChange) {
+    if (s.mustChange) redirect("/change-password");
+    if (s.mustMfa) redirect("/mfa-setup");
+  }
   return s;
 }
 

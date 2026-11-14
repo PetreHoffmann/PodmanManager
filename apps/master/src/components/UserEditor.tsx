@@ -13,6 +13,7 @@ export interface UserData {
   enabled: boolean;
   mustChange: boolean;
   groupIds: number[];
+  mfa?: boolean;
 }
 
 export default function UserEditor({ user, groups }: { user: UserData; groups: { id: number; name: string }[] }) {
@@ -37,6 +38,7 @@ export default function UserEditor({ user, groups }: { user: UserData; groups: {
         <label className="flex items-center gap-2"><input type="checkbox" name="isAdmin" defaultChecked={user.isAdmin} />{t("users.admin")}</label>
         <label className="flex items-center gap-2"><input type="checkbox" name="enabled" defaultChecked={user.enabled} />{t("users.enabled")}</label>
         <label className="flex items-center gap-2"><input type="checkbox" name="mustChange" defaultChecked={user.mustChange} />{t("users.mustChange")}</label>
+        {user.mfa && <span className="rounded-full border border-emerald-700 bg-emerald-950/60 px-2 py-0.5 text-xs text-emerald-300">{t("mfa.userOn")}</span>}
       </div>
       <fieldset>
         <legend className="mb-1 text-sm">{t("users.groups")}</legend>
@@ -63,6 +65,7 @@ export default function UserEditor({ user, groups }: { user: UserData; groups: {
           <>
             <button key="save" name="intent" value="save" className="btn btn-primary">{isNew ? <Icon name="plus-circle" /> : <Icon name="floppy-disk" />}{isNew ? t("users.add") : t("users.save")}</button>
             {!isNew && <button key="ask" type="button" className="btn" onClick={() => setConfirm(true)}><Icon name="trash" />{t("users.delete")}</button>}
+            {!isNew && user.mfa && <button key="mfa" name="intent" value="resetMfa" formNoValidate className="btn"><Icon name="shield-check" />{t("mfa.reset")}</button>}
           </>
         )}
       </div>
