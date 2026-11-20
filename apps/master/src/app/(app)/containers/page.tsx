@@ -3,7 +3,7 @@ import ContainerActions from "@/components/ContainerActions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { fmt, fmtShort } from "@/components/ui";
 import { fetchAllContainers } from "@/lib/agents";
-import { errText } from "@/lib/i18n";
+import { errText, type Key } from "@/lib/i18n";
 import { getT, getLang } from "@/lib/lang";
 import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { hiddenPatternsFor } from "@/lib/hidden";
@@ -33,6 +33,12 @@ export default async function Containers({ searchParams }: { searchParams: SP })
   const failed = hosts.filter((h) => !h.result.ok && h.agent.enabled);
   const lang = await getLang();
   const metricsOn = getConfig().metricsKeepMin > 0;
+  // narrow screens drop the least useful columns first, so the action buttons never run off the edge
+  const cols: [Key, string][] = [
+    ["cont.name", ""], ["cont.pod", "hidden xl:table-cell"], ["cont.host", ""], ["cont.image", "hidden xl:table-cell"], ["cont.status", ""],
+    ...(metricsOn ? ([["cont.cpu", ""], ["cont.ram", ""]] as [Key, string][]) : []),
+    ["cont.started", "hidden lg:table-cell"], ["cont.actions", ""],
+  ];
   const latest = new Map(hosts.map((h) => [h.agent.id, latestFor(h.agent.id)]));
   const cpuOf = (agentId: number, id: string) => { const p = latest.get(agentId)?.get(id); return p && p.cpu !== null ? `${p.cpu.toFixed(p.cpu < 10 ? 1 : 0)} %` : "–"; };
   const ramOf = (agentId: number, id: string) => { const p = latest.get(agentId)?.get(id); return p ? fmtBytes(p.mem, lang) : "–"; };
@@ -63,24 +69,22 @@ export default async function Containers({ searchParams }: { searchParams: SP })
       ))}
 
       <div className="card hidden overflow-x-auto p-0 md:block">
-        <table className="w-full min-w-[960px]">
+        <table className="w-full min-w-[640px]">
           <thead className="border-b border-slate-800">
-            <tr>{(["cont.name", "cont.id", "cont.pod", "cont.host", "cont.image", "cont.status", ...(metricsOn ? (["cont.cpu", "cont.ram"] as const) : []), "cont.created", "cont.started", "cont.actions"] as const).map((k) => <th key={k} className="th">{t(k)}</th>)}</tr>
+            <tr>{cols.map(([k, cls]) => <th key={k} className={`th ${cls}`}>{t(k)}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
-            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={metricsOn ? 11 : 9}>{t("cont.none")}</td></tr>}
+            {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={9}>{t("cont.none")}</td></tr>}
             {rows.map(({ agent, c }) => (
               <tr key={`${agent.id}-${c.id}`} className="transition hover:bg-slate-900">
-                <td className="td max-w-[12rem] break-words font-medium"><Link className="text-sky-400 hover:underline" href={`/containers/${agent.id}/${c.id}`}>{c.name || c.id.slice(0, 12)}</Link></td>
-                <td className="td font-mono text-xs">{c.id.slice(0, 12)}</td>
-                <td className="td max-w-[10rem] truncate text-xs">{c.podId ? <Link className="text-sky-400 hover:underline" href={`/pods/${agent.id}/${c.podId}`}>{c.podName || c.podId.slice(0, 12)}</Link> : "—"}</td>
-                <td className="td max-w-[9rem] truncate" title={agent.hostname}>{agent.hostname}</td>
-                <td className="td max-w-[12rem] truncate text-xs" title={c.image}>{c.image}</td>
+                <td className="td max-w-[12rem] break-words font-medium"><Link className="text-sky-400 hover:underline" href={`/containers/${agent.id}/${c.id}`} title={`${c.id}\n${t("cont.created")}: ${fmt(c.createdAt)}`}>{c.name || c.id.slice(0, 12)}</Link></td>
+                <td className="td hidden max-w-[10rem] truncate text-xs xl:table-cell">{c.podId ? <Link className="text-sky-400 hover:underline" href={`/pods/${agent.id}/${c.podId}`}>{c.podName || c.podId.slice(0, 12)}</Link> : "—"}</td>
+                <td className="td max-w-[7rem] truncate lg:max-w-[10rem]" title={agent.hostname}>{agent.hostname}</td>
+                <td className="td hidden max-w-[12rem] truncate text-xs xl:table-cell" title={c.image}>{c.image}</td>
                 <td className="td"><StatusBadge status={c.state} /></td>
                 {metricsOn && <td className="td whitespace-nowrap text-xs tabular-nums">{c.state === "running" ? cpuOf(agent.id, c.id) : "–"}</td>}
                 {metricsOn && <td className="td whitespace-nowrap text-xs tabular-nums">{c.state === "running" ? ramOf(agent.id, c.id) : "–"}</td>}
-                <td className="td whitespace-nowrap text-xs" title={fmt(c.createdAt)}>{fmtShort(c.createdAt)}</td>
-                <td className="td whitespace-nowrap text-xs" title={fmt(c.startedAt)}>{fmtShort(c.startedAt)}</td>
+                <td className="td hidden whitespace-nowrap text-xs lg:table-cell" title={fmt(c.startedAt)}>{fmtShort(c.startedAt)}</td>
                 <td className="td w-px"><ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} /></td>
               </tr>
             ))}
