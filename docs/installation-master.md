@@ -92,6 +92,26 @@ Apache: `ProxyPreserveHost On` und `RequestHeader set X-Forwarded-Proto "https"`
 
 Nur die gelisteten Hosts werden akzeptiert; für alle anderen bleibt der CSRF-Schutz aktiv. Nach dem Ändern den Master neu starten.
 
+**502 „Error reading from remote server“ (Apache) bzw. „Connection reset by peer“**
+
+Der Master spricht auf Port 8080 **nur HTTP**, und im Container lauscht er nur auf IPv4. Zwei Fehler führen zum 502:
+
+| Ursache | Erkennen | Lösung |
+|---|---|---|
+| Der Proxy spricht den Master per `https://` an (oder `SSLProxyEngine On` ist gesetzt) | `https://<host>:8080` im Browser zeigt `ERR_SSL_PROTOCOL_ERROR`; `http://<host>:8080` funktioniert | Ziel auf `http://…:8080/` ändern, kein `SSLProxyEngine` |
+| Das Ziel heißt `localhost`, das auf dem Host zuerst zu `::1` (IPv6) aufgelöst wird; der Port-Forward von rootless Podman nimmt die Verbindung an, kann sie aber nicht an den Master weitergeben | `curl -v http://localhost:8080/login` meldet `Connected to localhost (::1)` und dann `Recv failure: Connection reset by peer`, `curl http://127.0.0.1:8080/login` liefert 200 | Im Proxy die IPv4-Adresse oder den Hostnamen eintragen: `ProxyPass / http://127.0.0.1:8080/` und `ProxyPassReverse / http://127.0.0.1:8080/` |
+
+Apache-Beispiel (Reihenfolge und Kopfzeilen wie oben, mit `mod_proxy`, `mod_proxy_http`, `mod_headers`; auf Rocky/RHEL mit SELinux `setsebool -P httpd_can_network_connect on`):
+
+```apache
+ProxyPreserveHost On
+RequestHeader set X-Forwarded-Proto "https"
+ProxyPass        / http://127.0.0.1:8080/
+ProxyPassReverse / http://127.0.0.1:8080/
+```
+
+Mit Puppet (`puppetlabs-apache`): `proxy_preserve_host => true`, `request_headers => ['set X-Forwarded-Proto "https"']` und `proxy_pass => [{ 'path' => '/', 'url' => 'http://127.0.0.1:8080/' }]` im vhost; eine Änderung direkt in `/etc/httpd/…` würde beim nächsten Puppet-Lauf überschrieben. Beim Testen mit `curl` auf einem Rechner mit gesetzter Umgebungsvariable `http_proxy` den Zielhost in `no_proxy` aufnehmen, sonst läuft die Anfrage über den Firmen-Proxy und es kommt ein Timeout, der mit dem Fehler nichts zu tun hat.
+
 ## Hilfe und About
 In der Navigationsleiste öffnet **Help** das Git-Repository in einem neuen Tab. **About** zeigt einen Dialog mit Name, Version, Ersteller, Copyright (Apache-2.0) und ob auf Docker Hub eine neuere Version verfügbar ist.
 
