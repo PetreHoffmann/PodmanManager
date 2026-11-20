@@ -4,6 +4,11 @@
 Description=PodmanManager Master
 After=network-online.target
 Wants=network-online.target
+# Nur mit lokalem Host (Socket-Zeilen unten): den Podman-Socket des Benutzers vor dem Start aktivieren.
+# Ohne diese Zeilen (und ohne "systemctl --user enable --now podman.socket") scheitert der Start mit
+# "statfs /run/user/<UID>/podman/podman.sock: no such file or directory".
+# Wants=podman.socket
+# After=podman.socket
 
 [Container]
 # Host mit cgroup v1 (Start scheitert mit "mkdir /sys/fs/cgroup/...: permission denied", Exit-Code 126): Zeile aktivieren
