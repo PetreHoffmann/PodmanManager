@@ -92,16 +92,46 @@ Apache: `ProxyPreserveHost On` und `RequestHeader set X-Forwarded-Proto "https"`
 
 Nur die gelisteten Hosts werden akzeptiert; für alle anderen bleibt der CSRF-Schutz aktiv. Nach dem Ändern den Master neu starten.
 
-**502 „Error reading from remote server“ (Apache) bzw. „Connection reset by peer“**
+### Fehlersuche hinter einem Reverse-Proxy
 
-Der Master spricht auf Port 8080 **nur HTTP**, und im Container lauscht er nur auf IPv4. Zwei Fehler führen zum 502:
+Der Master spricht auf Port 8080 **nur HTTP** (kein TLS). Das Ziel im Proxy muss deshalb `http://…:8080/` heißen; die Verschlüsselung (https) endet am Proxy.
 
-| Ursache | Erkennen | Lösung |
-|---|---|---|
-| Der Proxy spricht den Master per `https://` an (oder `SSLProxyEngine On` ist gesetzt) | `https://<host>:8080` im Browser zeigt `ERR_SSL_PROTOCOL_ERROR`; `http://<host>:8080` funktioniert | Ziel auf `http://…:8080/` ändern, kein `SSLProxyEngine` |
-| Das Ziel heißt `localhost`, das auf dem Host zuerst zu `::1` (IPv6) aufgelöst wird; der Port-Forward von rootless Podman nimmt die Verbindung an, kann sie aber nicht an den Master weitergeben | `curl -v http://localhost:8080/login` meldet `Connected to localhost (::1)` und dann `Recv failure: Connection reset by peer`, `curl http://127.0.0.1:8080/login` liefert 200 | Im Proxy die IPv4-Adresse oder den Hostnamen eintragen: `ProxyPass / http://127.0.0.1:8080/` und `ProxyPassReverse / http://127.0.0.1:8080/` |
+**Woran erkenne ich das Problem?**
 
-Apache-Beispiel (Reihenfolge und Kopfzeilen wie oben, mit `mod_proxy`, `mod_proxy_http`, `mod_headers`; auf Rocky/RHEL mit SELinux `setsebool -P httpd_can_network_connect on`):
+| Was du siehst | Wahrscheinliche Ursache |
+|---|---|
+| Der Proxy zeigt „502 Proxy Error – Error reading from remote server“, und der Master ist direkt über `http://<host>:8080` erreichbar | [Ursache 1](#ursache-1-der-proxy-spricht-den-master-per-https-an) |
+| Es klappt **manchmal**, manchmal nicht: Die Seite lädt, aber „Application error: a client-side exception has occurred“, Anmelden tut nichts, der Knopf „Mit Passkey anmelden“ fehlt oder erscheint nur bei jedem zweiten Neuladen; in der Browser-Konsole stehen `502`-Zeilen bei `/_next/static/…` | [Ursache 2](#ursache-2-localhost-wird-zu-ipv6-aufgelöst-pasta-setzt-die-verbindung-zurück) |
+
+#### Ursache 1: Der Proxy spricht den Master per https an
+
+- **Erkennen:** `https://<host>:8080` im Browser zeigt `ERR_SSL_PROTOCOL_ERROR`, `http://<host>:8080` funktioniert.
+- **Lösung:** Im Proxy `http://` statt `https://` eintragen und kein `SSLProxyEngine On` setzen.
+
+#### Ursache 2: `localhost` wird zu IPv6 aufgelöst, `pasta` setzt die Verbindung zurück
+
+Zeigt der Proxy auf `localhost:8080`, versucht er zuerst `::1` (IPv6). Rootless Podman leitet im **Standard-Netzwerk** den Port über `pasta` weiter (das ist ab Podman 5 so). `pasta` nimmt Verbindungen auf `::1` an, reicht sie im Container aber an eine Adresse weiter, auf der der Master nicht lauscht, und setzt sie zurück. Mal wird `::1` genommen (Fehler), mal IPv4 (Erfolg), daher der zufällige Ausfall.
+
+- **Erkennen** (auf dem Master-Host, 30 Anfragen):
+  ```bash
+  for i in $(seq 30); do curl -s --noproxy '*' -o /dev/null -w "%{http_code} " http://localhost:8080/login; done; echo
+  ```
+  Eine Mischung aus `200` und `000` bedeutet Ursache 2. Mit `127.0.0.1` statt `localhost` kommt nur `200`. Außerdem zeigt `ss -ltnp | grep 8080` den Prozess `pasta` als Besitzer des Ports.
+- **Lösung A, empfohlen (auf dem Master-Host, ohne Änderung am Proxy):** Dem Master ein eigenes Podman-Netzwerk geben. Dann hält `rootlessport` den Port, und `localhost` funktioniert.
+  1. Datei `~/.config/containers/systemd/podmanmanager.network` anlegen mit dem Inhalt:
+     ```ini
+     [Network]
+     ```
+  2. Im Master-Quadlet im Abschnitt `[Container]` die Zeile `Network=podmanmanager.network` ergänzen (`PublishPort=8080:8080` bleibt).
+  3. `systemctl --user daemon-reload` und `systemctl --user restart podmanmanager-master`.
+  4. Den Test von oben wiederholen: Er muss nur noch `200` liefern, und `ss -ltnp | grep 8080` zeigt jetzt `rootlessport`.
+  Bestätigt auf Rocky Linux 9 mit Podman 5.8.5.
+- **Lösung B (im Proxy):** Statt `localhost` die IPv4-Adresse `127.0.0.1` eintragen (Beispiele unten).
+- **Hilft nicht:** `PublishPort=0.0.0.0:8080:8080` (`pasta` lauscht trotzdem auf IPv4 und IPv6) und eine längere Keep-Alive-Zeit des Masters (`KEEP_ALIVE_TIMEOUT`).
+
+#### Beispiel-Konfigurationen für den Proxy
+
+Apache (Module `proxy`, `proxy_http` und `headers` laden; auf Rocky/RHEL mit SELinux zusätzlich `setsebool -P httpd_can_network_connect on`):
 
 ```apache
 ProxyPreserveHost On
@@ -110,7 +140,28 @@ ProxyPass        / http://127.0.0.1:8080/
 ProxyPassReverse / http://127.0.0.1:8080/
 ```
 
-Mit Puppet (`puppetlabs-apache`): `proxy_preserve_host => true`, `request_headers => ['set X-Forwarded-Proto "https"']` und `proxy_pass => [{ 'path' => '/', 'url' => 'http://127.0.0.1:8080/' }]` im vhost; eine Änderung direkt in `/etc/httpd/…` würde beim nächsten Puppet-Lauf überschrieben. Beim Testen mit `curl` auf einem Rechner mit gesetzter Umgebungsvariable `http_proxy` den Zielhost in `no_proxy` aufnehmen, sonst läuft die Anfrage über den Firmen-Proxy und es kommt ein Timeout, der mit dem Fehler nichts zu tun hat.
+Apache mit Puppet (`puppetlabs-apache`), im vhost:
+
+```puppet
+proxy_preserve_host => true,
+request_headers     => ['set X-Forwarded-Proto "https"'],
+proxy_pass          => [{ 'path' => '/', 'url' => 'http://127.0.0.1:8080/' }],
+```
+Eine Änderung direkt in `/etc/httpd/…` würde beim nächsten Puppet-Lauf überschrieben.
+
+nginx:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+Hinweis zum Testen mit `curl` auf einem Rechner mit gesetzter Umgebungsvariable `http_proxy`: den Zielhost in `no_proxy` aufnehmen oder `--noproxy '*'` verwenden, sonst läuft die Anfrage über den Firmen-Proxy und es kommt ein Timeout, der mit dem Fehler nichts zu tun hat.
 
 ## Hilfe und About
 In der Navigationsleiste öffnet **Help** das Git-Repository in einem neuen Tab. **About** zeigt einen Dialog mit Name, Version, Ersteller, Copyright (Apache-2.0) und ob auf Docker Hub eine neuere Version verfügbar ist.
