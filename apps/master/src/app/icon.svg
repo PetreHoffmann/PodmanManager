@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="14" fill="#0b1324"/>
+  <g transform="translate(32 32)">
+    <g fill="#38bdf8">
+      <circle r="17"/>
+      <rect id="t" x="-4" y="-26" width="8" height="11" rx="2"/>
+      <use href="#t" transform="rotate(45)"/>
+      <use href="#t" transform="rotate(90)"/>
+      <use href="#t" transform="rotate(135)"/>
+      <use href="#t" transform="rotate(180)"/>
+      <use href="#t" transform="rotate(225)"/>
+      <use href="#t" transform="rotate(270)"/>
+      <use href="#t" transform="rotate(315)"/>
+    </g>
+    <circle r="11" fill="#0b1324"/>
+    <g fill="#a78bfa">
+      <circle cx="0" cy="-4.6" r="3.4"/>
+      <circle cx="-4.4" cy="3" r="3.4"/>
+      <circle cx="4.4" cy="3" r="3.4"/>
+    </g>
+  </g>
+</svg>
