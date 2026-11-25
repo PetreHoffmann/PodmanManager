@@ -94,12 +94,12 @@ Nur die gelisteten Hosts werden akzeptiert; für alle anderen bleibt der CSRF-Sc
 
 **502 „Error reading from remote server“ (Apache) bzw. „Connection reset by peer“**
 
-Der Master spricht auf Port 8080 **nur HTTP**, und im Container lauscht er nur auf IPv4. Zwei Fehler führen zum 502:
+Der Master spricht auf Port 8080 **nur HTTP**, und im Container lauscht er nur auf IPv4. Zwei Fehler führen zum 502 (oder zu einem zufälligen Ausfall einzelner Dateien):
 
 | Ursache | Erkennen | Lösung |
 |---|---|---|
 | Der Proxy spricht den Master per `https://` an (oder `SSLProxyEngine On` ist gesetzt) | `https://<host>:8080` im Browser zeigt `ERR_SSL_PROTOCOL_ERROR`; `http://<host>:8080` funktioniert | Ziel auf `http://…:8080/` ändern, kein `SSLProxyEngine` |
-| Das Ziel heißt `localhost`, das auf dem Host zuerst zu `::1` (IPv6) aufgelöst wird; der Port-Forward von rootless Podman nimmt die Verbindung an, kann sie aber nicht an den Master weitergeben | `curl -v http://localhost:8080/login` meldet `Connected to localhost (::1)` und dann `Recv failure: Connection reset by peer`, `curl http://127.0.0.1:8080/login` liefert 200 | Im Proxy die IPv4-Adresse oder den Hostnamen eintragen: `ProxyPass / http://127.0.0.1:8080/` und `ProxyPassReverse / http://127.0.0.1:8080/` |
+| Das Ziel heißt `localhost`, das auf dem Host zuerst zu `::1` (IPv6) aufgelöst wird; im Standard-Netzwerk von rootless Podman (Podman 4.9: `pasta`) nimmt der Port-Forward die Verbindung an, reicht sie im Container an `::1` weiter, wo der Master nicht lauscht, und setzt sie zurück. Folge: abwechselnd Erfolg und 502, einzelne JavaScript-Dateien fehlen (`ChunkLoadError`, Seite „Application error“, Knopf „Mit Passkey anmelden“ erscheint nur manchmal) | `for i in $(seq 30); do curl -s --noproxy '*' -o /dev/null -w "%{http_code} " http://localhost:8080/login; done` liefert `200` und `000` gemischt, mit `127.0.0.1` nur `200`; `ss -ltnp \| grep 8080` zeigt `pasta` als Besitzer des Ports | **Eine** der beiden: (a) dem Master ein eigenes Podman-Netzwerk geben: Datei `~/.config/containers/systemd/podmanmanager.network` mit dem Inhalt `[Network]` und im Master-Quadlet `Network=podmanmanager.network`; danach hält `rootlessport` den Port, und `localhost` liefert nur noch `200` (bestätigt auf Rocky Linux 9, Podman 4.9.4). (b) Im Proxy die IPv4-Adresse eintragen: `ProxyPass / http://127.0.0.1:8080/` und `ProxyPassReverse / http://127.0.0.1:8080/`. `PublishPort=0.0.0.0:8080:8080` ändert nichts (`pasta` lauscht trotzdem auf IPv4 und IPv6); `KEEP_ALIVE_TIMEOUT` ist dafür nicht nötig |
 
 Apache-Beispiel (Reihenfolge und Kopfzeilen wie oben, mit `mod_proxy`, `mod_proxy_http`, `mod_headers`; auf Rocky/RHEL mit SELinux `setsebool -P httpd_can_network_connect on`):
 
@@ -111,13 +111,6 @@ ProxyPassReverse / http://127.0.0.1:8080/
 ```
 
 Mit Puppet (`puppetlabs-apache`): `proxy_preserve_host => true`, `request_headers => ['set X-Forwarded-Proto "https"']` und `proxy_pass => [{ 'path' => '/', 'url' => 'http://127.0.0.1:8080/' }]` im vhost; eine Änderung direkt in `/etc/httpd/…` würde beim nächsten Puppet-Lauf überschrieben. Beim Testen mit `curl` auf einem Rechner mit gesetzter Umgebungsvariable `http_proxy` den Zielhost in `no_proxy` aufnehmen, sonst läuft die Anfrage über den Firmen-Proxy und es kommt ein Timeout, der mit dem Fehler nichts zu tun hat.
-
-**Einzelne Dateien scheitern mit 502 („Application error: a client-side exception“, `ChunkLoadError`)**
-
-Die Seite lädt, aber ab und zu fehlt eine JavaScript-Datei (`/_next/static/chunks/….js` mit `502 (Proxy Error)`), und die Seite zeigt „Application error: a client-side exception has occurred“. Ursache ist die Keep-Alive-Zeit: Der Master (Node.js) schließt ruhende Verbindungen nach **5 Sekunden**, der Proxy verwendet seine Verbindung zum Master aber länger weiter. Trifft eine Anfrage genau eine Verbindung, die der Master gerade geschlossen hat, antwortet der Proxy mit 502 (im Apache-`error_log`: `AH01102: error reading status line from remote server` bzw. `AH00898: Error reading from remote server`). Abhilfe, eine von beiden:
-
-- **Im Master** (bestätigt auf Rocky Linux 9 hinter Apache): längere Keep-Alive-Zeit, in Millisekunden, größer als die des Proxys: `Environment=KEEP_ALIVE_TIMEOUT=65000` (Quadlet, im Abschnitt `[Container]`) bzw. `-e KEEP_ALIVE_TIMEOUT=65000` bei `podman run`. Master neu starten.
-- **Im Proxy:** die Verbindung zum Master nicht wiederverwenden. Apache: `ProxyPass / http://127.0.0.1:8080/ disablereuse=On` (Puppet `puppetlabs-apache`: im `proxy_pass`-Eintrag `'params' => { 'disablereuse' => 'On' }`); nginx: `proxy_http_version 1.1;` und `proxy_set_header Connection "";` lassen Keep-Alive zu, `keepalive_timeout` des `upstream`-Blocks muss kürzer als die des Masters sein.
 
 ## Hilfe und About
 In der Navigationsleiste öffnet **Help** das Git-Repository in einem neuen Tab. **About** zeigt einen Dialog mit Name, Version, Ersteller, Copyright (Apache-2.0) und ob auf Docker Hub eine neuere Version verfügbar ist.
