@@ -17,7 +17,7 @@ Image=docker.io/petrecalinoiu/podmanmanager-master:0.3.0
 ContainerName=podmanmanager-master
 # Master und Agent auf demselben Host: gemeinsames Netzwerk (podmanmanager.network mit ablegen),
 # der Master erreicht den Agent dann unter http://podmanmanager-agent:9126
-# Auch ohne Agent empfohlen, wenn ein Reverse-Proxy auf localhost:8080 zeigt: im Standard-Netzwerk von rootless Podman 4.9
+# Auch ohne Agent empfohlen, wenn ein Reverse-Proxy auf localhost:8080 zeigt: im Standard-Netzwerk von rootless Podman ab 5
 # (pasta) setzt der Port-Forward Verbindungen ueber ::1 zurueck (zufaellige 502, fehlende JavaScript-Dateien). Mit
 # eigenem Netzwerk (Datei podmanmanager.network mit dem Inhalt "[Network]") haelt rootlessport den Port; siehe docs/installation-master.md
 # Network=podmanmanager.network
