@@ -35,6 +35,9 @@ Environment=HEARTBEAT_INTERVAL=30
 Environment=AGENT_TIMEOUT=5
 # Hinter einem Reverse-Proxy, der den Host nicht durchreicht (sonst "Invalid Server Actions request"):
 # Environment=ALLOWED_ORIGINS=master.example.com
+# Hinter einem Reverse-Proxy: einzelne Dateien scheitern ab und zu mit 502 / "ChunkLoadError" (der Master schliesst ruhende
+# Verbindungen nach 5 s, der Proxy nutzt sie weiter). Keep-Alive-Zeit des Masters in Millisekunden verlaengern:
+# Environment=KEEP_ALIVE_TIMEOUT=65000
 # Proxy mit TLS-Inspektion (About-Dialog zeigt SELF_SIGNED_CERT_IN_CHAIN): Firmen-CA einbinden, siehe README.md
 # Volume=%h/.config/podmanmanager/corp-ca.pem:/etc/corp-ca.pem:ro,Z
 # Environment=NODE_EXTRA_CA_CERTS=/etc/corp-ca.pem

@@ -112,6 +112,13 @@ ProxyPassReverse / http://127.0.0.1:8080/
 
 Mit Puppet (`puppetlabs-apache`): `proxy_preserve_host => true`, `request_headers => ['set X-Forwarded-Proto "https"']` und `proxy_pass => [{ 'path' => '/', 'url' => 'http://127.0.0.1:8080/' }]` im vhost; eine Änderung direkt in `/etc/httpd/…` würde beim nächsten Puppet-Lauf überschrieben. Beim Testen mit `curl` auf einem Rechner mit gesetzter Umgebungsvariable `http_proxy` den Zielhost in `no_proxy` aufnehmen, sonst läuft die Anfrage über den Firmen-Proxy und es kommt ein Timeout, der mit dem Fehler nichts zu tun hat.
 
+**Einzelne Dateien scheitern mit 502 („Application error: a client-side exception“, `ChunkLoadError`)**
+
+Die Seite lädt, aber ab und zu fehlt eine JavaScript-Datei (`/_next/static/chunks/….js` mit `502 (Proxy Error)`), und die Seite zeigt „Application error: a client-side exception has occurred“. Ursache ist die Keep-Alive-Zeit: Der Master (Node.js) schließt ruhende Verbindungen nach **5 Sekunden**, der Proxy verwendet seine Verbindung zum Master aber länger weiter. Trifft eine Anfrage genau eine Verbindung, die der Master gerade geschlossen hat, antwortet der Proxy mit 502 (im Apache-`error_log`: `AH01102: error reading status line from remote server` bzw. `AH00898: Error reading from remote server`). Abhilfe, eine von beiden:
+
+- **Im Master** (bestätigt auf Rocky Linux 9 hinter Apache): längere Keep-Alive-Zeit, in Millisekunden, größer als die des Proxys: `Environment=KEEP_ALIVE_TIMEOUT=65000` (Quadlet, im Abschnitt `[Container]`) bzw. `-e KEEP_ALIVE_TIMEOUT=65000` bei `podman run`. Master neu starten.
+- **Im Proxy:** die Verbindung zum Master nicht wiederverwenden. Apache: `ProxyPass / http://127.0.0.1:8080/ disablereuse=On` (Puppet `puppetlabs-apache`: im `proxy_pass`-Eintrag `'params' => { 'disablereuse' => 'On' }`); nginx: `proxy_http_version 1.1;` und `proxy_set_header Connection "";` lassen Keep-Alive zu, `keepalive_timeout` des `upstream`-Blocks muss kürzer als die des Masters sein.
+
 ## Hilfe und About
 In der Navigationsleiste öffnet **Help** das Git-Repository in einem neuen Tab. **About** zeigt einen Dialog mit Name, Version, Ersteller, Copyright (Apache-2.0) und ob auf Docker Hub eine neuere Version verfügbar ist.
 
