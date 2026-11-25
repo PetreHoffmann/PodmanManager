@@ -23,7 +23,8 @@ Vorlage: `deployment/master/master.env.example`.
 | `AGENT_TIMEOUT` | `5` | Sekunden (1–60) |
 | `HEARTBEAT_FAILURES` | `3` | Fehlschläge bis `offline` |
 | `UPDATE_CHECK` | `on` | `off` schaltet die Update-Prüfung im *About*-Dialog ab (siehe unten) |
-| `UPDATE_CHECK_REPO` | `petrecalinoiu/podmanmanager-master` | Docker-Hub-Repository, in dem nach neueren Versionen gesucht wird (nur für eigene Forks nötig) |
+| `UPDATE_CHECK_REPO` | `petrecalinoiu/podmanmanager-master` | Repository, in dem nach neueren Versionen gesucht wird (nur für eigene Forks oder einen abweichenden Pfad im eigenen Registry nötig; mehrteilige Pfade nur mit `UPDATE_CHECK_REGISTRY`) |
+| `UPDATE_CHECK_REGISTRY` | leer (Docker Hub) | eigener Registry statt Docker Hub, z. B. `nexus.firma.de` oder `nexus.firma.de:8443` (siehe unten) |
 | `APP_VERSION` | aus dem Image | wird beim Image-Build aus dem Git-Tag gesetzt; ohne Angabe gilt die Version aus `package.json` |
 
 **`MASTER_SECRET_KEY` sichern.** Geht er verloren, sind die gespeicherten Agent-Tokens unlesbar und Agents müssen neu registriert werden. Er darf nicht ins Git.
@@ -176,6 +177,16 @@ Es genügt, dass **einer** der beiden Wege erreichbar ist (Port 443). Wenn dein 
 3. Master neu starten.
 
 `NODE_EXTRA_CA_CERTS` ergänzt die normalen Zertifikate und gilt für alle ausgehenden TLS-Verbindungen des Masters (auch LDAPS ohne eigene CA). Nur eine CA eintragen, der du vertraust. Auf einem echten Host hinter einem WSA-Proxy mit TLS-Inspektion bestätigt. Ausführliche Schritte im Quadlet-Fall: [`deployment/quadlet/README.md`](../deployment/quadlet/README.md).
+
+**Images aus eigenem Registry (Nexus, Harbor …):** Der Master erreicht Docker Hub dann oft nicht, und der Dialog zeigt `registry: TIMEOUT, hub: TIMEOUT`. Mit `UPDATE_CHECK_REGISTRY` fragt er stattdessen die Tag-Liste deines Registrys ab (`https://<registry>/v2/<repo>/tags/list`, nur lesend und anonym; ein Bearer-Token holt er sich bei Bedarf selbst vom selben Host). Bei einem Nexus-Proxy-Repository auf Docker Hub reicht meist:
+
+```ini
+Environment=UPDATE_CHECK_REGISTRY=nexus.firma.de
+# nur falls das Image im Registry anders heißt als bei Docker Hub:
+# Environment=UPDATE_CHECK_REPO=petrecalinoiu/podmanmanager-master
+```
+
+`UPDATE_CHECK_REPO` ist der Repository-Pfad, wie er im Image-Namen hinter dem Host steht (`podman pull nexus.firma.de/<repo>`). Die Firmen-CA kommt wie oben aus `NODE_EXTRA_CA_CERTS`. Der Dialog nennt dann den Registry-Host statt Docker Hub, z. B. `registry: TIMEOUT`. Verlangt dein Registry eine Anmeldung, bleibt nur `UPDATE_CHECK=off`. Das eigentliche Update (Image ziehen) ist davon unabhängig und läuft wie bisher über den Registry im Image-Namen.
 
 Sind beide Wege gesperrt, zeigt der Dialog „Update check unavailable“ mit der Ursache je Weg, z. B. `registry: ECONNREFUSED, hub: ECONNREFUSED` (`ENOTFOUND` = Name nicht auflösbar, `ETIMEDOUT`/`ECONNREFUSED` = gesperrt oder Proxy nötig, `PROXY_403`/`PROXY_407` = Proxy lehnt ab bzw. verlangt Anmeldung, `UNABLE_TO_VERIFY_LEAF_SIGNATURE` = unbekanntes Zertifikat, `HTTP_429` = Docker Hub drosselt); mit `UPDATE_CHECK=off` findet gar keine Anfrage statt. Es werden keine Daten über die Installation übertragen.
 

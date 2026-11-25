@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
-import { checkForUpdate, clearUpdateCache, compareSemver, latestStable, parseSemver, updateCheckEnabled, updateRepo } from "../src/lib/update-check";
+import { checkForUpdate, clearUpdateCache, compareSemver, latestStable, parseSemver, updateCheckEnabled, updateRegistry, updateRepo } from "../src/lib/update-check";
 import { getVersion } from "../src/lib/version";
 
 type Sources = { registry?: boolean; hub?: boolean };
@@ -166,5 +166,51 @@ describe("reverse proxy origin allowlist", () => {
     assert.ok(!originAllowed("corp.example.com", p));
     assert.ok(!originAllowed("evil-corp.example.com.attacker.net", p));
     assert.ok(!originAllowed("xcorp.example.com", p));
+  });
+});
+
+describe("update check via own registry (Nexus)", () => {
+  beforeEach(() => clearUpdateCache());
+  const HOST = "nexus.example.com:8443", REPO = "petrecalinoiu/podmanmanager-master";
+  const tagsUrl = `https://${HOST}/v2/${REPO}/tags/list?n=1000`;
+
+  it("reads the tag list anonymously, without contacting Docker Hub", async () => {
+    const log: string[] = [];
+    const f = async (url: string) => { log.push(url); return new Response(JSON.stringify({ tags: ["latest", "0.23.2", "0.23.1"] })); };
+    const r = await checkForUpdate("0.23.1", { fetchFn: f, registry: HOST, enabled: true });
+    assert.deepEqual(r, { state: "ok", current: "0.23.1", latest: "0.23.2", newer: true, devBuild: false });
+    assert.deepEqual(log, [tagsUrl]);
+  });
+
+  it("follows a Bearer challenge to the anonymous token (same host, https)", async () => {
+    const f = async (url: string, init: RequestInit) => {
+      const auth = (init.headers as Record<string, string>).Authorization;
+      if (url.startsWith(`https://${HOST}/token?`)) { assert.match(url, /service=nexus&scope=repository%3Apetrecalinoiu%2Fpodmanmanager-master%3Apull/); return new Response(JSON.stringify({ token: "t1" })); }
+      if (auth === "Bearer t1") return new Response(JSON.stringify({ tags: ["0.24.0"] }));
+      return new Response("", { status: 401, headers: { "www-authenticate": `Bearer realm="https://${HOST}/token",service="nexus"` } });
+    };
+    assert.equal(((await checkForUpdate("0.23.1", { fetchFn: f, registry: HOST, enabled: true })) as { latest: string }).latest, "0.24.0");
+  });
+
+  it("refuses a token realm on another host", async () => {
+    const f = async () => new Response("", { status: 401, headers: { "www-authenticate": 'Bearer realm="https://evil.example.org/token"' } });
+    assert.deepEqual(await checkForUpdate("0.23.1", { fetchFn: f, registry: HOST, enabled: true }), { state: "unavailable", detail: "registry: BAD_REALM", host: HOST });
+  });
+
+  it("names the registry host on failure", async () => {
+    const timeout = Object.assign(new Error("t"), { name: "TimeoutError" });
+    assert.deepEqual(await checkForUpdate("0.23.1", { fetchFn: async () => { throw timeout; }, registry: HOST, enabled: true }), { state: "unavailable", detail: "registry: TIMEOUT", host: HOST });
+    clearUpdateCache();
+    assert.deepEqual(await checkForUpdate("0.23.1", { fetchFn: async () => new Response("no", { status: 401 }), registry: HOST, enabled: true }), { state: "unavailable", detail: "registry: HTTP_401", host: HOST });
+  });
+
+  it("validates UPDATE_CHECK_REGISTRY and multi-segment repos", () => {
+    assert.equal(updateRegistry({}), null);
+    assert.equal(updateRegistry({ UPDATE_CHECK_REGISTRY: "Nexus.Example.com:8443" }), "nexus.example.com:8443");
+    assert.equal(updateRegistry({ UPDATE_CHECK_REGISTRY: "https://nexus.example.com/" }), "nexus.example.com");
+    for (const bad of ["a b", "x/y", "nexus.example.com:99999x", "-x", "x@y"]) assert.equal(updateRegistry({ UPDATE_CHECK_REGISTRY: bad }), null, bad);
+    const multi = "docker-proxy/petrecalinoiu/podmanmanager-master";
+    assert.equal(updateRepo({ UPDATE_CHECK_REPO: multi, UPDATE_CHECK_REGISTRY: "nexus.example.com" }), multi);
+    assert.equal(updateRepo({ UPDATE_CHECK_REPO: multi }), "petrecalinoiu/podmanmanager-master");
   });
 });

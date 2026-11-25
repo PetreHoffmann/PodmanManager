@@ -50,6 +50,8 @@ Environment=AGENT_TIMEOUT=5
 # Environment=METRICS_INTERVAL=30
 # Update-Pruefung im About-Dialog abschalten (abgeschottete Netze):
 # Environment=UPDATE_CHECK=off
+# Images aus eigenem Registry (Nexus): dort statt bei Docker Hub nach neuen Versionen suchen:
+# Environment=UPDATE_CHECK_REGISTRY=nexus.firma.de
 # Automatische Updates (braucht :latest statt festem Tag, dazu podman-auto-update.timer):
 # AutoUpdate=registry
 

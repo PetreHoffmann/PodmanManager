@@ -109,7 +109,7 @@ export default function AboutDialog({ version }: { version: string }) {
               <span className="text-slate-400">{t("about.disabled")}</span>
             ) : info.state === "unavailable" ? (
               <div className="space-y-1">
-                <span className="text-amber-300">{t("about.unavailable")}</span>
+                <span className="text-amber-300">{info.host ? t("about.unavailableHost", { host: info.host }) : t("about.unavailable")}</span>
                 {info.detail && <p className="break-all font-mono text-xs text-slate-500">{info.detail}</p>}
               </div>
             ) : info.newer ? (

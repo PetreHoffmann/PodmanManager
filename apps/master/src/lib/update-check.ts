@@ -2,11 +2,13 @@ import { failCode, makeProxyAwareFetch } from "./proxy-fetch";
 
 export type UpdateInfo =
   | { state: "disabled" }
-  | { state: "unavailable"; detail?: string }
+  | { state: "unavailable"; detail?: string; host?: string }
   | { state: "ok"; current: string; latest: string; newer: boolean; devBuild: boolean };
 
 export const DEFAULT_REPO = "petrecalinoiu/podmanmanager-master";
-const REPO_RE = /^[a-z0-9][a-z0-9._-]{0,63}\/[a-z0-9][a-z0-9._-]{0,63}$/;
+const HUB_REPO_RE = /^[a-z0-9][a-z0-9._-]{0,63}\/[a-z0-9][a-z0-9._-]{0,63}$/;
+const REGISTRY_REPO_RE = /^[a-z0-9][a-z0-9._-]{0,63}(\/[a-z0-9][a-z0-9._-]{0,63}){1,4}$/;
+const HOST_RE = /^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?(:\d{1,5})?$/;
 const OK_TTL_MS = 5 * 60_000;
 const FAIL_TTL_MS = 5 * 60_000;
 
@@ -33,7 +35,13 @@ export const updateCheckEnabled = (env: Record<string, string | undefined> = pro
 
 export function updateRepo(env: Record<string, string | undefined> = process.env): string {
   const r = (env.UPDATE_CHECK_REPO ?? "").trim().toLowerCase();
-  return REPO_RE.test(r) ? r : DEFAULT_REPO;
+  return (updateRegistry(env) ? REGISTRY_REPO_RE : HUB_REPO_RE).test(r) ? r : DEFAULT_REPO;
+}
+
+/** Own registry (Nexus, Harbor, ...) instead of Docker Hub, e.g. "nexus.example.com" or "nexus.example.com:8443"; null = Docker Hub. */
+export function updateRegistry(env: Record<string, string | undefined> = process.env): string | null {
+  const h = (env.UPDATE_CHECK_REGISTRY ?? "").trim().toLowerCase().replace(/^https:\/\//, "").replace(/\/+$/, "");
+  return HOST_RE.test(h) ? h : null;
 }
 
 type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
@@ -59,6 +67,34 @@ async function tagsViaRegistry(repo: string, fetchFn: FetchFn): Promise<string[]
   return tags.filter((x): x is string => typeof x === "string");
 }
 
+/**
+ * Any Docker-compatible registry (anonymous read): GET /v2/<repo>/tags/list; on 401 with a Bearer challenge
+ * the anonymous token is fetched from the advertised realm (https, same host only) and the request is repeated.
+ */
+async function tagsViaCustomRegistry(host: string, repo: string, fetchFn: FetchFn): Promise<string[]> {
+  const url = `https://${host}/v2/${repo}/tags/list?n=1000`;
+  let r = await fetchFn(url, reqInit());
+  if (r.status === 401) {
+    const m = /Bearer\s+realm="([^"]+)"(?:,\s*service="([^"]*)")?/i.exec(r.headers.get("www-authenticate") ?? "");
+    if (!m) throw new Error("HTTP_401");
+    let realm: URL;
+    try { realm = new URL(m[1]!); } catch { throw new Error("BAD_REALM"); }
+    if (realm.protocol !== "https:" || realm.host !== host) throw new Error("BAD_REALM");
+    if (m[2]) realm.searchParams.set("service", m[2]);
+    realm.searchParams.set("scope", `repository:${repo}:pull`);
+    const t = await fetchFn(realm.toString(), reqInit());
+    if (!t.ok) throw new Error(`HTTP_${t.status}`);
+    const j = (await t.json()) as { token?: unknown; access_token?: unknown };
+    const token = typeof j.token === "string" ? j.token : j.access_token;
+    if (typeof token !== "string" || token.length === 0 || token.length > 8192) throw new Error("BAD_TOKEN");
+    r = await fetchFn(url, reqInit({ Authorization: `Bearer ${token}` }));
+  }
+  if (!r.ok) throw new Error(`HTTP_${r.status}`);
+  const tags = ((await r.json()) as { tags?: unknown }).tags;
+  if (!Array.isArray(tags)) throw new Error("BAD_LIST");
+  return tags.filter((x): x is string => typeof x === "string");
+}
+
 /** Docker Hub web API (hub.docker.com). */
 async function tagsViaHub(repo: string, fetchFn: FetchFn): Promise<string[]> {
   const res = await fetchFn(`https://hub.docker.com/v2/repositories/${repo}/tags/?page_size=100`, reqInit());
@@ -68,35 +104,40 @@ async function tagsViaHub(repo: string, fetchFn: FetchFn): Promise<string[]> {
 }
 
 /**
- * Asks Docker Hub for the newest release tag. Both the registry API and the hub API are tried in
+ * Asks Docker Hub (or the registry from UPDATE_CHECK_REGISTRY) for the newest release tag. Both the registry API and the hub API are tried in
  * parallel (networks often allow only one of them); the first answer wins. Results are cached,
  * failures never throw.
  */
 export async function checkForUpdate(
   current: string,
-  opts: { fetchFn?: FetchFn; repo?: string; now?: number; enabled?: boolean } = {},
+  opts: { fetchFn?: FetchFn; repo?: string; registry?: string | null; now?: number; enabled?: boolean } = {},
 ): Promise<UpdateInfo> {
   if (!(opts.enabled ?? updateCheckEnabled())) return { state: "disabled" };
   const repo = opts.repo ?? updateRepo();
+  const registry = opts.registry === undefined ? updateRegistry() : opts.registry;
+  const key = `${registry ?? ""}/${repo}`;
   const now = opts.now ?? Date.now();
   const fetchFn = opts.fetchFn ?? makeProxyAwareFetch();
-  const hit = cache.get(repo);
+  const hit = cache.get(key);
   let latest: string | null;
   if (hit && now - hit.at < (hit.latest ? OK_TTL_MS : FAIL_TTL_MS)) {
     latest = hit.latest;
   } else {
     let detail: string | undefined;
     try {
-      latest = latestStable(await Promise.any([tagsViaRegistry(repo, fetchFn), tagsViaHub(repo, fetchFn)]));
+      latest = latestStable(registry ? await tagsViaCustomRegistry(registry, repo, fetchFn) : await Promise.any([tagsViaRegistry(repo, fetchFn), tagsViaHub(repo, fetchFn)]));
       if (!latest) detail = "no release tags";
     } catch (e) {
       latest = null;
-      const errs = e instanceof AggregateError ? e.errors : [e];
-      detail = ["registry", "hub"].slice(0, errs.length).map((n, i) => `${n}: ${failCode(errs[i])}`).join(", ");
+      if (registry) detail = `registry: ${failCode(e)}`;
+      else {
+        const errs = e instanceof AggregateError ? e.errors : [e];
+        detail = ["registry", "hub"].slice(0, errs.length).map((n, i) => `${n}: ${failCode(errs[i])}`).join(", ");
+      }
     }
-    cache.set(repo, { at: now, latest, detail });
+    cache.set(key, { at: now, latest, detail });
   }
-  if (!latest) return { state: "unavailable", detail: cache.get(repo)?.detail };
+  if (!latest) return { state: "unavailable", detail: cache.get(key)?.detail, ...(registry ? { host: registry } : {}) };
   const devBuild = parseSemver(current) === null;
   return { state: "ok", current, latest, newer: !devBuild && compareSemver(latest, current) > 0, devBuild };
 }
