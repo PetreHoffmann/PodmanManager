@@ -1,6 +1,6 @@
 # PodmanManager
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/PetreHoffmann/PodmanManager)
+[![Ask DeepWiki](docs/badges/deepwiki.svg)](https://deepwiki.com/PetreHoffmann/PodmanManager)
 
 **Eine Webseite, auf der Sie Ihre Anwendungen auf mehreren Servern sehen, starten, stoppen und neu starten – ohne sich auf den Servern anzumelden.**
 
