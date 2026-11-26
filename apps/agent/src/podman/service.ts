@@ -645,7 +645,10 @@ export class PodmanService {
     await this.client.checkSocket();
     const lp = await this.libpod();
     const res = await this.client.call("POST", `${lp}/containers/create`, { json: libpodSpec(req), timeoutMs: 60_000 });
-    if (res.status === 409) throw new PodmanError("NAME_IN_USE", `Container name "${req.name}" is already in use`, 409);
+    // Podman 4 answers 409, Podman 5 answers 500 with "the container name ... is already in use"
+    if (res.status === 409 || (res.status === 500 && /name .*is already in use|that name is already in use/i.test(res.body.toString("utf8").slice(0, 2000)))) {
+      throw new PodmanError("NAME_IN_USE", `Container name "${req.name}" is already in use`, 409);
+    }
     if (res.status !== 201) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     const out = rec(json(res));
     const id = str(out.Id);
