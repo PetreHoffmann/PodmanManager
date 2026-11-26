@@ -88,6 +88,7 @@ describe("create container routes", () => {
       req.on("end", () => {
         calls.push({ method: req.method ?? "", url: u, body: Buffer.concat(chunks).toString("utf8") });
         if (u === "/libpod/containers/create") {
+          if (createStatus === 500) return jsonRes(res, 500, { cause: "that name is already in use", message: "creating container storage: the container name \"web\" is already in use by abc. You have to remove that container to be able to reuse that name: that name is already in use", response: 500 });
           if (createStatus === 409) return jsonRes(res, 409, { message: "the container name is already in use" });
           if (createStatus !== 201) return jsonRes(res, 500, { message: "boom" });
           return jsonRes(res, 201, { Id: NEWID, Warnings: ["cpu limit ignored"] });
@@ -138,6 +139,14 @@ describe("create container routes", () => {
   it("requires the token", async () => {
     assert.equal((await send("/api/v1/containers", { name: "a", image: "b" }, {})).status, 401);
     assert.equal((await send("/api/v1/images/pull", { reference: "nginx" }, {})).status, 401);
+  });
+  it("Podman 5 answers a taken name with 500: still 409 NAME_IN_USE", async () => {
+    createStatus = 500;
+    try {
+      const r = await send("/api/v1/containers", { name: "web", image: "nginx" });
+      assert.equal(r.status, 409);
+      assert.equal((await r.json()).error.code, "NAME_IN_USE");
+    } finally { createStatus = 201; }
   });
   it("reports a name that is already in use as 409 NAME_IN_USE", async () => {
     createStatus = 409;
