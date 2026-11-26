@@ -61,15 +61,15 @@ Die Screenshots zeigen Testdaten (nachgebaute Podman-Sockets). Die Oberfläche g
 Voraussetzungen: Linux, Node.js ≥ 24, auf Agent-Hosts rootless Podman + systemd.
 
 ```bash
-# 1. Agent auf jedem Podman-Host (als normaler Benutzer, nicht root)
-git clone <repo> && cd podmanmanager
-deployment/agent/install.sh host-1        # gibt einmalig den Agent-Token aus
-
-# 2. Master (siehe docs/installation-master.md)
+# 1. Master (siehe docs/installation-master.md)
 npm ci && npm run build -w apps/master
 MASTER_SECRET_KEY=$(openssl rand -base64 32) deployment/master/start.sh
 
-# 3. http://<master>:8080 öffnen → Admin-Passwort setzen → Hosts → Agent hinzufügen
+# 2. http://<master>:8080 öffnen → Admin-Passwort setzen → Hosts → „Neuen Agent einrichten“
+#    (Adresse + Agent-ID). Der Master erzeugt Token und Hash und zeigt die Quadlet-Datei bzw. den Hash.
+
+# 3. Agent auf jedem Podman-Host als Container starten (Quadlet oder podman run):
+#    siehe Abschnitt „Docker-Images“ und docs/installation-agent.md
 ```
 
 ## Docker-Images
@@ -87,17 +87,16 @@ docker run -d --name podmanmanager-master -p 8080:8080 \
 
 `MASTER_SECRET_KEY` einmal festlegen und bei jedem Start wieder verwenden – mit einem neuen Schlüssel sind die gespeicherten Agent-Tokens unlesbar. Die Datenbank liegt im Volume `/data`.
 
-**Agent** (empfohlen bleibt die native Installation mit `deployment/agent/install.sh`; als Container braucht der Agent den gemounteten Rootless-Socket und muss mit der UID des Podman-Benutzers laufen, er verweigert Root)
+**Agent** (als Rootless-Container; er braucht den gemounteten Rootless-Socket und muss mit der UID des Podman-Benutzers laufen, er verweigert Root). Token und Hash erzeugt der **Master** unter *Hosts* → *Neuen Agent einrichten*; auf dem Host wird nichts erzeugt.
 
 ```bash
-podman run --rm petrecalinoiu/podmanmanager-agent:latest node dist/index.js --generate-token   # Token + Hash
-podman run -d --name pm-agent --user $(id -u) --userns=keep-id -p 9126:9126 \
+podman run -d --name podmanmanager-agent --restart=always --user $(id -u) --userns=keep-id -p 9126:9126 \
   -v $XDG_RUNTIME_DIR/podman/podman.sock:/run/podman/podman.sock \
-  -e AGENT_ID=host-1 -e AGENT_TOKEN_HASH=<hash> \
+  -e AGENT_ID=host-1 -e AGENT_TOKEN_HASH=<Hash aus dem Master> \
   docker.io/petrecalinoiu/podmanmanager-agent:latest
 ```
 
-Den Token im Master unter *Hosts* eintragen; Port 9126 nur für die Master-IP freigeben (siehe [Sicherheit](docs/security.md)).
+Für den Dauerbetrieb zeigt der Master dieselben Angaben als fertige Quadlet-Datei. Port 9126 nur für die Master-IP freigeben (siehe [Sicherheit](docs/security.md)).
 
 ## Dokumentation
 
@@ -107,9 +106,9 @@ Den Token im Master unter *Hosts* eintragen; Port 9126 nur für die Master-IP fr
 | [Architektur](docs/architecture.md) | Komponenten, Datenfluss, Entscheidungen |
 | [Master-Installation](docs/installation-master.md) | Build, Konfiguration, systemd, Datenbank |
 | [SSO mit SAML 2.0](docs/sso.md) | Anmeldung per SAML 2.0 mit ADFS, Entra ID, Okta, Keycloak oder eigenem Anbieter: Einrichtung, Claims, Fehlersuche |
-| [Agent-Installation](docs/installation-agent.md) | install.sh, User-Service, Lingering, Podman-Socket |
-| [Deployment (Schritt für Schritt)](deployment/README.md) | `podman run` und Quadlet für Master und Agent; Agent-Hash als Secret oder Environment-Wert |
-| [Quadlets](deployment/quadlet/README.md) | Rootless-Quadlets für Master und Agent (Podman-Secrets, gemeinsames Netzwerk, Updates per Web-UI) |
+| [Agent-Installation](docs/installation-agent.md) | Agent als Container (Quadlet oder `podman run`), Hash vom Master, Podman-Socket, Lingering |
+| [Deployment (Schritt für Schritt)](deployment/README.md) | `podman run` und Quadlet für Master und Agent; der Agent-Hash kommt vom Master |
+| [Quadlets](deployment/quadlet/README.md) | Rootless-Quadlets für Master und Agent (gemeinsames Netzwerk, Updates per Web-UI) |
 | [API](docs/api.md) | Agent-REST-API, Fehlercodes |
 | [Sicherheit](docs/security.md) | Bedrohungsmodell, Tokens, Firewall |
 | [Troubleshooting](docs/troubleshooting.md) | Häufige Fehler |
