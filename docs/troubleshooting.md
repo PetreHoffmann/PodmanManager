@@ -59,6 +59,13 @@
 | „Jetzt aktualisieren“ fehlt in „Über“ | Auf dem Master-Host muss ein Agent ≥ 0.11.0 mit `Environment=UPDATE_UNIT=podmanmanager-master` laufen (`daemon-reload`, Agent neu starten). |
 | Update startet, nichts ändert sich | Der Pull fand kein neues Image („Already up to date“) oder der Host-Podman erreicht Docker Hub nicht; Agent-Log in der Host-Ansicht prüfen. |
 
+## Container neu starten
+
+| Meldung / Symptom | Ursache und Abhilfe |
+|---|---|
+| „Failed to bind port … (Address already in use)“ beim Neustart eines Containers, der per Quadlet/Puppet läuft | Quadlet startet Container mit `--rm`; systemd erzeugt sie sofort neu und belegt den Port, während Podman denselben Container noch neu starten will. Ab v0.24.1 stoppt der Agent solche Container nur und wartet, bis systemd sie wieder gestartet hat. |
+| „Gestoppt, aber systemd hat die Unit nicht neu gestartet (Restart= fehlt?)“ | Die Unit hat kein `Restart=always` (oder `on-failure` greift bei einem sauberen Stopp nicht). Im Quadlet unter `[Service]` `Restart=always` ergänzen; bei Puppet im Quadlet-Template. Bis dahin: `systemctl --user start <unit>.service` als Container-Benutzer. |
+
 ## Diagnose
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" http://<agent>:9126/api/v1/containers

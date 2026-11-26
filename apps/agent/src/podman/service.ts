@@ -234,6 +234,8 @@ export class PodmanService {
   constructor(
     private readonly client: PodmanClient,
     private readonly stopTimeoutSec: number,
+    /** how long a restart of a systemd-managed (Quadlet) container waits for systemd to bring it back */
+    private readonly systemdRestartWaitMs = 45_000,
   ) {}
 
   /** Socket exists, API answers _ping (unversioned by design). Learns the libpod API version. */
@@ -308,6 +310,10 @@ export class PodmanService {
     await this.client.checkSocket();
     const t = this.stopTimeoutSec;
     const lp = await this.libpod();
+    if (action === "restart") {
+      const unit = await this.quadletUnit(id);
+      if (unit) return this.restartViaSystemd(id, unit);
+    }
     const path =
       action === "start"
         ? `${lp}/containers/${id}/start`
@@ -320,6 +326,36 @@ export class PodmanService {
       throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     }
     return { changed: res.status === 204, container: await this.inspect(id) };
+  }
+
+  /**
+   * Unit name if the container was started by a systemd unit (Quadlet) with --rm: such a container is deleted when it
+   * stops, so a Podman "restart" races against systemd (which recreates it with the same ports -> "address already in use").
+   */
+  private async quadletUnit(id: string): Promise<string | null> {
+    const res = await this.client.call("GET", `${await this.libpod()}/containers/${id}/json`);
+    if (res.status !== 200) return null;
+    const o = rec(json(res));
+    const unit = rec(rec(o.Config).Labels)["PODMAN_SYSTEMD_UNIT"];
+    return typeof unit === "string" && /^[A-Za-z0-9_.@:-]{1,128}$/.test(unit) && rec(o.HostConfig).AutoRemove === true ? unit : null;
+  }
+
+  /** Restart of a Quadlet container: stop it and let systemd (Restart=) start the unit again; wait until it runs. */
+  private async restartViaSystemd(id: string, unit: string): Promise<{ changed: boolean; container: ContainerInfo }> {
+    const lp = await this.libpod();
+    const res = await this.client.call("POST", `${lp}/containers/${id}/stop?timeout=${this.stopTimeoutSec}`);
+    if (res.status !== 204 && res.status !== 304 && res.status !== 404) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const filters = encodeURIComponent(JSON.stringify({ label: [`PODMAN_SYSTEMD_UNIT=${unit}`], status: ["running"] }));
+    const deadline = Date.now() + this.systemdRestartWaitMs;
+    for (;;) {
+      const r = await this.client.call("GET", `${lp}/containers/json?filters=${filters}`);
+      const arr = r.status === 200 ? json(r) : [];
+      const nid = Array.isArray(arr) ? str(rec(arr[0]).Id) : "";
+      if (/^[a-f0-9]{64}$/.test(nid)) return { changed: true, container: await this.inspect(nid) };
+      if (Date.now() >= deadline) break;
+      await new Promise((ok) => setTimeout(ok, 500));
+    }
+    throw new PodmanError("SYSTEMD_NOT_RESTARTED", `Stopped, but systemd did not start ${unit} again (Restart= missing in the unit?)`, 409);
   }
 
   private storageCache: { at: number; value: StorageInfo } | null = null;
