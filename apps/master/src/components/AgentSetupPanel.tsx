@@ -13,7 +13,7 @@ const TABS: { key: Tab; label: "wiz.tabFile" | "wiz.tabSecret" | "wiz.tabRun" | 
 ];
 
 /** A code block with its own copy button. */
-function Block({ text, title, testid, copyLabel, copiedLabel }: { text: string; title?: string; testid: string; copyLabel: string; copiedLabel: string }) {
+export function Block({ text, title, testid, copyLabel, copiedLabel }: { text: string; title?: string; testid: string; copyLabel: string; copiedLabel: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
