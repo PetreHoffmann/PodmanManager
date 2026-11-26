@@ -6,9 +6,10 @@ Der Agent läuft als **Rootless-Container** auf jedem Podman-Host, als **normale
 
 Im Master unter *Hosts* → *Neuen Agent einrichten* die **Agent-Adresse** (`http://<host-ip>:9126`) und eine eindeutige **Agent-ID** (`A-Z a-z 0-9 . _ -`) eintragen und auf *Erzeugen und Konfiguration anzeigen* klicken.
 
-Der Master erzeugt den Token, speichert ihn verschlüsselt und legt den Host an. Der Agent bekommt nur den **Hash** des Tokens. Der Master zeigt ihn in drei Reitern, jeweils mit Kopieren-Knopf:
+Der Master erzeugt den Token, speichert ihn verschlüsselt und legt den Host an. Der Agent bekommt nur den **Hash** des Tokens. Der Master zeigt ihn in vier Reitern, jeweils mit Kopieren-Knopf:
 
 - **Komplette Quadlet-Datei** mit eingetragener Agent-ID und eingetragenem Hash (für Weg 3a),
+- **Quadlet + Secret**: derselbe Quadlet, aber der Hash liegt als Podman-Secret und nicht in der Datei, dazu der Befehl, der das Secret anlegt (für Weg 3a),
 - **podman run**: der fertige Befehl mit Agent-ID, Hash und Port (für Weg 3b),
 - **Nur Hash** als Zeile `AGENT_TOKEN_HASH=…` (für eigene Dateien oder Befehle).
 
@@ -31,7 +32,9 @@ chmod 600 ~/.config/containers/systemd/podmanmanager-agent.container
 systemctl --user daemon-reload
 systemctl --user start podmanmanager-agent
 ```
-Quadlet-Units werden nicht mit `enable` aktiviert; `[Install]` wirkt automatisch nach `daemon-reload`. Mehr dazu (gemeinsames Netzwerk, Updates, cgroup v1): [Quadlets](../deployment/quadlet/README.md).
+Quadlet-Units werden nicht mit `enable` aktiviert; `[Install]` wirkt automatisch nach `daemon-reload`.
+
+**Hash als Podman-Secret statt in der Datei:** Reiter *Quadlet + Secret* wählen. Zuerst den angezeigten Befehl einmal auf dem Host ausführen (er legt das Secret `podmanmanager-agent-hash` an, `printf '%s'` statt `echo`, damit kein Zeilenumbruch im Wert landet), dann die Quadlet-Datei speichern. Der Hash steht dann nicht in der Unit-Datei und nicht in `podman inspect`; die Datei braucht kein `chmod 600`. Mehr dazu (gemeinsames Netzwerk, Updates, cgroup v1): [Quadlets](../deployment/quadlet/README.md).
 
 ## 3b. Mit `podman run`
 
@@ -78,7 +81,7 @@ Port 9126 nur für die IP des Masters öffnen (Beispiele in [Sicherheit](securit
 
 ## Token erneuern
 
-Im Master unter *Hosts* → *Einrichtung* auf *Token erneuern* klicken, den neuen Hash im Agent eintragen (Quadlet-Datei bzw. `-e AGENT_TOKEN_HASH=`) und den Agent neu starten (`systemctl --user restart podmanmanager-agent` bzw. Container neu anlegen). Bis dahin steht der Host auf *offline*.
+Im Master unter *Hosts* → *Einrichtung* auf *Token erneuern* klicken, den neuen Hash im Agent eintragen (Quadlet-Datei, `-e AGENT_TOKEN_HASH=` oder bei der Secret-Variante: `podman secret rm podmanmanager-agent-hash` und den angezeigten Befehl erneut ausführen) und den Agent neu starten (`systemctl --user restart podmanmanager-agent` bzw. Container neu anlegen). Bis dahin steht der Host auf *offline*.
 
 ## Aktualisieren und Entfernen
 

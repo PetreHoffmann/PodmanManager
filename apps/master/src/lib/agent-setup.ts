@@ -19,13 +19,19 @@ export interface AgentSetup {
   hashLine: string;
   /** ready podman run command (to try it out; Quadlet is better for permanent operation) */
   podmanRun: string;
+  /** Quadlet file that reads the hash from the Podman secret `podmanmanager-agent-hash` (the file itself holds no hash) */
+  quadletSecret: string;
+  /** shell command that creates that secret from the hash */
+  secretCommand: string;
 }
+
+export const HASH_SECRET_NAME = "podmanmanager-agent-hash";
 
 /** Quadlet file with the values of this host filled in; the hash is an Environment= value (file: chmod 600). */
 export function agentSetup(agentId: string, address: string, hash: string): AgentSetup {
   const ipv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(address);
-  const quadlet = `# PodmanManager Agent als Quadlet (rootless), erzeugt vom Master.
-# Save as ~/.config/containers/systemd/podmanmanager-agent.container and run chmod 600 on it (it contains the hash).
+  const quadletFor = (comment: string, hashLine: string) => `# PodmanManager Agent als Quadlet (rootless), erzeugt vom Master.
+${comment}
 [Unit]
 Description=PodmanManager Agent
 Wants=podman.socket
@@ -43,7 +49,7 @@ SecurityLabelDisable=true
 
 Environment=AGENT_ID=${agentId}
 Environment=PODMAN_SOCKET=/run/podman/podman.sock
-Environment=AGENT_TOKEN_HASH=${hash}
+${hashLine}
 
 NoNewPrivileges=true
 DropCapability=ALL
@@ -55,6 +61,14 @@ TimeoutStartSec=120
 [Install]
 WantedBy=default.target
 `;
+  const quadlet = quadletFor(
+    "# Save as ~/.config/containers/systemd/podmanmanager-agent.container and run chmod 600 on it (it contains the hash).",
+    `Environment=AGENT_TOKEN_HASH=${hash}`,
+  );
+  const quadletSecret = quadletFor(
+    `# Save as ~/.config/containers/systemd/podmanmanager-agent.container. The hash is not in this file: create the Podman secret first (see the command of the Master).`,
+    `Secret=${HASH_SECRET_NAME},type=env,target=AGENT_TOKEN_HASH`,
+  );
   const podmanRun = `podman run -d --name podmanmanager-agent --restart=always \\
   --hostname "$(hostname)" \\
   --user "$(id -u)" --userns=keep-id \\
@@ -65,5 +79,6 @@ WantedBy=default.target
   -e AGENT_TOKEN_HASH=${hash} \\
   docker.io/petrecalinoiu/podmanmanager-agent:latest
 `;
-  return { agentId, hash, quadlet, hashLine: `AGENT_TOKEN_HASH=${hash}`, podmanRun };
+  const secretCommand = `printf '%s' ${hash} | podman secret create ${HASH_SECRET_NAME} -\n`;
+  return { agentId, hash, quadlet, hashLine: `AGENT_TOKEN_HASH=${hash}`, podmanRun, quadletSecret, secretCommand };
 }

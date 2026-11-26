@@ -45,7 +45,9 @@ systemctl --user start podmanmanager-agent
 
 Die Vorlage in diesem Ordner (`podmanmanager-agent.container`) hat dieselbe Form, mit Platzhaltern für Hash und Agent-ID und mit auskommentierten Optionen (gemeinsames Netzwerk, `UPDATE_UNIT`, cgroup v1, automatische Updates). Der **Hash** ist nicht der Token: Aus ihm lässt sich der Token nicht zurückrechnen, und mit dem Hash allein kann man sich nicht beim Agent anmelden. Er steht als `Environment=AGENT_TOKEN_HASH=…` in der Datei; mit `chmod 600` ist er für andere Benutzer nicht lesbar (in `podman inspect` ist er sichtbar).
 
-**Token erneuern:** im Master *Hosts* → *Einrichtung* → *Token erneuern*, den neuen Hash in `AGENT_TOKEN_HASH=` der Datei eintragen und `systemctl --user daemon-reload && systemctl --user restart podmanmanager-agent` ausführen (die Umgebung wird nur beim Containerstart gelesen). Bis dahin steht der Host auf *offline*.
+**Hash als Podman-Secret:** Der Master-Reiter *Quadlet + Secret* zeigt statt der Datei mit Hash zwei Blöcke: den Befehl `printf '%s' <hash> | podman secret create podmanmanager-agent-hash -` (einmal ausführen) und die Quadlet-Datei mit `Secret=podmanmanager-agent-hash,type=env,target=AGENT_TOKEN_HASH`. Dann steht der Hash weder in der Datei noch in `podman inspect`. Das Secret liegt im Dateitreiber von Podman (siehe Hinweise unten).
+
+**Token erneuern:** im Master *Hosts* → *Einrichtung* → *Token erneuern*, den neuen Hash in `AGENT_TOKEN_HASH=` der Datei eintragen (bei der Secret-Variante: `podman secret rm podmanmanager-agent-hash` und den Befehl aus dem Master erneut ausführen) und `systemctl --user daemon-reload && systemctl --user restart podmanmanager-agent` ausführen (Umgebung und Secrets werden nur beim Containerstart gelesen). Bis dahin steht der Host auf *offline*.
 
 Port 9126 nur für die Master-IP freigeben (siehe [Sicherheit](../../docs/security.md)).
 

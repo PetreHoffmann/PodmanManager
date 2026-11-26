@@ -31,6 +31,18 @@ describe("agent setup blocks", () => {
     assert.equal(ip.hashLine, `AGENT_TOKEN_HASH=${hash}`);
     assert.match(agentSetup("h", "box.lan", hash).quadlet, /^PublishPort=9126:9126$/m);
   });
+  it("builds the Quadlet variant with the hash as Podman secret: no hash in the file, a command creates the secret", () => {
+    const hash = "c".repeat(64);
+    const r = agentSetup("host-1", "192.168.1.21", hash);
+    assert.equal(r.quadletSecret.includes(hash), false);
+    assert.match(r.quadletSecret, /^Secret=podmanmanager-agent-hash,type=env,target=AGENT_TOKEN_HASH$/m);
+    assert.equal(/^Environment=AGENT_TOKEN_HASH=/m.test(r.quadletSecret), false);
+    assert.match(r.quadletSecret, /^Environment=AGENT_ID=host-1$/m);
+    assert.match(r.quadletSecret, /^PublishPort=192\.168\.1\.21:9126:9126$/m);
+    assert.equal(r.secretCommand, `printf '%s' ${hash} | podman secret create podmanmanager-agent-hash -\n`);
+    // everything else of the two Quadlet variants is identical
+    assert.equal(r.quadlet.split("\n").filter((l) => !/AGENT_TOKEN_HASH|^# Save as/.test(l)).join("\n"), r.quadletSecret.split("\n").filter((l) => !/AGENT_TOKEN_HASH|^# Save as/.test(l)).join("\n"));
+  });
   it("builds a ready podman run command with the agent id, the hash and the same port rule", () => {
     const hash = "b".repeat(64);
     const ip = agentSetup("host-1", "192.168.1.21", hash).podmanRun;
