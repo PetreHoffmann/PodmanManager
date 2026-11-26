@@ -25,15 +25,15 @@ User=%U
 # Auf SELinux-Hosts (Fedora/RHEL) noetig, sonst wird der Zugriff auf den Socket verweigert:
 SecurityLabelDisable=true
 
+# Agent-ID: dieselbe wie im Master angegeben
 Environment=AGENT_ID=host-1
 Environment=PODMAN_SOCKET=/run/podman/podman.sock
 # Nur auf dem Master-Host: erlaubt dem Agent, den Master per Button in "Über" zu aktualisieren
 # (Name der Master-Quadlet-Unit ohne .service):
 # Environment=UPDATE_UNIT=podmanmanager-master
-# SHA-256-Hash des Agent-Tokens als Podman-Secret (Anleitung in README.md):
-Secret=podmanmanager-agent-hash,type=env,target=AGENT_TOKEN_HASH
-# Alternative ohne Secret (Hash steht dann in dieser Datei, chmod 600): obige Zeile ersetzen durch
-# Environment=AGENT_TOKEN_HASH=<64 Hex-Zeichen>
+# Agent-Hash: kommt vom Master (Hosts -> Neuen Agent einrichten; dort steht diese Datei fertig ausgefuellt).
+# Datei mit "chmod 600" schuetzen, sie enthaelt den Hash.
+Environment=AGENT_TOKEN_HASH=<64 Hex-Zeichen aus dem Master>
 
 NoNewPrivileges=true
 DropCapability=ALL

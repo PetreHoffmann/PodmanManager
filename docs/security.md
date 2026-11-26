@@ -106,6 +106,6 @@ sudo ufw allow from 192.168.1.0/24 to any port 8080 proto tcp
 Alle anderen Zugriffe auf 9126/8080 blockieren; keine Portweiterleitung aus dem Internet.
 
 ## Token rotieren
-1. Auf dem Agent-Host: `node ~/.local/share/podmanmanager-agent/dist/index.js --generate-token`.
-2. `AGENT_TOKEN_HASH` in `~/.config/podmanmanager/agent.env` ersetzen, `systemctl --user restart podmanmanager-agent`.
-3. Im Master den Host entfernen und mit dem neuen Token erneut hinzufügen.
+1. Im Master unter *Hosts* → *Einrichtung* auf *Token erneuern* klicken. Der Master speichert den neuen Token und zeigt den neuen Hash.
+2. Den Hash im Agent eintragen (`AGENT_TOKEN_HASH=` in der Quadlet-Datei bzw. im `podman run`-Befehl) und den Agent neu starten (`systemctl --user daemon-reload && systemctl --user restart podmanmanager-agent`).
+3. Bis dahin steht der Host auf *offline*; danach prüft der Master die Verbindung selbst.

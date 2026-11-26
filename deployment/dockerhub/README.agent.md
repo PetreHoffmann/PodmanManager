@@ -2,22 +2,25 @@
 
 Lightweight agent for [PodmanManager](https://github.com/PetreHoffmann/PodmanManager) (Apache-2.0). It talks **only** to the local **rootless Podman unix socket** of its own user and offers a small authenticated HTTP API (port 9126) to the Master: list containers, start, stop, restart. No shell, no arbitrary Podman commands, no dependencies, never runs as root.
 
-The recommended deployment is the native systemd user service (`deployment/agent/install.sh` in the repository). The container variant needs the rootless socket mounted and must run as the Podman user's UID.
+The agent runs as a **rootless container** (Quadlet for permanent operation, `podman run` to try it out). It needs the rootless socket mounted and must run as the Podman user's UID.
 
 ## Quick start (Podman)
 
-```bash
-# 1. Generate a token and its hash (enter the token in the Master, keep the hash for the agent)
-podman run --rm petrecalinoiu/podmanmanager-agent:latest node dist/index.js --generate-token
+The **Master creates the token and its hash**, nothing has to be generated on the host:
 
-# 2. Run the agent as the Podman user
-podman run -d --name pm-agent --user $(id -u) --userns=keep-id -p 9126:9126 \
-  -v $XDG_RUNTIME_DIR/podman/podman.sock:/run/podman/podman.sock \
-  -e AGENT_ID=host-1 -e AGENT_TOKEN_HASH=<hash> \
+1. In the Master open **Hosts → Set up a new agent**, enter the agent address (`http://<host-ip>:9126`) and an agent ID. The Master stores the token and shows the hash (as a ready Quadlet file or as an `AGENT_TOKEN_HASH=…` line).
+2. Enable the socket (`systemctl --user enable --now podman.socket`) and run the agent as the Podman user:
+
+```bash
+podman run -d --name podmanmanager-agent --restart=always \
+  --hostname "$(hostname)" --user "$(id -u)" --userns=keep-id \
+  -p 9126:9126 \
+  -v "$XDG_RUNTIME_DIR/podman/podman.sock:/run/podman/podman.sock" \
+  -e AGENT_ID=host-1 -e AGENT_TOKEN_HASH=<hash from the Master> \
   docker.io/petrecalinoiu/podmanmanager-agent:latest
 ```
 
-Then add `http://<host-ip>:9126` and the token in the Master under **Hosts**. Enable the socket first: `systemctl --user enable --now podman.socket`.
+The host turns **online** in the Master by itself. For permanent operation use the Quadlet file the Master shows (save it as `~/.config/containers/systemd/podmanmanager-agent.container`, `chmod 600`, `systemctl --user daemon-reload`, `systemctl --user start podmanmanager-agent`). On SELinux hosts add `--security-opt label=disable`. Step by step: [deployment/README.md](https://github.com/PetreHoffmann/PodmanManager/blob/main/deployment/README.md).
 
 ## Configuration
 

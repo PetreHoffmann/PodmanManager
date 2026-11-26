@@ -9,7 +9,7 @@ Beispiele, um Master und Agent als **rootless Quadlet** zu betreiben. **Bestäti
 | `podmanmanager-agent.container` | Agent (Port 9126, spricht mit dem Rootless-Podman-Socket) |
 | `podmanmanager.network` | optional: gemeinsames Netzwerk, wenn Master und Agent auf demselben Host laufen |
 
-**Schritt für Schritt (`podman run` und Quadlet, Hash als Secret oder Environment-Wert): [deployment/README.md](../README.md).** Ablegen unter `~/.config/containers/systemd/` (rootless). Anpassen: Image-Tag, `PublishPort` (Agent: eigene Management-IP), `AGENT_ID`.
+**Schritt für Schritt (`podman run` und Quadlet): [deployment/README.md](../README.md).** Ablegen unter `~/.config/containers/systemd/` (rootless). Der Master braucht nur sein Schlüssel-Secret; die **Agent-Datei liefert der Master** (siehe unten).
 
 ## Master
 
@@ -29,28 +29,23 @@ Danach `http://<host>:8080` öffnen und das Admin-Passwort sofort setzen.
 
 ## Agent
 
-**Einfachster Weg:** Im Master unter *Hosts* → *Neuen Agent einrichten* Agent-Adresse und Agent-ID eintragen. Der Master erzeugt den Token, speichert ihn selbst und zeigt eine fertige `podmanmanager-agent.container` (oder nur die Zeile `AGENT_TOKEN_HASH=…` für `agent.env` oder die eigene Konfigurationsverwaltung). Die Datei auf dem Host ablegen (`chmod 600`), `systemctl --user enable --now podman.socket`, `daemon-reload`, Agent starten; der Host wird von selbst online. Über *Hosts* → *Einrichtung* lässt sich der Block jederzeit erneut anzeigen und der Token erneuern. Die folgenden Schritte sind der manuelle Weg.
+Token und Hash erzeugt der **Master**, auf dem Host muss nichts erzeugt werden:
+
+1. Im Master unter *Hosts* → *Neuen Agent einrichten* **Agent-Adresse** (`http://<host-ip>:9126`) und **Agent-ID** eintragen. Der Master speichert den Token selbst und legt den Host an.
+2. Er zeigt die fertige `podmanmanager-agent.container` (Reiter *Komplette Quadlet-Datei*) mit eingetragenem `AGENT_ID` und `AGENT_TOKEN_HASH`. Diese Datei auf dem Host ablegen:
 
 ```bash
-systemctl --user enable --now podman.socket      # Socket des eigenen Benutzers
-
-# Token und Hash erzeugen; Hash als Secret speichern, Token im Master unter "Hosts" eintragen
-out=$(podman run --rm docker.io/petrecalinoiu/podmanmanager-agent:latest node dist/index.js --generate-token)
-token=$(printf '%s\n' "$out" | awk -F': ' '/^AGENT_TOKEN \(/{print $2}')
-hash=$(printf '%s\n' "$out" | awk -F': ' '/^AGENT_TOKEN_HASH/{print $2}')
-printf '%s' "$hash" | podman secret create podmanmanager-agent-hash -
-echo "Token für den Master (wird nur jetzt angezeigt): $token"
-unset out token hash
-
-cp podmanmanager-agent.container ~/.config/containers/systemd/
+systemctl --user enable --now podman.socket      # Socket des eigenen Benutzers (einmalig)
+# Datei aus dem Master speichern unter ~/.config/containers/systemd/podmanmanager-agent.container
+chmod 600 ~/.config/containers/systemd/podmanmanager-agent.container      # der Hash steht in der Datei
 systemctl --user daemon-reload
 systemctl --user start podmanmanager-agent
 ```
-Wichtig: `printf '%s'` statt `echo` – ein Zeilenumbruch im Secret lässt den Agent mit „not a SHA-256 hex digest“ abbrechen. Hat man schon einen Token: `printf '%s' "$TOKEN" | sha256sum | cut -d' ' -f1 | tr -d '\n' | podman secret create podmanmanager-agent-hash -`.
+3. Der Host wird im Master von selbst *online*. Der Block lässt sich unter *Hosts* → *Einrichtung* jederzeit erneut anzeigen.
 
-**Hash als Environment-Wert statt Secret** (ohne `podman secret`): in `podmanmanager-agent.container` die Zeile `Secret=podmanmanager-agent-hash,…` durch `Environment=AGENT_TOKEN_HASH=<hash>` ersetzen und die Datei mit `chmod 600` schützen; Details in [deployment/README.md](../README.md#b4-agent-hash-als-environment-wert).
+Die Vorlage in diesem Ordner (`podmanmanager-agent.container`) hat dieselbe Form, mit Platzhaltern für Hash und Agent-ID und mit auskommentierten Optionen (gemeinsames Netzwerk, `UPDATE_UNIT`, cgroup v1, automatische Updates). Der **Hash** ist nicht der Token: Aus ihm lässt sich der Token nicht zurückrechnen, und mit dem Hash allein kann man sich nicht beim Agent anmelden. Er steht als `Environment=AGENT_TOKEN_HASH=…` in der Datei; mit `chmod 600` ist er für andere Benutzer nicht lesbar (in `podman inspect` ist er sichtbar).
 
-Token erneuern: `podman secret rm podmanmanager-agent-hash`, Block oben erneut ausführen, `systemctl --user restart podmanmanager-agent`, dann den Host im Master entfernen und mit dem neuen Token neu hinzufügen (Secrets werden nur beim Containerstart gelesen).
+**Token erneuern:** im Master *Hosts* → *Einrichtung* → *Token erneuern*, den neuen Hash in `AGENT_TOKEN_HASH=` der Datei eintragen und `systemctl --user daemon-reload && systemctl --user restart podmanmanager-agent` ausführen (die Umgebung wird nur beim Containerstart gelesen). Bis dahin steht der Host auf *offline*.
 
 Port 9126 nur für die Master-IP freigeben (siehe [Sicherheit](../../docs/security.md)).
 
@@ -144,5 +139,4 @@ Einrichtung im Agent-Quadlet: `Environment=UPDATE_UNIT=podmanmanager-master` (Na
 - **Hostname:** `HostName=%H` im Agent-Quadlet sorgt dafür, dass der Master den Rechnernamen statt der Container-ID anzeigt (der Agent meldet den Hostnamen, den er im Container sieht).
 - **Agent sieht sich selbst:** Er verwaltet alle Container des Benutzers, auch den eigenen Agent-Container; ein Stopp über die Oberfläche setzt den Host offline (`Restart=always` startet ihn wieder).
 - **Agent: `NoNewPrivileges`/`DropCapability=ALL`** sind ungetestet; bei Fehlern diese Zeilen zuerst entfernen. **`SecurityLabelDisable=true`** ist nur auf SELinux-Hosts nötig.
-- Die native Installation des Agents (`deployment/agent/install.sh`) bleibt einfacher und robuster, da sie ohne Socket-Mount und UID-Mapping auskommt.
 - Systemweit statt rootless (`/etc/containers/systemd/`, `systemctl` ohne `--user`) ginge auch, widerspricht beim Agent aber dem Rootless-Prinzip.
