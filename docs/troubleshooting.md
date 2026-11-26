@@ -58,6 +58,17 @@
 | Fehler beim Laden des Images | Der Host erreicht die Registry nicht (Proxy, Anmeldung, Name). Das Laden läuft auf dem Host mit dessen Podman; `podman pull <image>` dort probieren. |
 | Ein erstellter Container startet nach einem Neustart des Hosts nicht von selbst | Er wird nicht von systemd verwaltet. `podman-restart.service` für den Benutzer aktivieren (`systemctl --user enable --now podman-restart.service`) oder die angezeigte Quadlet-Datei verwenden. |
 
+## Befehle in Containern ausführen
+
+| Symptom | Ursache und Lösung |
+|---|---|
+| Der Bereich „Befehl ausführen“ fehlt | Er erscheint nur für Administratoren, bei laufenden Containern und auf Hosts, deren Agent `EXEC_ENABLED=true` hat (Quadlet oder `-e`, danach Agent neu starten). Für den lokalen Host des Masters gilt `EXEC_ENABLED` in der Umgebung des Masters. |
+| „Befehle ausführen ist auf diesem Host ausgeschaltet“ | Der Agent wurde ohne `EXEC_ENABLED` gestartet oder neu gestartet. |
+| „Dieses Programm steht nicht in der Liste der erlaubten Programme“ | `EXEC_ALLOW` am Agent erlaubt nur die genannten Programme (genauer Vergleich mit dem ersten Argument, also `ls`, nicht `/bin/ls`). |
+| „The container is not running“ | Befehle laufen nur in laufenden Containern. |
+| Der Befehl endet mit „am Zeitlimit abgebrochen“ | Zeitlimit höher stellen (höchstens 60 s). Langlaufende oder interaktive Programme (`top`, `vim`, Shells) sind nicht vorgesehen. |
+| „executable file not found“ (Exit-Code 127) | Das Programm gibt es im Image nicht; viele schlanke Images haben keine Shell. Den Befehl als Argumente ohne Shell-Funktionen schreiben (keine Pipes, keine Variablen). |
+
 ## Update per Web-UI
 
 | Meldung / Symptom | Ursache und Abhilfe |

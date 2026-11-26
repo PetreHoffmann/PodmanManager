@@ -1,5 +1,5 @@
 import type { ContainerConfig } from "@agent/podman/config";
-import type { CreateContainerResult, CreatePodResult, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, NetworkInfo, RemoveResult, VolumeInfo, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
+import type { CreateContainerResult, CreatePodResult, ExecResult, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, NetworkInfo, RemoveResult, VolumeInfo, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { localCall } from "./local-host";
 import { CONTAINER_ID_RE } from "./validate";
@@ -57,6 +57,8 @@ const cfg = () => getConfig();
 export const agentHealth = (t: AgentTarget) => call<HealthInfo>(t, "GET", "/api/v1/health", cfg().agentTimeoutSec);
 export const agentList = (t: AgentTarget) => call<ContainerInfo[]>(t, "GET", "/api/v1/containers", cfg().agentTimeoutSec);
 
+/** Runs one command in a container (needs EXEC_ENABLED on the agent); the agent validates the request again and limits time and output. */
+export const agentExec = (t: AgentTarget, id: string, request: unknown) => call<ExecResult>(t, "POST", `/api/v1/containers/${id}/exec`, 90, request);
 /** Settings of a container as the create form knows them (read-only); contains environment values, so administrators only. */
 export const agentContainerConfig = (t: AgentTarget, id: string) => call<ContainerConfig>(t, "GET", `/api/v1/containers/${id}/config`, cfg().agentTimeoutSec);
 export function agentInspect(t: AgentTarget, id: string) {

@@ -12,6 +12,7 @@ export type { Logger };
 const MAX_BODY_BYTES = 1024;
 /** The only requests with a JSON body: creating a container and pulling an image. */
 const BODY_ROUTES = new Set(["/api/v1/containers", "/api/v1/pods", "/api/v1/images/pull"]);
+const EXEC_ROUTE_RE = /^\/api\/v1\/containers\/[a-f0-9]{12,64}\/exec$/;
 const MAX_JSON_BYTES = 64 * 1024;
 
 function send(res: ServerResponse, status: number, body: ApiResponse<unknown>, extra?: Record<string, string>): void {
@@ -47,7 +48,7 @@ function readBody(req: IncomingMessage, limit: number): Promise<{ ok: boolean; t
 
 export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: Logger, logs?: LogBuffer, updater?: SelfUpdater, peer?: PeerUpdater): Server {
   const limiter = new FailureLimiter(cfg.rateLimitMax, cfg.rateLimitWindowMs);
-  const handle = createAgentHandler({ agentId: cfg.agentId, podman, log, logs, updater, peer });
+  const handle = createAgentHandler({ agentId: cfg.agentId, podman, log, logs, updater, peer, exec: cfg.exec });
 
   const server = createServer(async (req, res) => {
     try {
@@ -65,7 +66,8 @@ export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: 
       }
 
       const url = new URL(req.url ?? "/", "http://agent");
-      const jsonRoute = req.method === "POST" && BODY_ROUTES.has(url.pathname.replace(/\/+$/, ""));
+      const trimmed = url.pathname.replace(/\/+$/, "");
+      const jsonRoute = req.method === "POST" && (BODY_ROUTES.has(trimmed) || EXEC_ROUTE_RE.test(trimmed));
       const raw = await readBody(req, jsonRoute ? MAX_JSON_BYTES : MAX_BODY_BYTES);
       if (!raw.ok) return fail(res, 413, "BODY_TOO_LARGE", "Request body too large");
       let body: unknown;

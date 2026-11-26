@@ -66,6 +66,8 @@ podman run -d --name podmanmanager-agent --restart=always \
 | `AGENT_PORT` | `9126` | |
 | `PODMAN_SOCKET` | `/run/podman/podman.sock` | Pfad im Container |
 | `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MS` | `10` / `60000` | Fehlversuche pro IP und Fenster |
+| `EXEC_ENABLED` | aus | `true` erlaubt Administratoren des Masters, einzelne Befehle in Containern dieses Hosts auszuführen (siehe [Sicherheit](security.md#befehle-in-containern-ausführen)) |
+| `EXEC_ALLOW` | leer | kommagetrennte Liste erlaubter Programme (z. B. `ls,cat,nginx`); leer = alle |
 
 ## Prüfen
 

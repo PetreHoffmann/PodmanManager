@@ -3,8 +3,9 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, agentVolumeDelete, agentVolumes, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs, agentCreateContainer, agentCreatePod, agentImagePull, agentPods } from "@/lib/agent-client";
+import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, agentVolumeDelete, agentVolumes, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs, agentCreateContainer, agentCreatePod, agentExec, agentImagePull, agentPods } from "@/lib/agent-client";
 import { parseCreatePodRequest, parseCreateRequest } from "@agent/podman/create";
+import { parseExecRequest } from "@agent/podman/exec";
 import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
 import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
@@ -361,6 +362,36 @@ export async function createContainerAction(agentId: number, input: unknown): Pr
   revalidatePath("/containers");
   revalidatePath("/");
   return { ok: true, agentId: a.id, id: created.data.id, name: created.data.name, warnings: created.data.warnings };
+}
+
+export type ExecOutcome =
+  | { ok: true; exitCode: number | null; stdout: string; stderr: string; truncated: boolean; timedOut: boolean }
+  | { ok: false; message: string };
+
+/**
+ * Runs one command in a container (administrators only, and only on hosts whose agent switched it on with EXEC_ENABLED).
+ * The audit entry holds the command and its exit code, never the output (it may contain secrets).
+ */
+export async function execAction(agentId: number, containerId: string, input: unknown): Promise<ExecOutcome> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  if (!a) return { ok: false, message: t("msg.unknownHost") };
+  if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
+  if (typeof containerId !== "string" || !CONTAINER_ID_RE.test(containerId)) return { ok: false, message: t("msg.invalidId") };
+  const tg = targetFor(a.id);
+  if (!tg) return { ok: false, message: t("msg.noCreds") };
+  const parsed = parseExecRequest(input);
+  if (!parsed.ok) return { ok: false, message: parsed.message };
+  const cmdText = parsed.req.cmd.join(" ").slice(0, 300);
+  const r = await agentExec(tg, containerId, parsed.req);
+  if (!r.ok) {
+    await audit(session, "container.exec", { target: containerId.slice(0, 12), host: a.hostname, ok: false, detail: `${cmdText}: ${r.code}` });
+    return { ok: false, message: r.code === "INVALID_PARAM" ? r.message : errText(t, r.code, r.message) };
+  }
+  await audit(session, "container.exec", { target: containerId.slice(0, 12), host: a.hostname, detail: `${cmdText} (exit ${r.data.exitCode ?? "-"}${r.data.timedOut ? ", timeout" : ""})` });
+  return { ok: true, ...r.data };
 }
 
 export type CreatePodOutcome = { ok: true; agentId: number; id: string; name: string } | { ok: false; message: string };

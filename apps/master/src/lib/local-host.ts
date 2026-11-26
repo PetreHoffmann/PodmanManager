@@ -1,5 +1,6 @@
 import type { ApiResponse } from "../../../../shared/types/index.js";
 import { createAgentHandler, type AgentHandler } from "@agent/api/handler";
+import { loadExecSettings } from "@agent/config/config";
 import { PodmanClient } from "@agent/podman/client";
 import { PodmanService } from "@agent/podman/service";
 import { SelfUpdater } from "@agent/services/update";
@@ -30,7 +31,7 @@ export function localHandler(): AgentHandler | null {
   const updater = new SelfUpdater(podman, { log });
   // the master's own image must not be deleted
   podman.imageGuard = async () => [await updater.ownImageId()].filter((x): x is string => !!x);
-  const handle = createAgentHandler({ agentId: LOCAL_AGENT_ID, podman, log, logs: { tail: appLogTail }, updater, hostName: () => podman.hostName() });
+  const handle = createAgentHandler({ agentId: LOCAL_AGENT_ID, podman, log, logs: { tail: appLogTail }, updater, hostName: () => podman.hostName(), exec: loadExecSettings(process.env) });
   g.__pmLocal = { socket, handle };
   return handle;
 }

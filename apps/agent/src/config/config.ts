@@ -1,5 +1,18 @@
 import { join } from "node:path";
 
+/** Running commands in containers: off unless EXEC_ENABLED is set; EXEC_ALLOW (comma separated) optionally limits the programs. */
+export interface ExecSettings {
+  enabled: boolean;
+  allow: string[];
+}
+
+export function loadExecSettings(env: Record<string, string | undefined> = process.env): ExecSettings {
+  const enabled = /^(1|true|yes|on)$/i.test((env.EXEC_ENABLED ?? "").trim());
+  const allow = (env.EXEC_ALLOW ?? "").split(",").map((x) => x.trim()).filter((x) => x !== "");
+  for (const a of allow) if (a.length > 256 || a.includes("\0")) throw new ConfigError("EXEC_ALLOW contains an invalid entry");
+  return { enabled, allow };
+}
+
 export interface AgentConfig {
   agentId: string;
   host: string;
@@ -12,6 +25,7 @@ export interface AgentConfig {
   updateUnit?: string;
   rateLimitMax: number;
   rateLimitWindowMs: number;
+  exec?: ExecSettings;
 }
 
 export class ConfigError extends Error {}
@@ -64,5 +78,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AgentConfig {
     ...(unit ? { updateUnit: unit } : {}),
     rateLimitMax: int(env, "RATE_LIMIT_MAX", 10, 1, 1000),
     rateLimitWindowMs: int(env, "RATE_LIMIT_WINDOW_MS", 60000, 1000, 3600000),
+    exec: loadExecSettings(env),
   };
 }

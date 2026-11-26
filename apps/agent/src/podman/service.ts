@@ -1,6 +1,7 @@
 import type { ContainerAction, ContainerInfo, ContainerStatsRaw, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, LogLine, NetworkInfo, PodInfo, PodLogs, RemoveResult, StorageInfo, VolumeInfo } from "../../../../shared/types/index.js";
 import { PodmanClient, PodmanError, TOO_LARGE_MESSAGE, type PodmanResponse } from "./client.js";
 import { parseLogStream } from "./logs.js";
+import { clip, demux, EXEC_MAX_OUTPUT, type ExecRequest, type ExecResult } from "./exec.js";
 import { mapContainerConfig, type ContainerConfig } from "./config.js";
 import { libpodPodSpec, libpodSpec, type CreatePodRequest, type CreateRequest } from "./create.js";
 
@@ -299,6 +300,39 @@ export class PodmanService {
     } catch {
       return undefined;
     }
+  }
+
+  /**
+   * Runs one command in a running container and returns its output and exit code. The command runs attached; at the
+   * time or size limit the connection is closed, which stops it (seen with Podman 4.9; an exec cannot be killed otherwise).
+   */
+  async exec(id: string, req: ExecRequest): Promise<ExecResult> {
+    this.assertId(id);
+    await this.client.checkSocket();
+    const lp = await this.libpod();
+    const created = await this.client.call("POST", `${lp}/containers/${id}/exec`, {
+      json: { Cmd: req.cmd, AttachStdout: true, AttachStderr: true, AttachStdin: false, Tty: false, Privileged: false },
+      timeoutMs: 15_000,
+    });
+    if (created.status === 404) throw new PodmanError("CONTAINER_NOT_FOUND", "Container not found", 404);
+    if (created.status === 409) throw new PodmanError("INVALID_PARAM", "The container is not running");
+    if (created.status !== 201) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(created), created.status);
+    const execId = str(rec(json(created)).Id);
+    if (!/^[a-f0-9]{12,64}$/.test(execId)) throw new PodmanError("PODMAN_API_ERROR", "Podman did not report an exec id");
+    const s = await this.client.stream(`${lp}/exec/${execId}/start`, { Detach: false, Tty: false }, { timeoutMs: req.timeoutSec * 1000, maxBytes: EXEC_MAX_OUTPUT * 3 });
+    if (s.status !== 200 && !(s.timedOut && s.status === 0)) throw new PodmanError("PODMAN_API_ERROR", s.body.toString("utf8").slice(0, 300) || `Podman returned HTTP ${s.status}`, s.status);
+    const { stdout, stderr } = demux(s.body);
+    const [so, soCut] = clip(stdout, EXEC_MAX_OUTPUT);
+    const [se, seCut] = clip(stderr, EXEC_MAX_OUTPUT);
+    let exitCode: number | null = null;
+    if (!s.timedOut && !s.truncated) {
+      const info = await this.client.call("GET", `${lp}/exec/${execId}/json`, { timeoutMs: 10_000 }).catch(() => null);
+      if (info && info.status === 200) {
+        const o = rec(json(info));
+        if (o.Running !== true && typeof o.ExitCode === "number") exitCode = o.ExitCode;
+      }
+    }
+    return { exitCode, stdout: so, stderr: se, truncated: s.truncated || soCut || seCut, timedOut: s.timedOut };
   }
 
   /** The settings of a container as the create form knows them (read-only; see config.ts). */

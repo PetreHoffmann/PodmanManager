@@ -172,7 +172,7 @@ describe("agent API with podman socket", () => {
 
   it("allows only defined routes and methods", async () => {
     assert.equal((await post(`/api/v1/containers/${ID}/delete`)).status, 404);
-    assert.equal((await post(`/api/v1/containers/${ID}/exec`)).status, 404);
+    assert.equal((await post(`/api/v1/containers/${ID}/exec`)).status, 403, "exec is off unless EXEC_ENABLED is set");
     assert.equal((await get(`/api/v1/containers/${ID}/start`)).status, 405);
     assert.equal((await fetch(`${agent.base}/api/v1/containers`, { method: "DELETE", headers: auth })).status, 405);
     assert.equal((await post(`/api/v1/containers`)).status, 400, "creating needs a valid body");
