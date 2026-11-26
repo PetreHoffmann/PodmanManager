@@ -113,3 +113,5 @@ Alle anderen Zugriffe auf 9126/8080 blockieren; keine Portweiterleitung aus dem 
 ## Container anlegen
 
 Nur Administratoren des Masters können Container anlegen (Audit-Eintrag `container.create`, ohne Werte der Umgebungsvariablen). Der Agent validiert jedes Feld streng: nur benannte Volumes (keine Host-Pfade, keine Ziele unter `/proc`, `/sys`, `/dev`), kein `privileged`, keine Capabilities, keine Host-Namespaces, kein Host-Netzwerk. Umgebungsvariablen werden im Klartext an Podman übergeben und sind im Container sichtbar; für Geheimnisse sind Podman-Secrets via Quadlet besser geeignet.
+
+Unter dem Formular zeigt der Master zum Kopieren den gleichen Container als `podman run`-Befehl und als Quadlet-Datei an (Werte der Umgebungsvariablen im Klartext, reiner Text, es wird nichts ausgeführt). `unless-stopped` wird im Quadlet zu `Restart=always`.

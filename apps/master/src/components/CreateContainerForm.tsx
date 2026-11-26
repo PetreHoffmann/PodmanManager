@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { createContainerAction, createFormHostDataAction, type CreateContainerOutcome } from "@/app/actions";
+import { podmanRunCommand, quadletFile } from "@/lib/create-preview";
 import { splitCommand } from "@/lib/shell-words";
+import { Block } from "./AgentSetupPanel";
 import { useT } from "./I18nProvider";
 import Icon from "./Icon";
 
@@ -43,21 +45,36 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
   const upd = <T,>(set: (f: (rows: T[]) => T[]) => void, i: number, patch: Partial<T>) => set((rows) => rows.map((r, k) => (k === i ? { ...r, ...patch } : r)));
   const del = <T,>(set: (f: (rows: T[]) => T[]) => void, i: number) => set((rows) => rows.filter((_, k) => k !== i));
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const buildBody = () => {
     const args = splitCommand(command);
-    if (args === null) return setResult({ ok: false, message: t("cr.cmdBad") });
-    const body = {
+    if (args === null) return null;
+    return {
       name: name.trim(),
       image: image.trim(),
       ports: ports.filter((p) => p.host.trim() !== "" || p.container.trim() !== "").map((p) => ({ host: Number(p.host), container: Number(p.container), protocol: p.protocol })),
       env: env.filter((r) => r.key.trim() !== "").map((r) => ({ key: r.key.trim(), value: r.value })),
       volumes: vols.filter((v) => v.name.trim() !== "" || v.path.trim() !== "").map((v) => ({ name: v.name.trim(), path: v.path.trim(), readOnly: v.readOnly })),
       network: network || null,
-      restart,
+      restart: restart as "no" | "always" | "unless-stopped" | "on-failure",
       memoryMb: memory.trim() === "" ? null : Number(memory),
       command: args,
     };
+  };
+  // live text previews (only for complete rows, so half-typed numbers never show up as NaN)
+  const preview = useMemo(() => {
+    const b = buildBody();
+    if (!b || b.name === "" || b.image === "") return null;
+    if (b.ports.some((p) => !Number.isInteger(p.host) || !Number.isInteger(p.container))) return null;
+    if (b.volumes.some((v) => v.name === "" || v.path === "")) return null;
+    if (b.memoryMb !== null && !Number.isInteger(b.memoryMb)) return null;
+    return { run: podmanRunCommand(b), quadlet: quadletFile(b), file: `${b.name}.container` };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, image, ports, env, vols, network, restart, memory, command]);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const body = buildBody();
+    if (body === null) return setResult({ ok: false, message: t("cr.cmdBad") });
     setResult(null);
     start(async () => {
       try {
@@ -155,6 +172,14 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
       <label className={label}>{t("cr.command")}
         <input value={command} onChange={(e) => setCommand(e.target.value)} placeholder={`nginx -g "daemon off;"`} className="input mt-1 font-mono text-xs" name="command" />
       </label>
+
+      {preview && (
+        <div className="space-y-4 border-t border-slate-800 pt-4">
+          <Block text={preview.run} title={t("cr.pvRun")} testid="preview-run" copyLabel={t("wiz.copy")} copiedLabel={t("wiz.copied")} />
+          <Block text={preview.quadlet} title={t("cr.pvQuadlet", { file: preview.file })} testid="preview-quadlet" copyLabel={t("wiz.copy")} copiedLabel={t("wiz.copied")} />
+          <p className="text-xs text-slate-500">{t("cr.pvNote")}</p>
+        </div>
+      )}
 
       <div className="space-y-2">
         <button className="btn btn-primary" type="submit" disabled={pending || hosts.length === 0}><Icon name="plus-circle" />{t("cr.submit")}</button>
