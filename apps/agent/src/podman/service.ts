@@ -287,7 +287,18 @@ export class PodmanService {
     if (res.status !== 200) {
       throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     }
-    return mapInspect(json(res));
+    const info = mapInspect(json(res));
+    if (info.podId && !info.podName) info.podName = (await this.podNameOf(info.podId)) ?? null;
+    return info;
+  }
+
+  /** Podman 5 inspect only knows the pod id; the name comes from the pod list (best effort). */
+  private async podNameOf(podId: string): Promise<string | undefined> {
+    try {
+      return (await this.listPods()).find((p) => p.id === podId)?.name || undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /** The settings of a container as the create form knows them (read-only; see config.ts). */
@@ -306,7 +317,8 @@ export class PodmanService {
       const ir = await this.client.call("GET", `${lp}/images/${imageId}/json`).catch(() => null);
       if (ir && ir.status === 200) image = json(ir);
     }
-    return mapContainerConfig(raw, image);
+    const podId = str(rec(raw).Pod);
+    return mapContainerConfig(raw, image, podId && !str(rec(raw).PodName) ? await this.podNameOf(podId) : undefined);
   }
 
   /** Last `tail` lines (stdout and stderr, with timestamps). `tail` must be validated by the caller. */

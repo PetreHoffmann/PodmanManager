@@ -18,12 +18,14 @@ const AUTO_ENV = new Set(["container", "HOSTNAME", "HOME", "TERM", "http_proxy",
 const SPECIAL_NETWORKS = new Set(["host", "none", "bridge", "default", "podman", "private", "slirp4netns", "pasta"]);
 const RESTART: readonly string[] = ["always", "unless-stopped", "on-failure"];
 
-export function mapContainerConfig(raw: unknown, imageRaw?: unknown): ContainerConfig {
+export function mapContainerConfig(raw: unknown, imageRaw?: unknown, podNameHint?: string): ContainerConfig {
   const o = rec(raw);
   const cfg = rec(o.Config);
   const host = rec(o.HostConfig);
   const imgCfg = rec(rec(imageRaw).Config);
-  const pod = str(o.PodName) || null;
+  // Podman 5 inspect names the pod only by id (Pod), Podman 4 also by name (PodName)
+  const podId = str(o.Pod);
+  const pod = str(o.PodName) || podNameHint || (podId ? podId.slice(0, 12) : null);
 
   const imgEnv = new Set(strs(imgCfg.Env));
   const env: CreateRequest["env"] = [];
