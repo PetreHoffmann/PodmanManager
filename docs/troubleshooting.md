@@ -63,8 +63,8 @@
 
 | Meldung / Symptom | Ursache und Abhilfe |
 |---|---|
-| „Failed to bind port … (Address already in use)“ beim Neustart eines Containers, der per Quadlet/Puppet läuft | Quadlet startet Container mit `--rm`; systemd erzeugt sie sofort neu und belegt den Port, während Podman denselben Container noch neu starten will. Ab v0.24.1 stoppt der Agent solche Container nur und wartet, bis systemd sie wieder gestartet hat. |
-| „Gestoppt, aber systemd hat die Unit nicht neu gestartet (Restart= fehlt?)“ | Die Unit hat kein `Restart=always` (oder `on-failure` greift bei einem sauberen Stopp nicht). Im Quadlet unter `[Service]` `Restart=always` ergänzen; bei Puppet im Quadlet-Template. Bis dahin: `systemctl --user start <unit>.service` als Container-Benutzer. |
+| „Failed to bind port … (Address already in use)“ beim Neustart eines Containers, der per Quadlet läuft | Quadlet startet Container mit `--rm`; systemd erzeugt sie sofort neu und belegt den Port, während Podman denselben Container noch neu starten will. Ab v0.24.1 stoppt der Agent solche Container nur und wartet, bis systemd sie wieder gestartet hat. |
+| „Gestoppt, aber systemd hat die Unit nicht neu gestartet (Restart= fehlt?)“ | Die Unit hat kein `Restart=always` (oder `on-failure` greift bei einem sauberen Stopp nicht). Im Quadlet unter `[Service]` `Restart=always` ergänzen. Bis dahin: `systemctl --user start <unit>.service` als Container-Benutzer. |
 
 ## Diagnose
 ```bash

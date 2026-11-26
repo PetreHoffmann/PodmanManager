@@ -29,7 +29,7 @@ Danach `http://<host>:8080` öffnen und das Admin-Passwort sofort setzen.
 
 ## Agent
 
-**Einfachster Weg:** Im Master unter *Hosts* → *Neuen Agent einrichten* Agent-Adresse und Agent-ID eintragen. Der Master erzeugt den Token, speichert ihn selbst und zeigt eine fertige `podmanmanager-agent.container` (oder nur die Zeile `AGENT_TOKEN_HASH=…` für Puppet/`agent.env`). Die Datei auf dem Host ablegen (`chmod 600`), `systemctl --user enable --now podman.socket`, `daemon-reload`, Agent starten; der Host wird von selbst online. Über *Hosts* → *Einrichtung* lässt sich der Block jederzeit erneut anzeigen und der Token erneuern. Die folgenden Schritte sind der manuelle Weg.
+**Einfachster Weg:** Im Master unter *Hosts* → *Neuen Agent einrichten* Agent-Adresse und Agent-ID eintragen. Der Master erzeugt den Token, speichert ihn selbst und zeigt eine fertige `podmanmanager-agent.container` (oder nur die Zeile `AGENT_TOKEN_HASH=…` für `agent.env` oder die eigene Konfigurationsverwaltung). Die Datei auf dem Host ablegen (`chmod 600`), `systemctl --user enable --now podman.socket`, `daemon-reload`, Agent starten; der Host wird von selbst online. Über *Hosts* → *Einrichtung* lässt sich der Block jederzeit erneut anzeigen und der Token erneuern. Die folgenden Schritte sind der manuelle Weg.
 
 ```bash
 systemctl --user enable --now podman.socket      # Socket des eigenen Benutzers

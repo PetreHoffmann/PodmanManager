@@ -15,7 +15,7 @@ export interface AgentSetup {
   hash: string;
   /** complete podmanmanager-agent.container */
   quadlet: string;
-  /** only the hash, for agent.env / Puppet Hiera / own Quadlet files */
+  /** only the hash, for agent.env / own Quadlet files */
   hashLine: string;
 }
 
