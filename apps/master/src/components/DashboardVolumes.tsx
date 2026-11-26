@@ -3,7 +3,7 @@ import { agentStorage } from "@/lib/agent-client";
 import { listAgents, targetFor } from "@/lib/agents";
 import { sumVolumes } from "@/lib/dashboard";
 import { getLang, getT } from "@/lib/lang";
-import { fmtBytes } from "@/components/ui";
+import { Stat, fmtBytes } from "@/components/ui";
 
 /**
  * Number and size of all volumes over the hosts the user may see. Rendered inside <Suspense>: `podman system df` can be slow,
@@ -25,21 +25,20 @@ export default async function DashboardVolumes({ allowed }: { allowed: ReadonlyS
     }),
   );
   const v = sumVolumes(results);
+  const tone = v.missing > 0 ? "warn" : undefined;
+  const title = v.missing > 0 ? t("dash.volumesMissing", { n: v.missing }) : undefined;
   return (
-    <Link href="/resources?tab=volumes" className="card block transition hover:bg-slate-900" data-testid="dash-volumes">
-      <div className="text-xs uppercase tracking-wide text-slate-400">{t("dash.volumes")}</div>
-      <div className="mt-1 text-3xl font-semibold tabular-nums text-slate-100">{v.count}</div>
-      <div className="mt-0.5 text-sm tabular-nums text-slate-400">{fmtBytes(v.size, lang)}</div>
-      {v.missing > 0 && <div className="mt-0.5 text-xs text-amber-400">{t("dash.volumesMissing", { n: v.missing })}</div>}
-    </Link>
+    <>
+      <Link href="/resources?tab=volumes" className="block transition hover:opacity-90" title={title} data-testid="dash-volumes"><Stat label={t("dash.volumes")} value={v.count} tone={tone} /></Link>
+      <Link href="/resources?tab=volumes" className="block transition hover:opacity-90" title={title} data-testid="dash-volumes-size"><Stat label={t("dash.volumesSize")} value={fmtBytes(v.size, lang)} tone={tone} /></Link>
+    </>
   );
 }
 
-export function DashboardVolumesFallback({ label }: { label: string }) {
+export function DashboardVolumesFallback({ labels }: { labels: [string, string] }) {
   return (
-    <div className="card">
-      <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="mt-1 animate-pulse text-3xl font-semibold text-slate-600">…</div>
-    </div>
+    <>
+      {labels.map((label) => <Stat key={label} label={label} value="…" />)}
+    </>
   );
 }

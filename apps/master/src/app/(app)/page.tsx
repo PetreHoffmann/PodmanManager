@@ -70,7 +70,7 @@ export default async function Dashboard() {
         <section className="grid flex-1 grid-cols-2 gap-3 md:grid-cols-4">
           <Link href="/resources?tab=images" className="block transition hover:opacity-90" data-testid="dash-images"><Stat label={t("dash.images")} value={images.count} /></Link>
           <Link href="/resources?tab=networks" className="block transition hover:opacity-90" data-testid="dash-networks"><Stat label={t("dash.networks")} value={networks.count} /></Link>
-          <Suspense fallback={<DashboardVolumesFallback label={t("dash.volumes")} />}><DashboardVolumes allowed={allowed} /></Suspense>
+          <Suspense fallback={<DashboardVolumesFallback labels={[t("dash.volumes"), t("dash.volumesSize")]} />}><DashboardVolumes allowed={allowed} /></Suspense>
         </section>
       </div>
       {(images.missing > 0 || networks.missing > 0) && (
