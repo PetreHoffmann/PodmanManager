@@ -33,6 +33,12 @@ describe("container config", () => {
     assert.deepEqual([c.ports, c.network], [[], null]);
     assert.ok(!JSON.stringify(c).includes("/secret/host/path"));
   });
+  it("Podman 5 names the pod only by id: the name comes from the hint, else the short id", () => {
+    const o = { ...raw, Pod: "b".repeat(64) };
+    assert.equal(mapContainerConfig(o, image, "app").pod, "app");
+    assert.equal(mapContainerConfig(o, image).pod, "b".repeat(12));
+    assert.deepEqual(mapContainerConfig(o, image, "app").ports, []);
+  });
   it("is robust against empty or odd input", () => {
     const c = mapContainerConfig(null);
     assert.deepEqual([c.name, c.ports, c.env, c.volumes, c.restart, c.memoryMb], ["", [], [], [], "no", null]);
