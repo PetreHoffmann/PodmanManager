@@ -22,7 +22,7 @@ const MASTER = "http://127.0.0.1:18081";
 
 interface Host { name: string; state: Map<string, string>; podman: Server; agent: Server; port: number; token: string; sock: string }
 
-async function startHost(name: string, ids: [string, string], port = 0, reuse?: Host): Promise<Host> {
+async function startHost(name: string, ids: string[], port = 0, reuse?: Host): Promise<Host> {
   const sock = reuse?.sock ?? join(dir, `${name}.sock`);
   const state = reuse?.state ?? new Map([[ids[0], "running"], [ids[1], "exited"]]);
   const names: Record<string, string> = { [ids[0]]: `${name}-web`, [ids[1]]: `${name}-db` };
@@ -36,6 +36,12 @@ async function startHost(name: string, ids: [string, string], port = 0, reuse?: 
     if (u === "/libpod/containers/json?all=true") return send(res, 200, ids.map(item));
     if ((m = /^\/libpod\/containers\/([a-f0-9]+)\/json$/.exec(u)) && state.has(m[1]!)) return send(res, 200, { Id: m[1], Name: names[m[1]!], ImageName: "nginx", Created: "2025-01-01T00:00:00Z", State: { Status: state.get(m[1]!) } });
     if ((m = /^\/libpod\/containers\/([a-f0-9]+)\/(start|stop|restart)/.exec(u)) && state.has(m[1]!)) { state.set(m[1]!, m[2] === "stop" ? "exited" : "running"); return send(res, 204); }
+    if (req.method === "POST" && u.startsWith("/libpod/images/pull")) return send(res, 200, { id: "f".repeat(64), images: ["f".repeat(64)] });
+    if (req.method === "POST" && u === "/libpod/containers/create") {
+      const nid = "e".repeat(64);
+      names[nid] = "created-web"; state.set(nid, "created"); ids.push(nid);
+      return send(res, 201, { Id: nid, Warnings: [] });
+    }
     send(res, 404, { message: "no such container" });
   }));
   if (!reuse) await new Promise<void>((r) => podman.listen(sock, r));
@@ -84,10 +90,11 @@ try {
 
   await step("register two agents; wrong token / duplicate / bad URL rejected", async () => {
     await page.goto(MASTER + "/hosts");
+    await page.click("summary"); // the manual form sits in a collapsed <details> below the setup wizard
     const add = async (url: string, token: string) => {
-      await page.fill('input[name="url"]', url);
-      await page.fill('input[name="token"]', token);
-      await page.click("text=Test connection");
+      await page.fill('details input[name="url"]', url);
+      await page.fill('details input[name="token"]', token);
+      await page.click("details button.btn-primary");
     };
     await add(`http://127.0.0.1:${h1.port}`, "wrong-token-0123456789");
     await page.waitForSelector("text=Authentication failed");
@@ -133,7 +140,9 @@ try {
     await page.goto(MASTER + "/containers");
     await page.click("a:has-text('host-a-db')");
     await page.waitForSelector("text=Container ID");
-    const buttons = (await page.locator("main button").allInnerTexts()).map((t) => t.trim()).sort();
+    // the configuration tabs (podman run / Quadlet / Kube YAML, administrators only) are read-only text with copy buttons
+    await page.waitForSelector("[data-testid=config-tabs]");
+    const buttons = (await page.locator("main button").evaluateAll((els) => els.filter((e) => !e.closest("[data-testid=config-tabs]")).map((e) => (e.textContent ?? "").trim()))).sort();
     // container actions are exactly start/stop/restart; "Show logs" is the read-only log view
     assert.deepEqual(buttons, ["Restart", "Show logs", "Start", "Stop"]);
   });
@@ -159,6 +168,20 @@ try {
     await page.goto(MASTER + "/");
     assert.equal(await stat("Unreachable"), 0);
     assert.equal(await stat("Reachable"), 2);
+  });
+
+  await step("admin creates a container via the form; the preview shows podman run, Quadlet and kube YAML", async () => {
+    await page.goto(MASTER + "/containers");
+    await page.click("[data-testid=create-btn]");
+    await page.waitForSelector("[data-testid=create-container]");
+    await page.fill("input[name=name]", "created-web");
+    await page.fill("input[name=image]", "docker.io/library/nginx:latest");
+    assert.match(await page.locator("[data-testid=preview-run]").innerText(), /podman run -d --name created-web/);
+    assert.match(await page.locator("[data-testid=preview-quadlet]").innerText(), /ContainerName=created-web/);
+    assert.match(await page.locator("[data-testid=preview-kube]").innerText(), /kind: Pod/);
+    await page.click("button:has-text('Create and start')");
+    await page.waitForSelector("[data-testid=create-result]");
+    assert.equal(h1.state.get("e".repeat(64)), "running", "created and started on the first host");
   });
 
   await step("disabled agent gets no operations", async () => {
