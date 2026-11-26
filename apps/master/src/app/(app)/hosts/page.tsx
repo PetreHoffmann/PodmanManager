@@ -40,7 +40,7 @@ export default async function Hosts() {
         <table className="w-full">
           <thead className="border-b border-slate-800">
             <tr>
-              {([["hosts.hostname", ""], ["hosts.agentId", "hidden xl:table-cell"], ["hosts.address", ""], ["hosts.status", ""], ["hosts.heartbeat", "hidden lg:table-cell"], ["hosts.podman", "hidden xl:table-cell"], ["hosts.agentVersion", ""], ["hosts.containers", ""], ["hosts.storage", ""]] as const).map(([k, c]) => (
+              {([["hosts.agentId", ""], ["hosts.address", ""], ["hosts.status", ""], ["hosts.heartbeat", "hidden lg:table-cell"], ["hosts.podman", "hidden xl:table-cell"], ["hosts.agentVersion", ""], ["hosts.containers", ""], ["hosts.storage", ""]] as const).map(([k, c]) => (
                 <th key={k} className={`th ${c}`}>{t(k)}</th>
               ))}
               {canManage && <th className="th" />}
@@ -48,15 +48,15 @@ export default async function Hosts() {
           </thead>
           <tbody className="divide-y divide-slate-800">
             {hosts.length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={canManage ? 10 : 9}>{t("hosts.none")}</td></tr>
+              <tr><td className="td text-slate-400" colSpan={canManage ? 9 : 8}>{t("hosts.none")}</td></tr>
             )}
             {hosts.map(({ agent: a, result }) => (
               <tr key={a.id} className="transition hover:bg-slate-900">
-                <td className="td font-medium">
-                  {a.hostname}
-                  <div className="font-mono text-xs font-normal text-slate-500 xl:hidden">{a.agent_id}{a.podman_version ? ` · Podman ${a.podman_version}` : ""}</div>
+                <td className="td" title={a.hostname}>
+                  <span className="whitespace-nowrap font-mono text-xs font-medium">{a.agent_id}</span>
+                  {a.kind === "local" && <div className="text-xs text-slate-500">{a.hostname}</div>}
+                  {a.podman_version && <div className="text-xs text-slate-500 xl:hidden">Podman {a.podman_version}</div>}
                 </td>
-                <td className="td hidden font-mono text-xs xl:table-cell">{a.agent_id}</td>
                 <td className="td font-mono text-xs">{a.kind === "local" ? <span className="font-sans">{t("hosts.local")}</span> : <>{a.address}:{a.port}</>}</td>
                 <td className="td">
                   <StatusBadge status={a.enabled ? a.status : "disabled"} />
