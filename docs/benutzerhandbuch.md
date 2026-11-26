@@ -31,6 +31,7 @@ Sie können damit:
 - eine Anwendung starten, stoppen oder neu starten,
 - nachlesen, was eine Anwendung zuletzt gemeldet hat (die sogenannten **Logs**),
 - sehen, wie viel Speicherplatz die Anwendungen auf einem Rechner belegen,
+- die **Auslastung** (Prozessor, Arbeitsspeicher, Netzwerk, Festplatte) einer Anwendung als Diagramm verfolgen,
 - nachsehen, welche **Images** (Programmpakete) auf den Rechnern liegen und welche davon benutzt werden.
 
 PodmanManager **löscht, ändert und legt keine Anwendungen an**. Für Sie gibt es nur Starten, Stoppen und Neustarten (und nur für die Rechner Ihrer Gruppe). Images können Sie nur ansehen; löschen dürfen sie nur Administratoren. Bedenken Sie aber, dass ein Stopp die Anwendung für alle Nutzer beendet. Mehr dazu in [Kapitel 6](#6-container-ihre-anwendungen) und [Kapitel 11](#11-was-sie-nicht-sehen-und-nicht-ändern-können).
@@ -71,7 +72,7 @@ Oben sehen Sie die **Navigationsleiste**. Von dort erreichen Sie alle Bereiche:
 
 | Eintrag | Was Sie dort finden |
 |---|---|
-| **Dashboard** | Zahlen auf einen Blick: wie viele Rechner, Anwendungen und Gruppen laufen |
+| **Dashboard** | Zahlen auf einen Blick: wie viele Rechner, Anwendungen und Pods laufen und wie viele Images, Netzwerke und Volumes es gibt |
 | **Hosts** | Die Rechner, auf denen Ihre Anwendungen laufen, mit Zustand und Speicherplatz |
 | **Container** | Alle einzelnen Anwendungen. Hier starten, stoppen, neu starten und Logs lesen |
 | **Pods** | Anwendungen, die zusammengehören, als Gruppe |
@@ -84,21 +85,24 @@ Oben sehen Sie die **Navigationsleiste**. Von dort erreichen Sie alle Bereiche:
 
 **Wichtig:** Sie sehen nur die Rechner, für die Ihre **Gruppe** freigegeben ist. Das steht auf jeder Seite oben, zum Beispiel: *„Sie sehen nur die Agents Ihrer Gruppen: Team A.“* Fehlt ein Rechner, den Sie erwarten, ist er nicht für Ihre Gruppe freigegeben (siehe [Kapitel 12](#12-wenn-etwas-nicht-klappt)).
 
-**Aktualisierung:** Die Seiten aktualisieren sich **nicht von selbst**. Wenn Sie den aktuellen Stand sehen möchten, laden Sie die Seite neu (Taste **F5** oder das Neu-laden-Symbol im Browser). Nach einem Start, Stopp oder Neustart aktualisiert sich die Anzeige automatisch.
+**Aktualisierung:** Die meisten Seiten aktualisieren sich **nicht von selbst**. Wenn Sie den aktuellen Stand sehen möchten, laden Sie die Seite neu (Taste **F5** oder das Neu-laden-Symbol im Browser). Nach einem Start, Stopp oder Neustart aktualisiert sich die Anzeige automatisch. Die **Container-Liste** und die **Detailseite** einer Anwendung laden sich selbst neu (etwa alle 30 Sekunden), solange die Auslastung eingeschaltet ist.
+
+**Tabellen sortieren:** In den Listen **Hosts**, **Container**, **Pods** und **Ressourcen** (Images, Netzwerke, Volumes) sortieren Sie mit einem **Klick auf die Spaltenüberschrift**. Der erste Klick sortiert **aufsteigend** (▲), der zweite **absteigend** (▼), der dritte stellt die **Standardreihenfolge** wieder her (↕ zeigt, dass eine Spalte sortierbar ist). Zahlen in Namen werden als Zahlen verglichen (`web-2` steht vor `web-10`), Versionen nach ihrer Nummer (`0.9.2` vor `0.28.0`), Zeiten nach der Uhrzeit. Fehlende Werte (zum Beispiel ein Strich) stehen **immer am Ende**. Ihre Filter bleiben beim Sortieren erhalten. Die Sortierung steht in der Adresse des Browsers; mit einem **Lesezeichen** oder einem weitergegebenen Link kommen Sie genau wieder auf diese Ansicht.
 
 ## 4. Dashboard: der schnelle Überblick
 
 ![Dashboard](screenshots/handbuch/02-dashboard.png)
 
-Das Dashboard besteht aus drei Reihen mit Zahlen:
+Das Dashboard besteht aus vier Reihen mit Zahlen:
 
 - **Hosts:** wie viele Rechner Sie sehen, davon *erreichbar*, *nicht erreichbar* und *deaktiviert / ausstehend*.
 - **Container:** wie viele Anwendungen es gibt, davon *laufend* und *gestoppt*.
 - **Pods:** wie viele Gruppen es gibt, davon *laufend*, *eingeschränkt* (ein Teil läuft nicht) und *gestoppt*.
+- **Ressourcen:** wie viele **Images**, **Netzwerke** und **Volumes** es auf Ihren Rechnern gibt und wie viel Speicher die Volumes zusammen belegen (**Volumes-Größe**). Ein Klick auf eine dieser Kacheln öffnet die passende Seite unter **Ressourcen**. Die Volumes-Größe erscheint mit kurzer Verzögerung, weil die Rechner sie erst ermitteln müssen.
 
 **Farben:** Grün bedeutet „in Ordnung“, Rot „Problem“, Orange „aufpassen“. Eine Zahl bei **Nicht erreichbar** ist ein Grund, bei Ihrem Administrator nachzufragen.
 
-Erscheint ein orangefarbener Hinweis wie *„Die Container-Zahlen enthalten 1 Host(s) nicht, die nicht abgefragt werden konnten“*, war ein Rechner gerade nicht erreichbar. Seine Anwendungen sind dann in den Zahlen nicht enthalten.
+Erscheint ein orangefarbener Hinweis wie *„Die Container-Zahlen enthalten 1 Host(s) nicht, die nicht abgefragt werden konnten“*, war ein Rechner gerade nicht erreichbar. Seine Anwendungen sind dann in den Zahlen nicht enthalten. Entsprechend weist *„Die Zahlen zu Images und Netzwerken enthalten 1 Host(s) nicht …“* darauf hin, dass ein Rechner bei diesen Zahlen fehlt; bei einer **gelben** Volumes-Zahl zeigt ein Hinweis (Maus darüberhalten) an, wie viele Rechner keine Angabe geliefert haben.
 
 ## 5. Hosts: Ihre Rechner
 
@@ -108,16 +112,15 @@ Unter **Hosts** sehen Sie jeden Rechner, den Sie sehen dürfen, in einer Zeile:
 
 | Spalte | Bedeutung |
 |---|---|
-| **Hostname** | Name des Rechners |
-| **Agent-ID** | Kennung des kleinen Hilfsprogramms auf dem Rechner (siehe [Wörterbuch](#13-kleines-wörterbuch)) |
+| **Agent-ID** | Name des Rechners bzw. des kleinen Hilfsprogramms darauf (siehe [Wörterbuch](#13-kleines-wörterbuch)). Der Rechnername, den das Gerät selbst meldet, steht im **Tooltip** (Maus darüberhalten); beim Rechner, auf dem PodmanManager selbst läuft, steht er direkt darunter |
 | **Adresse** | Netzwerkadresse des Hilfsprogramms (für Sie meist uninteressant) |
 | **Status** | **online** = alles in Ordnung, **eingeschränkt** = Rechner erreichbar, aber es gibt ein Problem mit der Anwendungs-Verwaltung, **offline** = nicht erreichbar, **deaktiviert** = vom Administrator abgeschaltet |
-| **Letzter Heartbeat** | Wann der Rechner zuletzt geantwortet hat („Herzschlag“). Fahren Sie mit der Maus darüber, sehen Sie die genaue Zeit |
-| **Podman / Agent** | Versionsnummern der Software (für Fragen an den Administrator hilfreich). Steht unter der Agent-Version **veraltet**, läuft auf dem Rechner eine ältere Version des Hilfsprogramms. Das beeinträchtigt Ihre Arbeit nicht; der Administrator kann es aktualisieren |
+| **Letzter Heartbeat** | Wann der Rechner zuletzt geantwortet hat („Herzschlag“). Fahren Sie mit der Maus darüber, sehen Sie die genaue Zeit. Bei schmalen Fenstern ausgeblendet |
+| **Podman** und **Agent** | Versionsnummern der Software (**Podman** bei schmalen Fenstern unter der Agent-ID; für Fragen an den Administrator hilfreich). Steht unter der Agent-Version **veraltet**, läuft auf dem Rechner eine ältere Version des Hilfsprogramms. Das beeinträchtigt Ihre Arbeit nicht; der Administrator kann es aktualisieren |
 | **Container** | Anzahl der Anwendungen auf dem Rechner |
-| **Speicher** | Wie viel Speicherplatz die Anwendungen belegen, aufgeteilt nach *Images* (Programmpakete), *Container* (laufende Anwendungen) und *Volumes* (gespeicherte Daten). „Ungenutzt“ ist der Teil, den man aufräumen könnte |
+| **Speicher** | Wie viel Speicherplatz die Anwendungen insgesamt belegen. Die Aufteilung nach *Images* (Programmpakete), *Container* (laufende Anwendungen) und *Volumes* (gespeicherte Daten) und der „ungenutzte“ Teil, den man aufräumen könnte, stehen bei großen Fenstern darunter, sonst im **Tooltip** |
 
-Als Benutzer können Sie hier **nichts ändern**, nur ansehen.
+Die Spalten sind **sortierbar** (siehe [Kapitel 3](#3-die-oberfläche-im-überblick)). Als Benutzer können Sie hier **nichts ändern**, nur ansehen. Rechner einrichten, deren Adresse ändern und die Hilfsprogramme aktualisieren (einzeln oder alle auf einmal) sind Administratoren vorbehalten.
 
 Sehen Sie in der Spalte **Speicher** statt Zahlen einen **orangefarbenen Text** oder nur einen Strich, kann der Rechner den Wert gerade nicht ermitteln. Das beeinträchtigt Ihre Anwendungen nicht. Melden Sie es Ihrem Administrator und geben Sie den angezeigten Text weiter.
 
@@ -132,11 +135,15 @@ Ein **Container** ist eine einzelne Anwendung (zum Beispiel ein Webserver oder e
 - **Name** – anklicken öffnet die Detailseite.
 - **Pod** – gehört die Anwendung zu einer Gruppe, steht hier deren Name (anklicken öffnet die Gruppe). Ein Strich bedeutet: keine Gruppe.
 - **Host** – auf welchem Rechner sie läuft.
+- **Image** – aus welchem Programmpaket sie gestartet wurde (bei schmalen Fenstern ausgeblendet, ebenso **Pod**).
 - **Status** – **läuft** (grün) oder **beendet** (grau).
-- **Erstellt / Gestartet** – wann die Anwendung angelegt und zuletzt gestartet wurde (Zeiten in UTC, siehe Hinweis bei den Logs).
+- **CPU** und **RAM** – wie viel Prozessor und Arbeitsspeicher die laufende Anwendung gerade nutzt (100 % bedeuten einen vollständig ausgelasteten Prozessorkern). Bei beendeten Anwendungen steht ein Strich. Die Spalten gibt es nur, wenn die Auslastung eingeschaltet ist.
+- **Gestartet** – wann die Anwendung zuletzt gestartet wurde (Zeiten in UTC, siehe Hinweis bei den Logs). Wann sie angelegt wurde, steht im **Tooltip** am Namen.
 - **Aktionen** – **Start**, **Stopp**, **Neustart**.
 
 **Filtern:** Über der Liste können Sie nach **Host**, **Status** und **Containername** filtern. Wählen Sie etwas aus oder tippen Sie einen Namen (ein Teil genügt) und klicken Sie auf **Filtern**.
+
+**Sortieren:** Ein Klick auf eine Spaltenüberschrift sortiert die Liste (siehe [Kapitel 3](#3-die-oberfläche-im-überblick)). Nach **Status** stehen laufende Anwendungen zuerst, nach **CPU** oder **RAM** aufsteigend die mit der niedrigsten Last zuerst (absteigend die mit der höchsten); Anwendungen ohne Pod oder ohne Messwert stehen am Ende.
 
 ### Eine Anwendung starten, stoppen oder neu starten
 
@@ -164,6 +171,8 @@ Ein Klick auf den Namen öffnet die Detailseite:
 
 Oben sehen Sie Name, Programmpaket (**Image**), **Status**, Rechner (**Host**), eventuell die **Pod**-Gruppe und die Zeiten. Darunter stehen dieselben Knöpfe **Start**, **Stopp**, **Neustart**.
 
+**Auslastung:** Darunter zeigen vier Diagramme, wie stark die Anwendung in den letzten Minuten beansprucht wurde: **CPU** (Prozessor; 100 % sind ein ganzer Kern), **Arbeitsspeicher** (mit der gestrichelten Grenze, falls eine gesetzt ist), **Netzwerk** (empfangen und gesendet) und **Festplatte** (gelesen und geschrieben). Oben rechts im Diagramm steht der aktuelle Wert. **Fahren Sie mit der Maus über ein Diagramm** (auf dem Handy: tippen), sehen Sie die Werte zum nächstgelegenen Zeitpunkt mit Uhrzeit (Stunde:Minute) und – bei Netzwerk und Festplatte – für beide Linien. Die Diagramme füllen sich erst nach dem Start der Anwendung; „Noch keine Messwerte“ heißt, dass es noch zu früh ist. Auf Rechnern, die Podman-Statistiken nicht liefern können (ältere Linux-Einstellung *cgroup v1*), erscheint statt der Diagramme ein Hinweis; die übrigen Funktionen sind davon nicht betroffen. Ist die Auslastung ausgeschaltet, steht dort „Messung ist aus“.
+
 **Logs lesen:** Ein Klick auf **Logs anzeigen** lädt die **letzten 150 Zeilen**, die die Anwendung geschrieben hat – eine Art Tagebuch der Anwendung. Neueste Zeilen stehen unten. **Aktualisieren** lädt neu. Zeilen in **Orange** sind Fehlermeldungen.
 
 - Die Uhrzeiten in den Logs sind in **UTC** (Weltzeit). In Deutschland sind Sie im Winter eine Stunde, im Sommer zwei Stunden später.
@@ -178,7 +187,7 @@ Ein **Pod** fasst mehrere Anwendungen zusammen, die nur gemeinsam sinnvoll sind,
 
 - **Status:** **läuft** (alle Anwendungen laufen), **eingeschränkt** (ein Teil läuft nicht), **beendet** (nichts läuft).
 - **Aktionen:** **Start**, **Stopp** und **Neustart** wirken auf **alle Anwendungen der Gruppe zugleich**. Bei einem *eingeschränkten* Pod sind sowohl Start (startet die fehlenden) als auch Stopp möglich. Auch hier gibt es die Rückfrage bei Stopp und Neustart.
-- Filtern geht wie bei den Containern.
+- Filtern und Sortieren (Klick auf die Spaltenüberschrift) gehen wie bei den Containern. Nach **Container** sortieren Sie nach der Anzahl der enthaltenen Anwendungen.
 
 Ein Klick auf den Namen öffnet die **Detailseite**:
 
@@ -201,7 +210,7 @@ Unter **Ressourcen** finden Sie drei Reiter: **Images**, **Netzwerke** und **Vol
 | **Container** | Wie viele Anwendungen dieses Paket gerade benutzen. **ungenutzt** heißt: keine |
 | **Erstellt** | Wann das Paket gebaut wurde |
 
-Mit dem Filter oben grenzen Sie nach **Host** oder **Image-Name** ein. Die Markierung **wird von PodmanManager genutzt** bedeutet: Dieses Paket gehört zu PodmanManager selbst.
+Mit dem Filter oben grenzen Sie nach **Host** oder **Image-Name** ein. Alle Spalten lassen sich per Klick **sortieren**; das gilt ebenso für die Reiter **Netzwerke** (Name, Treiber, Subnetz, Container, Host) und **Volumes** (Name, Treiber, Host, Größe, Nutzung, Erstellt). Sortieren Sie die Volumes nach **Größe**, finden Sie schnell die größten Datenspeicher; nach **Nutzung** stehen die benutzten Volumes zuerst. Die Markierung **wird von PodmanManager genutzt** bedeutet: Dieses Paket gehört zu PodmanManager selbst.
 
 Als Benutzer können Sie Images **nur ansehen**. Löschen und Aufräumen sind Administratoren vorbehalten. Sehen Sie viele ungenutzte Pakete oder fehlt Speicherplatz, informieren Sie Ihren Administrator.
 
@@ -219,7 +228,7 @@ Hier (Registerkarte **Allgemein**) sehen Sie, als wer und wie (lokales Konto, SS
 
 ![Über-Dialog](screenshots/handbuch/10-ueber.png)
 
-Zeigt die **Versionsnummer** von PodmanManager und – falls aktiviert – ob eine neuere Version verfügbar ist. Hilfreich, wenn Sie dem Administrator ein Problem melden. Das Aktualisieren übernimmt der Administrator; für Sie gibt es dort keinen Knopf.
+Zeigt die **Versionsnummer** von PodmanManager und – falls aktiviert – ob eine neuere Version verfügbar ist. Hilfreich, wenn Sie dem Administrator ein Problem melden. Das Aktualisieren übernimmt der Administrator; für Sie gibt es dort keinen Knopf, stattdessen steht dort der Hinweis „Nur Administratoren können den Master aktualisieren.“
 
 **Sprache**
 
@@ -236,6 +245,8 @@ Auf dem Handy passt sich die Seite an: Tabellen werden zu **Karten**, und die Na
 
 ![Menü auf dem Handy](screenshots/handbuch/13-handy-menue.png)
 
+Die Spaltenüberschriften gibt es auf dem Handy nicht. Stattdessen steht über den Karten (sobald es mehr als eine gibt) ein Auswahlfeld **Sortieren nach** mit der Richtung (aufsteigend oder absteigend) und dem Knopf **Sortieren**; Ihre Filter bleiben dabei erhalten. Die Diagramme der Auslastung reagieren auf **Antippen**.
+
 Die Knöpfe zum Starten, Stoppen und Neustarten finden Sie in jeder Karte:
 
 ![Container auf dem Handy](screenshots/handbuch/14-handy-container.png)
@@ -249,7 +260,7 @@ Das ist **Absicht** und dient der Sicherheit:
 - Sie können **keine Rechner hinzufügen, entfernen, prüfen oder deaktivieren**.
 - Sie können **keine Einstellungen ändern** und keine Gruppen verwalten.
 - Die **Logs von PodmanManager selbst** und der Hilfsprogramme sehen nur Administratoren.
-- **Images löschen oder aufräumen** und PodmanManager **aktualisieren** können nur Administratoren.
+- **Images, Netzwerke und Volumes löschen oder aufräumen** und PodmanManager **aktualisieren** können nur Administratoren. Ebenso das **Einrichten neuer Rechner**, das **Ändern ihrer Adresse** und das **Aktualisieren der Hilfsprogramme** (Agents).
 - Anwendungen **anlegen oder verändern** ist in PodmanManager gar nicht möglich, auch nicht für Administratoren. Es gibt nur Starten, Stoppen und Neustarten.
 
 Fehlt Ihnen etwas davon, wenden Sie sich an Ihren Administrator.
