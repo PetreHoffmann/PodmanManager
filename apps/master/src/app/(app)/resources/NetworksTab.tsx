@@ -6,18 +6,37 @@ import { allowedAgentIds } from "@/lib/groups";
 import { hiddenPatternsFor, isHidden } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
 import Icon from "@/components/Icon";
+import SortTh from "@/components/SortTh";
+import SortForm from "@/components/SortForm";
+import { sortLabels } from "@/lib/sort-labels";
+import { parseSortFor, sortRows, timeOf, type SortValue } from "@/lib/table-sort";
 
-export default async function NetworksTab({ host, q }: { host: string; q: string }) {
+const SORT_KEYS = ["name", "driver", "subnet", "usedBy", "host"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+
+export default async function NetworksTab({ host, q, sort: sortParam, dir }: { host: string; q: string; sort?: string; dir?: string }) {
+  const sort = parseSortFor(SORT_KEYS, sortParam, dir);
   const session = await requireAuth();
   const t = await getT();
   const admin = session.access === "all";
   const hidden = hiddenPatternsFor(session);
   const hosts = await fetchAllNetworks(undefined, allowedAgentIds(session));
 
-  const rows = hosts
+  const filtered = hosts
     .flatMap((h) => (h.result.ok ? h.result.data.map((net) => ({ agent: h.agent, net: { ...net, containers: net.containers.filter((c) => !isHidden(c, hidden)), hiddenCount: net.containers.filter((c) => isHidden(c, hidden)).length } })) : []))
     .filter(({ agent, net }) => (!host || String(agent.id) === host) && (!q || net.name.toLowerCase().includes(q.toLowerCase())))
     .sort((a, b) => a.net.name.localeCompare(b.net.name) || a.agent.hostname.localeCompare(b.agent.hostname));
+  const value = ({ agent, net }: (typeof filtered)[number], key: SortKey): SortValue => {
+    switch (key) {
+      case "name": return net.name;
+      case "driver": return net.driver;
+      case "subnet": return net.subnets[0] ?? null;
+      case "usedBy": return net.containers.length + net.hiddenCount;
+      case "host": return agent.hostname;
+    }
+  };
+  const rows = sortRows(filtered, sort, value);
+  const params = { tab: "networks", host, q };
   const failed = hosts.filter((h) => !h.result.ok && h.agent.enabled);
   const pruneHosts = hosts.filter((h) => h.result.ok && (!host || String(h.agent.id) === host)).map((h) => ({ id: h.agent.id, name: h.agent.hostname }));
   const isFree = (n: { protected: boolean; containers: string[]; hiddenCount: number }) => !n.protected && n.containers.length === 0 && n.hiddenCount === 0;
@@ -25,12 +44,14 @@ export default async function NetworksTab({ host, q }: { host: string; q: string
   const blocked = (n: { protected: boolean; containers: string[]; hiddenCount: number }) => (n.protected ? t("networks.protected") : n.containers.length + n.hiddenCount > 0 ? t("networks.usedBlocked") : undefined);
   const flags = (n: { internal: boolean; dnsEnabled: boolean; ipv6: boolean }) => [n.internal && t("networks.internal"), n.dnsEnabled && t("networks.dns"), n.ipv6 && t("networks.ipv6")].filter(Boolean).join(" · ") || "–";
   const users = (n: { containers: string[]; hiddenCount: number }) => (n.containers.length > 0 ? n.containers.join(", ") : <span className="text-slate-500">{t("networks.noneUsed")}</span>);
-  const cols = ["networks.name", "networks.driver", "networks.subnet", "networks.flags", "networks.usedBy", "cont.host"] as const;
+  const cols = [["networks.name", "name"], ["networks.driver", "driver"], ["networks.subnet", "subnet"], ["networks.flags", null], ["networks.usedBy", "usedBy"], ["cont.host", "host"]] as const;
 
   return (
     <div className="space-y-4">
       <form className="flex flex-wrap gap-2" method="get">
         <input type="hidden" name="tab" value="networks" />
+        {sort && <input type="hidden" name="sort" value={sort.key} />}
+        {sort && <input type="hidden" name="dir" value={sort.dir} />}
         <select name="host" defaultValue={host} className="input w-auto">
           <option value="">{t("cont.allHosts")}</option>
           {hosts.map((h) => <option key={h.agent.id} value={h.agent.id}>{h.agent.agent_id} ({h.agent.hostname})</option>)}
@@ -51,7 +72,7 @@ export default async function NetworksTab({ host, q }: { host: string; q: string
         <table className="w-full min-w-[900px]">
           <thead className="border-b border-slate-800">
             <tr>
-              {cols.map((k) => <th key={k} className="th">{t(k)}</th>)}
+              {cols.map(([k, key]) => key ? <SortTh key={k} label={t(k)} sortKey={key} current={sort} base="/resources" params={params} /> : <th key={k} className="th">{t(k)}</th>)}
               {admin && <th className="th">{t("cont.actions")}</th>}
             </tr>
           </thead>
@@ -72,6 +93,7 @@ export default async function NetworksTab({ host, q }: { host: string; q: string
         </table>
       </div>
       <div className="space-y-3 md:hidden">
+        {rows.length > 1 && <SortForm base="/resources" params={params} current={sort} labels={sortLabels(t)} options={cols.flatMap(([k, key]) => (key ? [{ key, label: t(k) }] : []))} />}
         {rows.length === 0 && <p className="card text-sm text-slate-400">{t("networks.none")}</p>}
         {rows.map(({ agent, net }) => (
           <div key={`${agent.id}-${net.name}`} className="card space-y-2">

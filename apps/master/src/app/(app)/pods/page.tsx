@@ -9,18 +9,28 @@ import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { hiddenPatternsFor } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
 import Icon from "@/components/Icon";
+import SortTh from "@/components/SortTh";
+import SortForm from "@/components/SortForm";
+import { sortLabels } from "@/lib/sort-labels";
+import { parseSortFor, sortRows, timeOf, type SortValue } from "@/lib/table-sort";
 
 export const dynamic = "force-dynamic";
 
-type SP = Promise<{ host?: string; status?: string; q?: string }>;
+type SP = Promise<{ host?: string; status?: string; q?: string; sort?: string; dir?: string }>;
+
+const SORT_KEYS = ["name", "id", "host", "status", "containers", "created"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+const STATUS_RANK: Record<string, number> = { running: 0, degraded: 1, created: 2 };
 
 export default async function Pods({ searchParams }: { searchParams: SP }) {
   const session = await requireAuth();
   const t = await getT();
-  const { host = "", status = "", q = "" } = await searchParams;
+  const sp = await searchParams;
+  const { host = "", status = "", q = "" } = sp;
+  const sort = parseSortFor(SORT_KEYS, sp.sort, sp.dir);
   const hosts = await fetchAllPods(undefined, allowedAgentIds(session), hiddenPatternsFor(session));
 
-  const rows = hosts
+  const filtered = hosts
     .flatMap((h) => (h.result.ok ? h.result.data.map((p) => ({ agent: h.agent, p })) : []))
     .filter(({ agent, p }) => (!host || String(agent.id) === host)
       && (!status || (status === "running" ? p.status === "running" : status === "degraded" ? p.status === "degraded" : p.status !== "running" && p.status !== "degraded"))
@@ -28,12 +38,27 @@ export default async function Pods({ searchParams }: { searchParams: SP }) {
     .sort((a, b) => a.p.name.localeCompare(b.p.name));
   const failed = hosts.filter((h) => !h.result.ok && h.agent.enabled);
   const count = (p: { containers: { infra: boolean }[] }) => p.containers.filter((c) => !c.infra).length;
+  const value = ({ agent, p }: (typeof filtered)[number], key: SortKey): SortValue => {
+    switch (key) {
+      case "name": return p.name || p.id;
+      case "id": return p.id;
+      case "host": return agent.hostname;
+      case "status": return STATUS_RANK[p.status] ?? 3;
+      case "containers": return count(p);
+      case "created": return timeOf(p.createdAt);
+    }
+  };
+  const rows = sortRows(filtered, sort, value);
+  const params = { host, status, q };
+  const cols = [["pods.name", "name"], ["cont.id", "id"], ["cont.host", "host"], ["cont.status", "status"], ["pods.containers", "containers"], ["cont.created", "created"]] as const;
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">{t("pods.title")}</h1>
       {session.access === "groups" && <p className="text-xs text-slate-400">{t("scope.note", { groups: groupNames(session).join(", ") || "—" })}</p>}
       <form className="flex flex-wrap gap-2" method="get">
+        {sort && <input type="hidden" name="sort" value={sort.key} />}
+        {sort && <input type="hidden" name="dir" value={sort.dir} />}
         <select name="host" defaultValue={host} className="input w-auto">
           <option value="">{t("cont.allHosts")}</option>
           {hosts.map((h) => <option key={h.agent.id} value={h.agent.id}>{h.agent.agent_id} ({h.agent.hostname})</option>)}
@@ -57,7 +82,7 @@ export default async function Pods({ searchParams }: { searchParams: SP }) {
       <div className="card hidden overflow-x-auto p-0 md:block">
         <table className="w-full min-w-[800px]">
           <thead className="border-b border-slate-800">
-            <tr>{(["pods.name", "cont.id", "cont.host", "cont.status", "pods.containers", "cont.created", "cont.actions"] as const).map((k) => <th key={k} className="th">{t(k)}</th>)}</tr>
+            <tr>{cols.map(([k, key]) => <SortTh key={k} label={t(k)} sortKey={key} current={sort} base="/pods" params={params} />)}<th className="th">{t("cont.actions")}</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
             {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={7}>{t("pods.none")}</td></tr>}
@@ -76,6 +101,7 @@ export default async function Pods({ searchParams }: { searchParams: SP }) {
         </table>
       </div>
       <div className="space-y-3 md:hidden">
+        {rows.length > 1 && <SortForm base="/pods" params={params} current={sort} labels={sortLabels(t)} options={cols.map(([k, key]) => ({ key, label: t(k) }))} />}
         {rows.length === 0 && <p className="card text-sm text-slate-400">{t("pods.none")}</p>}
         {rows.map(({ agent, p }) => (
           <div key={`${agent.id}-${p.id}`} className="card space-y-2">

@@ -6,29 +6,51 @@ import { getT, getLang } from "@/lib/lang";
 import { allowedAgentIds } from "@/lib/groups";
 import { requireAuth } from "@/lib/session";
 import Icon from "@/components/Icon";
+import SortTh from "@/components/SortTh";
+import SortForm from "@/components/SortForm";
+import { sortLabels } from "@/lib/sort-labels";
+import { parseSortFor, sortRows, timeOf, type SortValue } from "@/lib/table-sort";
 
-export default async function VolumesTab({ host, q }: { host: string; q: string }) {
+const SORT_KEYS = ["name", "driver", "host", "size", "usage", "created"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+
+export default async function VolumesTab({ host, q, sort: sortParam, dir }: { host: string; q: string; sort?: string; dir?: string }) {
+  const sort = parseSortFor(SORT_KEYS, sortParam, dir);
   const session = await requireAuth();
   const t = await getT();
   const lang = await getLang();
   const admin = session.access === "all";
   const hosts = await fetchAllVolumes(undefined, allowedAgentIds(session));
 
-  const rows = hosts
+  const filtered = hosts
     .flatMap((h) => (h.result.ok ? h.result.data.map((vol) => ({ agent: h.agent, vol })) : []))
     .filter(({ agent, vol }) => (!host || String(agent.id) === host) && (!q || vol.name.toLowerCase().includes(q.toLowerCase())))
     .sort((a, b) => a.vol.name.localeCompare(b.vol.name) || a.agent.hostname.localeCompare(b.agent.hostname));
+  const value = ({ agent, vol }: (typeof filtered)[number], key: SortKey): SortValue => {
+    switch (key) {
+      case "name": return vol.name;
+      case "driver": return vol.driver;
+      case "host": return agent.hostname;
+      case "size": return vol.size;
+      case "usage": return vol.unused ? 1 : 0; // in use first
+      case "created": return timeOf(vol.createdAt);
+    }
+  };
+  const rows = sortRows(filtered, sort, value);
+  const params = { tab: "volumes", host, q };
   const failed = hosts.filter((h) => !h.result.ok && h.agent.enabled);
   const pruneHosts = hosts.filter((h) => h.result.ok && (!host || String(h.agent.id) === host)).map((h) => ({ id: h.agent.id, name: h.agent.hostname }));
   const unusedCount = rows.filter(({ vol }) => vol.unused).length;
   const size = (b: number | null) => (b === null ? t("volumes.sizeUnknown") : fmtBytes(b, lang));
-  const cols = ["volumes.name", "volumes.driver", "cont.host", "images.size", "volumes.usage", "cont.created"] as const;
+  const cols = [["volumes.name", "name"], ["volumes.driver", "driver"], ["cont.host", "host"], ["images.size", "size"], ["volumes.usage", "usage"], ["cont.created", "created"]] as const;
   const usage = (unused: boolean) => (unused ? <span className="text-slate-400">{t("volumes.unused")}</span> : <span className="text-emerald-300">{t("volumes.inUse")}</span>);
 
   return (
     <div className="space-y-4">
       <form className="flex flex-wrap gap-2" method="get">
         <input type="hidden" name="tab" value="volumes" />
+        {sort && <input type="hidden" name="sort" value={sort.key} />}
+        {sort && <input type="hidden" name="dir" value={sort.dir} />}
         <select name="host" defaultValue={host} className="input w-auto">
           <option value="">{t("cont.allHosts")}</option>
           {hosts.map((h) => <option key={h.agent.id} value={h.agent.id}>{h.agent.agent_id} ({h.agent.hostname})</option>)}
@@ -48,7 +70,7 @@ export default async function VolumesTab({ host, q }: { host: string; q: string 
         <table className="w-full min-w-[800px]">
           <thead className="border-b border-slate-800">
             <tr>
-              {cols.map((k) => <th key={k} className="th">{t(k)}</th>)}
+              {cols.map(([k, key]) => <SortTh key={k} label={t(k)} sortKey={key} current={sort} base="/resources" params={params} />)}
               {admin && <th className="th">{t("cont.actions")}</th>}
             </tr>
           </thead>
@@ -69,6 +91,7 @@ export default async function VolumesTab({ host, q }: { host: string; q: string 
         </table>
       </div>
       <div className="space-y-3 md:hidden">
+        {rows.length > 1 && <SortForm base="/resources" params={params} current={sort} labels={sortLabels(t)} options={cols.map(([k, key]) => ({ key, label: t(k) }))} />}
         {rows.length === 0 && <p className="card text-sm text-slate-400">{t("volumes.none")}</p>}
         {rows.map(({ agent, vol }) => (
           <div key={`${agent.id}-${vol.name}`} className="card space-y-2">

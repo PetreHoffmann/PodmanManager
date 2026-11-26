@@ -6,8 +6,16 @@ import { getT, getLang } from "@/lib/lang";
 import { allowedAgentIds } from "@/lib/groups";
 import { requireAuth } from "@/lib/session";
 import Icon from "@/components/Icon";
+import SortTh from "@/components/SortTh";
+import SortForm from "@/components/SortForm";
+import { sortLabels } from "@/lib/sort-labels";
+import { parseSortFor, sortRows, timeOf, type SortValue } from "@/lib/table-sort";
 
-export default async function ImagesTab({ host, q }: { host: string; q: string }) {
+const SORT_KEYS = ["image", "id", "host", "size", "usedBy", "created"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+
+export default async function ImagesTab({ host, q, sort: sortParam, dir }: { host: string; q: string; sort?: string; dir?: string }) {
+  const sort = parseSortFor(SORT_KEYS, sortParam, dir);
   const session = await requireAuth();
   const t = await getT();
   const lang = await getLang();
@@ -15,23 +23,37 @@ export default async function ImagesTab({ host, q }: { host: string; q: string }
   const hosts = await fetchAllImages(undefined, allowedAgentIds(session));
 
   // one row per tag; an image without tag (dangling) is one row
-  const rows = hosts
+  const filtered = hosts
     .flatMap((h) => (h.result.ok ? h.result.data.map((img) => ({ agent: h.agent, img })) : []))
     .flatMap(({ agent, img }) => (img.tags.length > 0 ? img.tags.map((tag) => ({ agent, img, tag: tag as string | null })) : [{ agent, img, tag: null as string | null }]))
     .filter(({ agent, tag, img }) => (!host || String(agent.id) === host) && (!q || (tag ?? img.id).toLowerCase().includes(q.toLowerCase())))
     .sort((a, b) => (a.tag ?? "~").localeCompare(b.tag ?? "~") || a.agent.hostname.localeCompare(b.agent.hostname));
+  const value = ({ agent, img, tag }: (typeof filtered)[number], key: SortKey): SortValue => {
+    switch (key) {
+      case "image": return tag ?? null;
+      case "id": return img.id;
+      case "host": return agent.hostname;
+      case "size": return img.size;
+      case "usedBy": return img.containers;
+      case "created": return timeOf(img.createdAt);
+    }
+  };
+  const rows = sortRows(filtered, sort, value);
+  const params = { tab: "images", host, q };
   const failed = hosts.filter((h) => !h.result.ok && h.agent.enabled);
   // the prune button acts on what the host filter shows: one host, or every reachable host
   const pruneHosts = hosts.filter((h) => h.result.ok && (!host || String(h.agent.id) === host)).map((h) => ({ id: h.agent.id, name: h.agent.hostname }));
   const label = (tag: string | null, id: string) => tag ?? `<${t("images.dangling")}> ${id.slice(0, 12)}`;
   const blocked = (img: { protected: boolean; containers: number; tags: string[] }) =>
     img.protected ? t("images.protected") : img.containers > 0 && img.tags.length <= 1 ? t("errc.IMAGE_IN_USE") : undefined;
-  const cols = ["images.image", "cont.id", "cont.host", "images.size", "images.usedBy", "cont.created"] as const;
+  const cols = [["images.image", "image"], ["cont.id", "id"], ["cont.host", "host"], ["images.size", "size"], ["images.usedBy", "usedBy"], ["cont.created", "created"]] as const;
 
   return (
     <div className="space-y-4">
       <form className="flex flex-wrap gap-2" method="get">
         <input type="hidden" name="tab" value="images" />
+        {sort && <input type="hidden" name="sort" value={sort.key} />}
+        {sort && <input type="hidden" name="dir" value={sort.dir} />}
         <select name="host" defaultValue={host} className="input w-auto">
           <option value="">{t("cont.allHosts")}</option>
           {hosts.map((h) => <option key={h.agent.id} value={h.agent.id}>{h.agent.agent_id} ({h.agent.hostname})</option>)}
@@ -51,7 +73,7 @@ export default async function ImagesTab({ host, q }: { host: string; q: string }
         <table className="w-full min-w-[900px]">
           <thead className="border-b border-slate-800">
             <tr>
-              {cols.map((k) => <th key={k} className="th">{t(k)}</th>)}
+              {cols.map(([k, key]) => <SortTh key={k} label={t(k)} sortKey={key} current={sort} base="/resources" params={params} />)}
               {admin && <th className="th">{t("cont.actions")}</th>}
             </tr>
           </thead>
@@ -72,6 +94,7 @@ export default async function ImagesTab({ host, q }: { host: string; q: string }
         </table>
       </div>
       <div className="space-y-3 md:hidden">
+        {rows.length > 1 && <SortForm base="/resources" params={params} current={sort} labels={sortLabels(t)} options={cols.map(([k, key]) => ({ key, label: t(k) }))} />}
         {rows.length === 0 && <p className="card text-sm text-slate-400">{t("images.none")}</p>}
         {rows.map(({ agent, img, tag }) => (
           <div key={`${agent.id}-${img.id}-${tag ?? ""}`} className="card space-y-2">
