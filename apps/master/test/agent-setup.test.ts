@@ -9,7 +9,7 @@ import { createAgentServer } from "../../agent/src/api/server.js";
 import { realisticPodman } from "../../agent/test/helpers.js";
 import { PodmanClient } from "../../agent/src/podman/client.js";
 import { PodmanService } from "../../agent/src/podman/service.js";
-import { agentSetupFor, checkAgent, createPendingAgent, getAgent, rotateAgentToken, targetFor } from "../src/lib/agents";
+import { agentSetupFor, checkAgent, createPendingAgent, getAgent, rotateAgentToken, targetFor, updateAgentAddress } from "../src/lib/agents";
 import { agentSetup, hashAgentToken, newAgentToken } from "../src/lib/agent-setup";
 import { openDb } from "../src/database/db";
 
@@ -101,5 +101,39 @@ describe("host created before its agent exists", () => {
       withHash.closeAllConnections();
       await new Promise((ok) => withHash.close(ok));
     }
+  });
+});
+
+describe("changing the address of a host", () => {
+  const db = openDb(":memory:");
+  it("keeps token and hash, resets the state, rebuilds the Quadlet block", () => {
+    const a = createPendingAgent("http://10.0.0.1:9126", "host-a", db);
+    const b = createPendingAgent("http://10.0.0.2:9126", "host-b", db);
+    assert.equal(a.ok && b.ok, true);
+    if (!a.ok || !b.ok) return;
+    const tokenBefore = targetFor(a.data.id, db)!.token;
+    db.prepare("UPDATE agents SET status = 'offline', fail_count = 5, last_error = 'x' WHERE id = ?").run(a.data.id);
+    const r = updateAgentAddress(a.data.id, "http://10.0.0.9:9200", db);
+    assert.equal(r.ok, true);
+    if (!r.ok) return;
+    assert.equal(r.data.old, "10.0.0.1:9126");
+    assert.equal(r.data.address, "10.0.0.9:9200");
+    assert.equal(r.data.setup.hash, a.data.setup.hash);
+    assert.match(r.data.setup.quadlet, /^PublishPort=10\.0\.0\.9:9126:9126$/m);
+    const row = getAgent(a.data.id, db)!;
+    assert.deepEqual([row.address, row.port, row.status, row.fail_count, row.last_error], ["10.0.0.9", 9200, "unknown", 0, null]);
+    assert.equal(targetFor(a.data.id, db)!.token, tokenBefore);
+    assert.equal(getAgent(b.data.id, db)!.address, "10.0.0.2");
+  });
+  it("rejects bad input, an address of another host and the local host", () => {
+    const [x, y] = db.prepare("SELECT id FROM agents ORDER BY id").all() as { id: number }[];
+    assert.deepEqual(updateAgentAddress(x!.id, "https://x:1", db), { ok: false, error: "err.invalidAddress" });
+    assert.deepEqual(updateAgentAddress(x!.id, "http://10.0.0.2:9126", db), { ok: false, error: "err.alreadyRegistered" });
+    assert.equal(updateAgentAddress(x!.id, "http://10.0.0.9:9200", db).ok, true); // its own address again is fine
+    assert.deepEqual(updateAgentAddress(99999, "http://10.0.0.5:9126", db), { ok: false, error: "msg.invalidAgent" });
+    db.prepare("INSERT INTO agents (agent_id, hostname, address, port, token_enc, registered_at, kind) VALUES ('local','local','local',0,'',?, 'local')").run(new Date().toISOString());
+    const loc = db.prepare("SELECT id FROM agents WHERE kind = 'local'").get() as { id: number };
+    assert.deepEqual(updateAgentAddress(loc.id, "http://10.0.0.5:9126", db), { ok: false, error: "msg.invalidAgent" });
+    assert.ok(y);
   });
 });
