@@ -106,6 +106,17 @@ export function agentSetupFor(id: number, db: DatabaseSync = getDb()): AgentSetu
   return agentSetup(r.agent_id, r.address, hashAgentToken(decryptSecret(r.token_enc)));
 }
 
+/** Changes the address of a remote host (typo, moved host); the token and the agent id stay as they are. */
+export function updateAgentAddress(id: number, urlInput: string, db: DatabaseSync = getDb()): Result<{ old: string; address: string; setup: AgentSetup }> {
+  const r = db.prepare("SELECT agent_id, address, port, token_enc, kind FROM agents WHERE id = ?").get(id) as { agent_id: string; address: string; port: number; token_enc: string; kind: string } | undefined;
+  if (!r || r.kind === "local" || !r.token_enc) return { ok: false, error: "msg.invalidAgent" };
+  const addr = parseAgentUrl(urlInput);
+  if (!addr) return { ok: false, error: "err.invalidAddress" };
+  if (db.prepare("SELECT id FROM agents WHERE address = ? AND port = ? AND id <> ?").get(addr.address, addr.port, id)) return { ok: false, error: "err.alreadyRegistered" };
+  db.prepare("UPDATE agents SET address = ?, port = ?, status = 'unknown', fail_count = 0, last_error = NULL WHERE id = ?").run(addr.address, addr.port, id);
+  return { ok: true, data: { old: `${r.address}:${r.port}`, address: `${addr.address}:${addr.port}`, setup: agentSetup(r.agent_id, addr.address, hashAgentToken(decryptSecret(r.token_enc))) } };
+}
+
 /** New token for a remote host: the agent must get the new hash and a restart; until then the host shows as offline. */
 export function rotateAgentToken(id: number, db: DatabaseSync = getDb()): AgentSetup | null {
   const r = db.prepare("SELECT agent_id, address, kind FROM agents WHERE id = ?").get(id) as { agent_id: string; address: string; kind: string } | undefined;

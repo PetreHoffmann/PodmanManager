@@ -71,7 +71,7 @@ export default async function Hosts() {
                 <td className="td max-w-[11rem]">
                   {a.enabled && a.status !== "offline" ? <Suspense fallback={<span className="animate-pulse text-slate-500">…</span>}><HostStorage agentId={a.id} /></Suspense> : <span className="text-slate-500">—</span>}
                 </td>
-                {canManage && <td className="td w-[15rem]"><HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} local={a.kind === "local"} /></td>}
+                {canManage && <td className="td w-[15rem]"><HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} url={a.kind === "local" ? "" : `http://${a.address}:${a.port}`} local={a.kind === "local"} /></td>}
               </tr>
             ))}
           </tbody>
@@ -93,7 +93,7 @@ export default async function Hosts() {
             )}
             {a.enabled && a.last_error && a.status !== "online" && <div className="break-all text-xs text-slate-500">{lastErrText(t, a.last_error)}</div>}
             {outdated(a.agent_version) && <div className="flex flex-wrap items-start gap-2 text-xs"><span className="text-amber-300">{t("update.outdated")}</span>{canManage && a.enabled && a.status !== "offline" && <AgentUpdate id={a.id} />}</div>}
-            {canManage && <HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} local={a.kind === "local"} />}
+            {canManage && <HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} url={a.kind === "local" ? "" : `http://${a.address}:${a.port}`} local={a.kind === "local"} />}
           </div>
         ))}
       </div>

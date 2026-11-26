@@ -7,7 +7,7 @@ import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, a
 import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
 import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
-import { agentSetupFor, checkAgent, createPendingAgent, getAgent, listAgents, registerAgent, removeAgent, rotateAgentToken, setEnabled, targetFor } from "@/lib/agents";
+import { agentSetupFor, checkAgent, createPendingAgent, getAgent, listAgents, registerAgent, removeAgent, rotateAgentToken, setEnabled, targetFor, updateAgentAddress } from "@/lib/agents";
 import type { AgentSetup } from "@/lib/agent-setup";
 import { webauthnContext, type WebauthnContext } from "@/lib/webauthn-context";
 import { LANG_COOKIE, errText, isLang, lastErrText, statusLabel, type Key } from "@/lib/i18n";
@@ -204,6 +204,24 @@ export async function agentSetupAction(id: number): Promise<SetupResult> {
   if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const setup = Number.isInteger(id) && id > 0 ? agentSetupFor(id) : null;
   return setup ? { ok: true, id, setup, message: "" } : { ok: false, message: t("msg.invalidAgent") };
+}
+
+export type AddressResult = { ok: true; setup: AgentSetup; message: string; reachable: boolean } | { ok: false; message: string };
+
+/** New address for a remote host; the token stays. The connection is tested right away. */
+export async function agentAddressAction(id: number, url: string): Promise<AddressResult> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  const r = Number.isInteger(id) && id > 0 ? updateAgentAddress(id, String(url ?? "")) : ({ ok: false, error: "msg.invalidAgent" } as const);
+  if (!r.ok) return { ok: false, message: t(r.error as Key) };
+  await audit(session, "host.address", { target: r.data.setup.agentId, detail: `${r.data.old} -> ${r.data.address}` });
+  const c = await checkAgent(id);
+  revalidatePath("/hosts");
+  const err = c?.last_error ? lastErrText(t, c.last_error) : "";
+  const reachable = !!c && (c.status === "online" || c.status === "degraded") && c.fail_count === 0;
+  const test = reachable ? t(c!.status === "online" ? "msg.connOk" : "msg.connDegraded", { err: err || "?" }) : err || t("msg.checkFailed");
+  return { ok: true, setup: r.data.setup, reachable, message: `${t("wiz.addressSaved", { addr: r.data.address })} ${test}` };
 }
 
 export async function rotateAgentTokenAction(id: number): Promise<SetupResult> {
