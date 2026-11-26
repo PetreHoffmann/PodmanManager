@@ -141,14 +141,7 @@ ProxyPass        / http://127.0.0.1:8080/
 ProxyPassReverse / http://127.0.0.1:8080/
 ```
 
-Apache mit Puppet (`puppetlabs-apache`), im vhost:
-
-```puppet
-proxy_preserve_host => true,
-request_headers     => ['set X-Forwarded-Proto "https"'],
-proxy_pass          => [{ 'path' => '/', 'url' => 'http://127.0.0.1:8080/' }],
-```
-Eine Änderung direkt in `/etc/httpd/…` würde beim nächsten Puppet-Lauf überschrieben.
+Wird der vhost von einer Konfigurationsverwaltung (z. B. Ansible oder Puppet) erzeugt, gehören dieselben Zeilen dort hinein; eine Änderung direkt in `/etc/httpd/…` würde beim nächsten Lauf überschrieben.
 
 nginx:
 

@@ -11,7 +11,7 @@ import { failCode, fetchViaProxy, makeProxyAwareFetch, noProxyMatch, proxyFor } 
 
 describe("proxy selection", () => {
   it("matches NO_PROXY entries (exact, suffix, wildcard, port, *)", () => {
-    const l = "localhost, 10.0.0.1, .corp.example.com, *.lab.example.org, example.net:8443, banst-s.banst-pt.int";
+    const l = "localhost, 10.0.0.1, .corp.example.com, *.lab.example.org, example.net:8443, internal.example.com";
     assert.ok(noProxyMatch("localhost", 443, l));
     assert.ok(noProxyMatch("10.0.0.1", 443, l));
     assert.ok(noProxyMatch("a.corp.example.com", 443, l));
@@ -19,7 +19,7 @@ describe("proxy selection", () => {
     assert.ok(noProxyMatch("x.lab.example.org", 443, l));
     assert.ok(noProxyMatch("example.net", 8443, l));
     assert.ok(!noProxyMatch("example.net", 443, l));
-    assert.ok(noProxyMatch("host.banst-s.banst-pt.int", 443, l));
+    assert.ok(noProxyMatch("host.internal.example.com", 443, l));
     assert.ok(!noProxyMatch("evilcorp.example.com", 443, l));
     assert.ok(!noProxyMatch("registry-1.docker.io", 443, l));
     assert.ok(noProxyMatch("anything.io", 443, "*"));
