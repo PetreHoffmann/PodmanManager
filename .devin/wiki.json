@@ -1,0 +1,109 @@
+{
+  "repo_notes": [
+    {
+      "content": "PodmanManager is a small central web UI for rootless Podman containers on several Linux hosts. It deliberately has a limited scope: show, start, stop and restart containers and pods, read logs and resource usage, and (for admins) delete images, networks and volumes. It never creates or edits containers."
+    },
+    {
+      "content": "Two components: the Master (apps/master, Next.js 15 App Router, React, SQLite via node:sqlite, HTTP on port 8080) and the Agent (apps/agent, dependency-free Node.js, HTTP on port 9126, one per host). The Agent talks only to the rootless Podman unix socket of its own user and never runs as root. The Master talks to each Agent with a bearer token; the Agent stores only the SHA-256 hash of that token. Shared TypeScript types live in shared/types."
+    },
+    {
+      "content": "The Master can also manage its own host without an Agent (the in-process local host, enabled with LOCAL_PODMAN_SOCKET). Agent tokens are created by the Master (Hosts, Set up a new agent), stored encrypted with MASTER_SECRET_KEY, and the Agent receives only the hash."
+    },
+    {
+      "content": "The user-facing documentation in docs/ and deployment/ is written in German; the UI is available in English, German, Romanian and Spanish (apps/master/src/lib/i18n.ts). Code, comments and identifiers are English. There is no TLS by design: PodmanManager is meant for isolated networks behind a reverse proxy; see docs/security.md."
+    },
+    {
+      "content": "Deployment is container based: the Master and Agent run as rootless containers (podman run or Quadlet under ~/.config/containers/systemd). Docker Hub images: petrecalinoiu/podmanmanager-master and petrecalinoiu/podmanmanager-agent. Tests use Node's built-in test runner with tsx; the E2E test in integration/e2e.mts uses fake Podman sockets and Playwright."
+    }
+  ],
+  "pages": [
+    {
+      "title": "Overview",
+      "purpose": "What PodmanManager is, who it is for, what it deliberately does not do, and how Master and Agent fit together.",
+      "page_notes": [
+        { "content": "Start from README.md and docs/architecture.md. Explain the data flow Browser -> Master -> Agent -> Podman socket." }
+      ]
+    },
+    {
+      "title": "Architecture",
+      "purpose": "Components, data flow, trust boundaries and the main design decisions (bearer token with hashed storage, rootless socket access, no TLS, SQLite storage).",
+      "parent": "Overview"
+    },
+    {
+      "title": "Master (Web UI)",
+      "purpose": "The Next.js application: pages, server actions, session handling, navigation, sorting, dashboard and i18n.",
+      "page_notes": [
+        { "content": "Key locations: apps/master/src/app (routes and server actions in actions.ts), apps/master/src/components, apps/master/src/lib. Sorting of lists is in lib/table-sort.ts and lib/host-sort.ts." }
+      ]
+    },
+    {
+      "title": "Hosts and Agent Management",
+      "purpose": "How hosts are registered and monitored: the setup assistant that generates token and hash, heartbeats and offline detection, token renewal, address changes, and updating agents from the UI.",
+      "parent": "Master (Web UI)",
+      "page_notes": [
+        { "content": "See lib/agents.ts, lib/agent-setup.ts, lib/heartbeat.ts, lib/update-poll.ts and components AgentWizard, AgentSetupPanel, HostActions, AgentUpdateAll." }
+      ]
+    },
+    {
+      "title": "Containers, Pods and Resources",
+      "purpose": "Listing and controlling containers and pods, logs, and the Resources pages for images, networks and volumes including the admin-only delete and prune actions.",
+      "parent": "Master (Web UI)"
+    },
+    {
+      "title": "Usage Metrics",
+      "purpose": "How CPU, memory, network and disk figures are collected from the Agent (cgroup v2 only), kept in memory by the Master and shown as charts with hover values.",
+      "parent": "Master (Web UI)",
+      "page_notes": [
+        { "content": "See lib/metrics.ts and components MetricsCard and MetricsChart. Hosts with cgroup v1 cannot deliver statistics (Podman reports STATS_UNAVAILABLE)." }
+      ]
+    },
+    {
+      "title": "Agent",
+      "purpose": "The dependency-free Node.js agent: HTTP API, authentication, rate limiting, the Podman socket client, log buffering and self-update.",
+      "page_notes": [
+        { "content": "Key locations: apps/agent/src/api (handler.ts routes, server.ts), apps/agent/src/podman (client.ts, service.ts, logs.ts), apps/agent/src/services (health.ts, update.ts), apps/agent/src/auth. API reference: docs/api.md." }
+      ]
+    },
+    {
+      "title": "Agent API",
+      "purpose": "The authenticated REST API of the agent (containers, pods, images, networks, volumes, stats, storage, system update) and its error codes.",
+      "parent": "Agent"
+    },
+    {
+      "title": "Authentication and Access Control",
+      "purpose": "Local admin account and local users, LDAP/Active Directory, SAML 2.0 single sign-on, groups that limit which hosts a user sees, hidden container patterns, two-factor authentication (TOTP), passkeys (WebAuthn) and session cookies.",
+      "page_notes": [
+        { "content": "See lib/session.ts, lib/users.ts, lib/groups.ts, lib/hidden.ts, lib/ldap.ts, lib/saml.ts, lib/mfa.ts, lib/totp.ts, lib/webauthn.ts and docs/sso.md. Passkeys need https (or localhost) and a host name, not an IP address; behind a reverse proxy the expected origin comes from ALLOWED_ORIGINS or the forwarded headers." }
+      ]
+    },
+    {
+      "title": "Database, Backup and Audit Log",
+      "purpose": "The SQLite schema, encrypted agent tokens, automatic and manual backups with restore, and the audit log with its export.",
+      "page_notes": [
+        { "content": "See apps/master/src/database/db.ts, lib/crypto.ts, lib/backup.ts, lib/autobackup.ts and lib/audit.ts. Restore keeps the audit log and replaces accounts, MFA and passkeys." }
+      ]
+    },
+    {
+      "title": "Deployment",
+      "purpose": "Running Master and Agent as rootless containers with podman run or Quadlet, environment variables, shared network for Master and Agent on one host, reverse proxy notes and updates.",
+      "page_notes": [
+        { "content": "See deployment/README.md, deployment/quadlet/README.md, docs/installation-master.md, docs/installation-agent.md, the Dockerfiles in deployment/ and docs/troubleshooting.md." }
+      ]
+    },
+    {
+      "title": "Security Model",
+      "purpose": "Threat model, token handling, firewall recommendations, why there is no TLS, and what the agent can and cannot do.",
+      "parent": "Deployment",
+      "page_notes": [
+        { "content": "Based on docs/security.md." }
+      ]
+    },
+    {
+      "title": "Testing and Development",
+      "purpose": "How to build and run the tests, the fake Podman socket helpers and the Playwright based end-to-end test.",
+      "page_notes": [
+        { "content": "Unit tests live in apps/master/test and apps/agent/test (node:test with tsx). Agent test helpers (startFakePodman, startAgent) are reused by the master tests. The E2E test is integration/e2e.mts." }
+      ]
+    }
+  ]
+}
