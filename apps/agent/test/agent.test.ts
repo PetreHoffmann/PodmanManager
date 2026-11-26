@@ -174,7 +174,8 @@ describe("agent API with podman socket", () => {
     assert.equal((await post(`/api/v1/containers/${ID}/delete`)).status, 404);
     assert.equal((await post(`/api/v1/containers/${ID}/exec`)).status, 404);
     assert.equal((await get(`/api/v1/containers/${ID}/start`)).status, 405);
-    assert.equal((await post(`/api/v1/containers`)).status, 405);
+    assert.equal((await fetch(`${agent.base}/api/v1/containers`, { method: "DELETE", headers: auth })).status, 405);
+    assert.equal((await post(`/api/v1/containers`)).status, 400, "creating needs a valid body");
     assert.equal((await get(`/api/v1/secrets`)).status, 404);
     assert.equal((await get(`/libpod/info`)).status, 404);
   });

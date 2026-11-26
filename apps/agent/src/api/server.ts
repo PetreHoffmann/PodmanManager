@@ -10,6 +10,9 @@ import type { PeerUpdater, SelfUpdater } from "../services/update.js";
 export type { Logger };
 
 const MAX_BODY_BYTES = 1024;
+/** The only requests with a JSON body: creating a container and pulling an image. */
+const BODY_ROUTES = new Set(["/api/v1/containers", "/api/v1/images/pull"]);
+const MAX_JSON_BYTES = 64 * 1024;
 
 function send(res: ServerResponse, status: number, body: ApiResponse<unknown>, extra?: Record<string, string>): void {
   const payload = JSON.stringify(body);
@@ -26,17 +29,19 @@ function send(res: ServerResponse, status: number, body: ApiResponse<unknown>, e
 const fail = (res: ServerResponse, status: number, code: string, message: string, extra?: Record<string, string>) =>
   send(res, status, { ok: false, error: { code, message } }, extra);
 
-/** Drains the request and enforces a tiny body limit; bodies are never used. */
-function drain(req: IncomingMessage): Promise<boolean> {
+/** Reads the request body up to `limit` bytes; `ok` is false when it is larger (the rest is drained, never stored). */
+function readBody(req: IncomingMessage, limit: number): Promise<{ ok: boolean; text: string }> {
   return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
     let size = 0;
     let ok = true;
     req.on("data", (c: Buffer) => {
       size += c.length;
-      if (size > MAX_BODY_BYTES) ok = false;
+      if (size > limit) ok = false;
+      else chunks.push(c);
     });
-    req.on("end", () => resolve(ok));
-    req.on("error", () => resolve(false));
+    req.on("end", () => resolve({ ok, text: Buffer.concat(chunks).toString("utf8") }));
+    req.on("error", () => resolve({ ok: false, text: "" }));
   });
 }
 
@@ -59,10 +64,19 @@ export function createAgentServer(cfg: AgentConfig, podman: PodmanService, log: 
         });
       }
 
-      if (!(await drain(req))) return fail(res, 413, "BODY_TOO_LARGE", "Request body too large");
-
       const url = new URL(req.url ?? "/", "http://agent");
-      const r = await handle(req.method ?? "", url.pathname, url.searchParams);
+      const jsonRoute = req.method === "POST" && BODY_ROUTES.has(url.pathname.replace(/\/+$/, ""));
+      const raw = await readBody(req, jsonRoute ? MAX_JSON_BYTES : MAX_BODY_BYTES);
+      if (!raw.ok) return fail(res, 413, "BODY_TOO_LARGE", "Request body too large");
+      let body: unknown;
+      if (jsonRoute) {
+        try {
+          body = raw.text.trim() === "" ? undefined : JSON.parse(raw.text);
+        } catch {
+          return fail(res, 400, "BAD_JSON", "Request body is not valid JSON");
+        }
+      }
+      const r = await handle(req.method ?? "", url.pathname, url.searchParams, body);
       return send(res, r.status, r.body, r.headers);
     } catch (e) {
       log.error(`internal error on ${req.method ?? "?"} ${(req.url ?? "").split("?")[0]?.slice(0, 120)}: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500));

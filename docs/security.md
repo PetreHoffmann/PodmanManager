@@ -109,3 +109,7 @@ Alle anderen Zugriffe auf 9126/8080 blockieren; keine Portweiterleitung aus dem 
 1. Im Master unter *Hosts* → *Einrichtung* auf *Token erneuern* klicken. Der Master speichert den neuen Token und zeigt den neuen Hash.
 2. Den Hash im Agent eintragen (`AGENT_TOKEN_HASH=` in der Quadlet-Datei bzw. im `podman run`-Befehl) und den Agent neu starten (`systemctl --user daemon-reload && systemctl --user restart podmanmanager-agent`).
 3. Bis dahin steht der Host auf *offline*; danach prüft der Master die Verbindung selbst.
+
+## Container anlegen
+
+Nur Administratoren des Masters können Container anlegen (Audit-Eintrag `container.create`, ohne Werte der Umgebungsvariablen). Der Agent validiert jedes Feld streng: nur benannte Volumes (keine Host-Pfade, keine Ziele unter `/proc`, `/sys`, `/dev`), kein `privileged`, keine Capabilities, keine Host-Namespaces, kein Host-Netzwerk. Umgebungsvariablen werden im Klartext an Podman übergeben und sind im Container sichtbar; für Geheimnisse sind Podman-Secrets via Quadlet besser geeignet.

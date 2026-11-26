@@ -38,11 +38,11 @@ export function localHandler(): AgentHandler | null {
 export type LocalResult<T> = { ok: true; data: T } | { ok: false; code: string; message: string; unreachable: boolean };
 
 /** The same call as to a remote agent (method, /api/v1/... path), answered in-process. */
-export async function localCall<T>(method: string, path: string): Promise<LocalResult<T>> {
+export async function localCall<T>(method: string, path: string, jsonBody?: unknown): Promise<LocalResult<T>> {
   const handle = localHandler();
   if (!handle) return { ok: false, code: "UNREACHABLE", message: "Local host is not configured", unreachable: true };
   const url = new URL(path, "http://local");
-  const r = await handle(method, url.pathname, url.searchParams);
+  const r = await handle(method, url.pathname, url.searchParams, jsonBody);
   const body = r.body as ApiResponse<T>;
   if (body.ok) return { ok: true, data: body.data };
   return { ok: false, code: String(body.error?.code ?? "AGENT_ERROR"), message: String(body.error?.message ?? "Agent error"), unreachable: false };

@@ -6,6 +6,7 @@ export type PodmanErrorCode =
   | "SOCKET_UNREACHABLE"
   | "PODMAN_API_ERROR"
   | "PODMAN_TIMEOUT"
+  | "NAME_IN_USE"
   | "SYSTEMD_NOT_RESTARTED"
   | "CONTAINER_NOT_FOUND"
   | "POD_NOT_FOUND"
@@ -64,15 +65,16 @@ export class PodmanClient {
   }
 
   /** Low-level call. Only invoked with fixed paths built by PodmanService. */
-  call(method: "GET" | "POST" | "DELETE", path: string, opts: { maxBytes?: number; timeoutMs?: number } = {}): Promise<PodmanResponse> {
+  call(method: "GET" | "POST" | "DELETE", path: string, opts: { maxBytes?: number; timeoutMs?: number; json?: unknown } = {}): Promise<PodmanResponse> {
     const limit = opts.maxBytes ?? MAX_BODY;
+    const payload = opts.json === undefined ? null : Buffer.from(JSON.stringify(opts.json), "utf8");
     return new Promise((resolve, reject) => {
       const req = request(
         {
           socketPath: this.socketPath,
           method,
           path,
-          headers: { Host: "d", Accept: "application/json" },
+          headers: { Host: "d", Accept: "application/json", ...(payload ? { "Content-Type": "application/json", "Content-Length": String(payload.length) } : {}) },
           timeout: opts.timeoutMs ?? this.timeoutMs,
         },
         (res) => {
@@ -96,7 +98,7 @@ export class PodmanClient {
         req.destroy(new PodmanError("PODMAN_TIMEOUT", "Podman API timed out")),
       );
       req.on("error", (e) => reject(mapError(e)));
-      req.end();
+      req.end(payload ?? undefined);
     });
   }
 }

@@ -14,7 +14,7 @@ Die Anwendungen laufen als **Container** (kleine, abgeschottete Programmpakete).
 - **Aufräumen:** Programmpakete (Images), Netzwerke und Datenspeicher (Volumes) auf den Servern ansehen; Administratoren können Unbenutztes löschen.
 - **Für alle Geräte:** Die Oberfläche gibt es auf Deutsch, Englisch, Rumänisch und Spanisch und passt sich dem Handy an.
 
-PodmanManager **legt keine Container an und ändert sie nicht**. Das hält es einfach und sicher.
+PodmanManager **ändert keine bestehenden Container**. Administratoren können neue Container anlegen (nur benannte Volumes, kein privilegierter Modus, keine Host-Pfade). Das hält es einfach und sicher.
 
 ## So funktioniert es
 

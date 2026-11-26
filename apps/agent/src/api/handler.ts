@@ -1,5 +1,6 @@
 import type { ApiResponse, AppLogLine, ContainerAction } from "../../../../shared/types/index.js";
 import { PodmanError } from "../podman/client.js";
+import { IMAGE_RE, parseCreateRequest } from "../podman/create.js";
 import { isValidContainerId, isValidPodId, type PodmanService } from "../podman/service.js";
 import { collectHealth } from "../services/health.js";
 import type { PeerUpdater, SelfUpdater } from "../services/update.js";
@@ -12,6 +13,7 @@ export interface Logger {
 const ACTIONS: ReadonlySet<string> = new Set(["start", "stop", "restart"]);
 const DEFAULT_TAIL = 150;
 const MAX_TAIL = 500;
+const PULL_TIMEOUT_MS = 300_000;
 
 /** What a route answers: HTTP status, JSON body and extra headers. The HTTP server sends it; the master calls the handler in-process for its own host. */
 export interface Reply {
@@ -20,7 +22,8 @@ export interface Reply {
   headers?: Record<string, string>;
 }
 
-export type AgentHandler = (method: string, pathname: string, query: URLSearchParams) => Promise<Reply>;
+/** `body` is the parsed JSON body; only the routes that need one (create container, pull image) get it. */
+export type AgentHandler = (method: string, pathname: string, query: URLSearchParams, body?: unknown) => Promise<Reply>;
 
 export interface HandlerDeps {
   agentId: string;
@@ -52,6 +55,7 @@ function statusFor(e: PodmanError): number {
     case "NETWORK_IN_USE":
     case "NETWORK_PROTECTED":
     case "SYSTEMD_NOT_RESTARTED":
+    case "NAME_IN_USE":
       return 409;
     case "INVALID_PARAM":
       return 400;
@@ -69,7 +73,7 @@ function statusFor(e: PodmanError): number {
 export function createAgentHandler(deps: HandlerDeps): AgentHandler {
   const { podman, log, updater, peer } = deps;
   let statsUnavailableLogged = false;
-  return async (method, pathname, query) => {
+  return async (method, pathname, query, body) => {
     try {
     const segs = pathname.split("/").filter(Boolean);
 
@@ -118,6 +122,14 @@ export function createAgentHandler(deps: HandlerDeps): AgentHandler {
       if (route.length === 1) {
         if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
         return reply(200, { ok: true, data: await podman.listImages() });
+      }
+      if (route.length === 2 && route[1] === "pull") {
+        if (method !== "POST") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "POST" });
+        const ref = typeof body === "object" && body !== null ? (body as { reference?: unknown }).reference : undefined;
+        if (typeof ref !== "string" || !IMAGE_RE.test(ref)) return failR(400, "INVALID_PARAM", "Invalid image name");
+        const id = await podman.pullImage(ref, PULL_TIMEOUT_MS);
+        log.info(`image ${ref.slice(0, 80)} pulled (${id.slice(0, 12)})`);
+        return reply(200, { ok: true, data: { id } });
       }
       if (route.length === 2 && route[1] === "prune") {
         if (method !== "POST") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "POST" });
@@ -185,7 +197,15 @@ export function createAgentHandler(deps: HandlerDeps): AgentHandler {
 
     if (route[0] === "containers") {
       if (route.length === 1) {
-        if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+        if (method === "POST") {
+          const parsed = parseCreateRequest(body);
+          if (!parsed.ok) return failR(400, "INVALID_PARAM", parsed.message);
+          const r = await podman.createContainer(parsed.req);
+          // what was created, never the environment values (they often hold passwords)
+          log.info(`container ${r.name} created from ${parsed.req.image} (${r.id.slice(0, 12)})`);
+          return reply(201, { ok: true, data: r });
+        }
+        if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET, POST" });
         return reply(200, { ok: true, data: await podman.list() });
       }
       const id = route[1] ?? "";

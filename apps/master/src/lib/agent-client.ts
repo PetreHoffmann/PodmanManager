@@ -1,4 +1,4 @@
-import type { StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, NetworkInfo, RemoveResult, VolumeInfo, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
+import type { CreateContainerResult, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, NetworkInfo, RemoveResult, VolumeInfo, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { localCall } from "./local-host";
 import { CONTAINER_ID_RE } from "./validate";
@@ -15,12 +15,13 @@ export type CallResult<T> =
   | { ok: true; data: T }
   | { ok: false; code: string; message: string; unreachable: boolean };
 
-async function call<T>(t: AgentTarget, method: "GET" | "POST" | "DELETE", path: string, timeoutSec: number): Promise<CallResult<T>> {
-  if (t.local) return localCall<T>(method, path);
+async function call<T>(t: AgentTarget, method: "GET" | "POST" | "DELETE", path: string, timeoutSec: number, jsonBody?: unknown): Promise<CallResult<T>> {
+  if (t.local) return localCall<T>(method, path, jsonBody);
   try {
     const res = await fetch(`http://${t.address}:${t.port}${path}`, {
       method,
-      headers: { Authorization: `Bearer ${t.token}`, Accept: "application/json" },
+      headers: { Authorization: `Bearer ${t.token}`, Accept: "application/json", ...(jsonBody !== undefined ? { "Content-Type": "application/json" } : {}) },
+      ...(jsonBody !== undefined ? { body: JSON.stringify(jsonBody) } : {}),
       cache: "no-store",
       redirect: "error",
       signal: AbortSignal.timeout(timeoutSec * 1000),
@@ -115,3 +116,8 @@ export const agentNetworks = (t: AgentTarget) => call<NetworkInfo[]>(t, "GET", "
 export const agentNetworkDelete = (t: AgentTarget, name: string) => (RESOURCE_NAME_RE.test(name) ? call<RemoveResult>(t, "DELETE", `/api/v1/networks/${encodeURIComponent(name)}`, 60) : badName<RemoveResult>());
 export const agentStats = (t: AgentTarget) => call<StatsReport>(t, "GET", "/api/v1/stats", 30);
 export const agentSelfInfo = (t: AgentTarget) => call<UpdateInfo>(t, "GET", "/api/v1/system/update", 15);
+
+/** Loads an image on the host (the host's Podman reaches the registry); can take minutes. */
+export const agentImagePull = (t: AgentTarget, reference: string) => call<{ id: string }>(t, "POST", "/api/v1/images/pull", 330, { reference });
+/** Creates and starts a container; `request` is validated by the agent again (see apps/agent/src/podman/create.ts). */
+export const agentCreateContainer = (t: AgentTarget, request: unknown) => call<CreateContainerResult>(t, "POST", "/api/v1/containers", 90, request);

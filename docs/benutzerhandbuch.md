@@ -34,7 +34,7 @@ Sie können damit:
 - die **Auslastung** (Prozessor, Arbeitsspeicher, Netzwerk, Festplatte) einer Anwendung als Diagramm verfolgen,
 - nachsehen, welche **Images** (Programmpakete) auf den Rechnern liegen und welche davon benutzt werden.
 
-PodmanManager **löscht, ändert und legt keine Anwendungen an**. Für Sie gibt es nur Starten, Stoppen und Neustarten (und nur für die Rechner Ihrer Gruppe). Images können Sie nur ansehen; löschen dürfen sie nur Administratoren. Bedenken Sie aber, dass ein Stopp die Anwendung für alle Nutzer beendet. Mehr dazu in [Kapitel 6](#6-container-ihre-anwendungen) und [Kapitel 11](#11-was-sie-nicht-sehen-und-nicht-ändern-können).
+PodmanManager **löscht und ändert keine Anwendungen**; neue Container legen nur Administratoren an. Für Sie gibt es nur Starten, Stoppen und Neustarten (und nur für die Rechner Ihrer Gruppe). Images können Sie nur ansehen; löschen dürfen sie nur Administratoren. Bedenken Sie aber, dass ein Stopp die Anwendung für alle Nutzer beendet. Mehr dazu in [Kapitel 6](#6-container-ihre-anwendungen) und [Kapitel 11](#11-was-sie-nicht-sehen-und-nicht-ändern-können).
 
 ## 2. Anmelden und Abmelden
 
