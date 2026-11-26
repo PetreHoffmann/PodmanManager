@@ -1,7 +1,7 @@
 import type { ContainerAction, ContainerInfo, ContainerStatsRaw, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, LogLine, NetworkInfo, PodInfo, PodLogs, RemoveResult, StorageInfo, VolumeInfo } from "../../../../shared/types/index.js";
 import { PodmanClient, PodmanError, TOO_LARGE_MESSAGE, type PodmanResponse } from "./client.js";
 import { parseLogStream } from "./logs.js";
-import { libpodSpec, type CreateRequest } from "./create.js";
+import { libpodPodSpec, libpodSpec, type CreatePodRequest, type CreateRequest } from "./create.js";
 
 export const CONTAINER_ID_RE = /^[a-f0-9]{12,64}$/;
 
@@ -625,6 +625,17 @@ export class PodmanService {
       throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(started), started.status);
     }
     return { id, name: req.name, warnings };
+  }
+
+  /** Creates an empty pod (it is not started; the infra container starts with the first container). */
+  async createPod(req: CreatePodRequest): Promise<{ id: string; name: string }> {
+    await this.client.checkSocket();
+    const res = await this.client.call("POST", `${await this.libpod()}/pods/create`, { json: libpodPodSpec(req), timeoutMs: 60_000 });
+    if (res.status === 409) throw new PodmanError("NAME_IN_USE", `Pod name "${req.name}" is already in use`, 409);
+    if (res.status !== 201) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const id = str(rec(json(res)).Id);
+    if (!/^[a-f0-9]{64}$/.test(id)) throw new PodmanError("PODMAN_API_ERROR", "Podman did not report a pod id");
+    return { id, name: req.name };
   }
 
   async listPods(): Promise<PodInfo[]> {

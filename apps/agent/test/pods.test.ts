@@ -97,7 +97,8 @@ describe("pod routes", () => {
     assert.equal((await get("/pods/not-an-id")).status, 400);
     assert.equal((await get(`/pods/${POD}/start`)).status, 405);
     assert.equal((await get(`/pods/${POD}`, "POST")).status, 405);
-    assert.equal((await get("/pods", "POST")).status, 405);
+    assert.equal((await get("/pods", "POST")).status, 400, "creating needs a valid body");
+    assert.equal((await get("/pods", "DELETE")).status, 405);
     assert.equal((await get(`/pods/${POD}/rm`, "POST")).status, 404);
     assert.equal((await get(`/pods/${POD}`, "DELETE")).status, 405);
     assert.equal((await get("/pods", "GET", {})).status, 401);

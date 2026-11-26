@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { CreateRequest } from "@agent/podman/create";
-import { podmanRunCommand, quadletFile, shq } from "../src/lib/create-preview";
+import { podCreateCommand, podmanRunCommand, podQuadletFile, quadletFile, shq } from "../src/lib/create-preview";
 
-const base: CreateRequest = { name: "web", image: "docker.io/library/nginx:latest", ports: [], env: [], volumes: [], network: null, restart: "no", memoryMb: null, command: [] };
+const base: CreateRequest = { name: "web", image: "docker.io/library/nginx:latest", ports: [], env: [], volumes: [], network: null, pod: null, restart: "no", memoryMb: null, command: [] };
 const full: CreateRequest = {
   ...base, ports: [{ host: 8081, container: 80, protocol: "tcp" }, { host: 53, container: 53, protocol: "udp" }], env: [{ key: "A", value: "b c" }, { key: "Q", value: "it's" }],
   volumes: [{ name: "data", path: "/data", readOnly: true }], network: "appnet", restart: "unless-stopped", memoryMb: 256, command: ["nginx", "-g", "daemon off;"],
@@ -40,5 +40,21 @@ describe("create previews", () => {
   });
   it("escapes % for systemd", () => {
     assert.match(quadletFile({ ...base, env: [{ key: "P", value: "100%" }] }), /Environment="P=100%%"/);
+  });
+});
+
+describe("pod previews", () => {
+  const pod = { name: "app", ports: [{ host: 8080, container: 80, protocol: "tcp" as const }], network: "appnet", hostname: "app1" };
+  it("podman pod create", () => {
+    assert.equal(podCreateCommand(pod), "podman pod create --name app \\\n  --hostname app1 \\\n  -p 8080:80 \\\n  --network appnet");
+    assert.equal(podCreateCommand({ name: "app", ports: [], network: null, hostname: null }), "podman pod create --name app");
+  });
+  it("quadlet .pod file", () => {
+    const q = podQuadletFile(pod);
+    for (const l of ["[Pod]", "PodName=app", "HostName=app1", "PublishPort=8080:80", "Network=appnet", "WantedBy=default.target"]) assert.ok(q.includes(l), l);
+  });
+  it("a container in a pod refers to it", () => {
+    assert.match(podmanRunCommand({ ...base, pod: "app" }), /--pod app/);
+    assert.match(quadletFile({ ...base, pod: "app" }), /Pod=app\.pod/);
   });
 });

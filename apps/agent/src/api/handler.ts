@@ -1,6 +1,6 @@
 import type { ApiResponse, AppLogLine, ContainerAction } from "../../../../shared/types/index.js";
 import { PodmanError } from "../podman/client.js";
-import { IMAGE_RE, parseCreateRequest } from "../podman/create.js";
+import { IMAGE_RE, parseCreatePodRequest, parseCreateRequest } from "../podman/create.js";
 import { isValidContainerId, isValidPodId, type PodmanService } from "../podman/service.js";
 import { collectHealth } from "../services/health.js";
 import type { PeerUpdater, SelfUpdater } from "../services/update.js";
@@ -169,7 +169,14 @@ export function createAgentHandler(deps: HandlerDeps): AgentHandler {
 
     if (route[0] === "pods") {
       if (route.length === 1) {
-        if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+        if (method === "POST") {
+          const parsed = parseCreatePodRequest(body);
+          if (!parsed.ok) return failR(400, "INVALID_PARAM", parsed.message);
+          const r = await podman.createPod(parsed.req);
+          log.info(`pod ${r.name} created (${r.id.slice(0, 12)})`);
+          return reply(201, { ok: true, data: r });
+        }
+        if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET, POST" });
         return reply(200, { ok: true, data: await podman.listPods() });
       }
       const pid = route[1] ?? "";

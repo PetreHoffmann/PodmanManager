@@ -3,8 +3,8 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, agentVolumeDelete, agentVolumes, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs, agentCreateContainer, agentImagePull } from "@/lib/agent-client";
-import { parseCreateRequest } from "@agent/podman/create";
+import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, agentVolumeDelete, agentVolumes, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs, agentCreateContainer, agentCreatePod, agentImagePull, agentPods } from "@/lib/agent-client";
+import { parseCreatePodRequest, parseCreateRequest } from "@agent/podman/create";
 import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
 import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
@@ -321,15 +321,15 @@ export type CreateContainerOutcome =
   | { ok: false; message: string };
 
 /** Hosts where an administrator may create a container: names of the networks and volumes (for the form). */
-export async function createFormHostDataAction(agentId: number): Promise<{ ok: true; networks: string[]; volumes: string[] } | { ok: false; message: string }> {
+export async function createFormHostDataAction(agentId: number): Promise<{ ok: true; networks: string[]; volumes: string[]; pods: string[] } | { ok: false; message: string }> {
   const session = await requireAuth();
   const t = await getT();
   if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
   const tg = a && a.enabled ? targetFor(a.id) : null;
   if (!a || !tg) return { ok: false, message: t("msg.unknownHost") };
-  const [nets, vols] = await Promise.all([agentNetworks(tg), agentVolumes(tg)]);
-  return { ok: true, networks: nets.ok ? nets.data.map((n) => n.name).sort() : [], volumes: vols.ok ? vols.data.filter((v) => !v.anonymous).map((v) => v.name).sort() : [] };
+  const [nets, vols, pods] = await Promise.all([agentNetworks(tg), agentVolumes(tg), agentPods(tg)]);
+  return { ok: true, pods: pods.ok ? pods.data.map((p) => p.name).filter(Boolean).sort() : [], networks: nets.ok ? nets.data.map((n) => n.name).sort() : [], volumes: vols.ok ? vols.data.filter((v) => !v.anonymous).map((v) => v.name).sort() : [] };
 }
 
 /**
@@ -361,6 +361,30 @@ export async function createContainerAction(agentId: number, input: unknown): Pr
   revalidatePath("/containers");
   revalidatePath("/");
   return { ok: true, agentId: a.id, id: created.data.id, name: created.data.name, warnings: created.data.warnings };
+}
+
+export type CreatePodOutcome = { ok: true; agentId: number; id: string; name: string } | { ok: false; message: string };
+
+/** Creates an empty pod on one host (administrators only). The agent validates the request again. */
+export async function createPodAction(agentId: number, input: unknown): Promise<CreatePodOutcome> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  if (!a) return { ok: false, message: t("msg.unknownHost") };
+  if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
+  const tg = targetFor(a.id);
+  if (!tg) return { ok: false, message: t("msg.noCreds") };
+  const parsed = parseCreatePodRequest(input);
+  if (!parsed.ok) return { ok: false, message: parsed.message };
+  const created = await agentCreatePod(tg, parsed.req);
+  if (!created.ok) {
+    await audit(session, "pod.create", { target: parsed.req.name, host: a.hostname, ok: false, detail: created.code });
+    return { ok: false, message: created.code === "INVALID_PARAM" ? created.message : errText(t, created.code, created.message) };
+  }
+  await audit(session, "pod.create", { target: `${created.data.name} (${created.data.id.slice(0, 12)})`, host: a.hostname });
+  revalidatePath("/pods");
+  return { ok: true, agentId: a.id, id: created.data.id, name: created.data.name };
 }
 
 export async function ldapAction(_: FormState, fd: FormData): Promise<FormState> {

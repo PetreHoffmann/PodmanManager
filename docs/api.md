@@ -99,3 +99,9 @@ Podman hat keine Pod-Logs-Route (`podman pod logs` mischt im Client); der Agent 
 `POST /api/v1/images/pull` mit `{"reference":"docker.io/library/nginx:latest"}` lädt ein Image (wartet bis zu 300 s) → `{"id"}`.
 
 `POST /api/v1/containers` (JSON, max. 64 KiB) legt einen Container an und startet ihn → `201 {"id","name","warnings"}`. Felder: `name`, `image` (Pflicht), `ports` (`[{host,container,protocol}]`), `env` (`[{key,value}]`), `volumes` (`[{name,path,readOnly}]`, nur benannte Volumes), `network`, `restart` (`no|always|unless-stopped|on-failure`), `memoryMb`, `command` (Liste). Unbekannte Felder und alles, was privilegierte Rechte, Host-Pfade, Capabilities oder Host-Namespaces bedeutet, werden mit `400` abgelehnt. Name bereits vergeben → `409 NAME_IN_USE`. Scheitert der Start, wird der angelegte Container wieder entfernt. Der Container wird nicht von systemd verwaltet.
+
+## Pod anlegen
+
+`POST /api/v1/pods` (JSON, max. 64 KiB) legt einen leeren Pod an (er wird nicht gestartet) → `201 {"id","name"}`. Felder: `name` (Pflicht), `ports` (`[{host,container,protocol}]`, am Pod veröffentlicht), `network` (benanntes Netzwerk), `hostname`. Unbekannte Felder, Host-Netzwerk und Host-Namespaces werden mit `400` abgelehnt, ein vorhandener Name mit `409 NAME_IN_USE`.
+
+Beim Anlegen eines Containers (`POST /api/v1/containers`) tritt das optionale Feld `pod` (Name eines vorhandenen Pods) dem Pod bei; dann sind `ports` und `network` am Container nicht erlaubt, der Pod bestimmt sie.
