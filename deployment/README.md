@@ -123,6 +123,16 @@ journalctl --user -u podmanmanager-agent -f
 ```
 Die Vorlage im Repository (`deployment/quadlet/podmanmanager-agent.container`) hat dieselbe Form, mit Platzhaltern für Hash und Agent-ID und mit auskommentierten Optionen (gemeinsames Netzwerk, `UPDATE_UNIT`, cgroup v1).
 
+**Hash als Podman-Secret statt in der Datei:** Im Master den Reiter **Quadlet + Secret** wählen. Er zeigt zwei Blöcke: den Befehl, der das Secret anlegt, und die Quadlet-Datei ohne Hash (`Secret=podmanmanager-agent-hash,type=env,target=AGENT_TOKEN_HASH`).
+
+```bash
+printf '%s' <hash> | podman secret create podmanmanager-agent-hash -     # einmal; printf statt echo (kein Zeilenumbruch im Wert)
+# Datei ohne Hash aus dem Master nach ~/.config/containers/systemd/podmanmanager-agent.container
+systemctl --user daemon-reload
+systemctl --user start podmanmanager-agent
+```
+Der Hash steht dann weder in der Unit-Datei noch in `podman inspect`; die Datei braucht kein `chmod 600`. Beide Varianten sind gleichwertig; das Secret ist sauberer, die Datei-Variante einfacher.
+
 ### B.3 Prüfen
 
 ```bash
@@ -134,7 +144,7 @@ Im Master unter *Hosts* auf *Testen* klicken: der Host wird *online*. Master und
 ### B.4 Update, Token erneuern, Entfernen
 
 - **Update:** `podman pull …:latest` und `systemctl --user restart podmanmanager-agent podmanmanager-master`, oder als Administrator per Web-UI: Agents in der Host-Ansicht („veraltet“ → *Aktualisieren* bzw. *Alle veralteten Agents aktualisieren*) und den Master unter *Über* → *Jetzt aktualisieren* (dafür `Restart=always`, `:latest` und beim Master-Host `Environment=UPDATE_UNIT=podmanmanager-master` im Agent-Quadlet). Details: [Quadlets](quadlet/README.md#master-per-web-ui-aktualisieren).
-- **Token erneuern:** im Master *Hosts* → *Einrichtung* → *Token erneuern*, den neuen Hash in `AGENT_TOKEN_HASH=` der Unit-Datei eintragen und `systemctl --user daemon-reload && systemctl --user restart podmanmanager-agent` (die Umgebung wird nur beim Containerstart gelesen).
+- **Token erneuern:** im Master *Hosts* → *Einrichtung* → *Token erneuern*, den neuen Hash in `AGENT_TOKEN_HASH=` der Unit-Datei eintragen (bei der Secret-Variante: `podman secret rm podmanmanager-agent-hash` und den Befehl aus dem Reiter *Quadlet + Secret* erneut ausführen) und `systemctl --user daemon-reload && systemctl --user restart podmanmanager-agent` (Umgebung und Secrets werden nur beim Containerstart gelesen).
 - **Entfernen:** `systemctl --user stop podmanmanager-agent podmanmanager-master`, Dateien aus `~/.config/containers/systemd/` löschen, `systemctl --user daemon-reload`; Daten mit `podman volume rm systemd-podmanmanager-data` (Name mit `podman volume ls` prüfen) und `podman secret rm podmanmanager-key`.
 
 ## Fehlersuche (kurz)

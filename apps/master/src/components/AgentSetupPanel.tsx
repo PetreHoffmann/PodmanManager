@@ -4,12 +4,17 @@ import { useState } from "react";
 import type { AgentSetup } from "@/lib/agent-setup";
 import { useT } from "./I18nProvider";
 
-/** Shows what the agent host needs: the complete Quadlet file or just the hash line. */
-export default function AgentSetupPanel({ setup }: { setup: AgentSetup }) {
-  const t = useT();
-  const [tab, setTab] = useState<"file" | "run" | "hash">("file");
+type Tab = "file" | "secret" | "run" | "hash";
+const TABS: { key: Tab; label: "wiz.tabFile" | "wiz.tabSecret" | "wiz.tabRun" | "wiz.tabHash"; steps: "wiz.stepsFile" | "wiz.stepsSecret" | "wiz.stepsRun" | "wiz.stepsHash" }[] = [
+  { key: "file", label: "wiz.tabFile", steps: "wiz.stepsFile" },
+  { key: "secret", label: "wiz.tabSecret", steps: "wiz.stepsSecret" },
+  { key: "run", label: "wiz.tabRun", steps: "wiz.stepsRun" },
+  { key: "hash", label: "wiz.tabHash", steps: "wiz.stepsHash" },
+];
+
+/** A code block with its own copy button. */
+function Block({ text, title, testid, copyLabel, copiedLabel }: { text: string; title?: string; testid: string; copyLabel: string; copiedLabel: string }) {
   const [copied, setCopied] = useState(false);
-  const text = tab === "file" ? setup.quadlet : tab === "run" ? setup.podmanRun : setup.hashLine;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
@@ -20,20 +25,39 @@ export default function AgentSetupPanel({ setup }: { setup: AgentSetup }) {
     }
   };
   return (
+    <div className="space-y-1">
+      {title && <div className="text-xs font-medium text-slate-300">{title}</div>}
+      <pre className="max-h-72 overflow-auto rounded-md border border-slate-800 bg-slate-950 p-3 text-xs" data-testid={testid}>{text}</pre>
+      <button type="button" className="btn !px-2.5 !py-1 text-xs" onClick={copy}>{copied ? copiedLabel : copyLabel}</button>
+    </div>
+  );
+}
+
+/** Shows what the agent host needs: the Quadlet file (hash in the file or as Podman secret), the podman run command or just the hash. */
+export default function AgentSetupPanel({ setup }: { setup: AgentSetup }) {
+  const t = useT();
+  const [tab, setTab] = useState<Tab>("file");
+  const cur = TABS.find((x) => x.key === tab)!;
+  const common = { copyLabel: t("wiz.copy"), copiedLabel: t("wiz.copied") };
+  return (
     <div className="space-y-2" data-testid="agent-setup">
-      <div className="flex gap-1" role="tablist">
-        {(["file", "run", "hash"] as const).map((k) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`btn !px-2.5 !py-1 text-xs ${tab === k ? "btn-primary" : ""}`}>
-            {t(k === "file" ? "wiz.tabFile" : k === "run" ? "wiz.tabRun" : "wiz.tabHash")}
+      <div className="flex flex-wrap gap-1" role="tablist">
+        {TABS.map((x) => (
+          <button key={x.key} type="button" role="tab" aria-selected={tab === x.key} onClick={() => setTab(x.key)} className={`btn !px-2.5 !py-1 text-xs ${tab === x.key ? "btn-primary" : ""}`}>
+            {t(x.label)}
           </button>
         ))}
       </div>
-      <p className="text-xs text-slate-400">{t(tab === "file" ? "wiz.stepsFile" : tab === "run" ? "wiz.stepsRun" : "wiz.stepsHash")}</p>
-      <pre className="max-h-72 overflow-auto rounded-md border border-slate-800 bg-slate-950 p-3 text-xs" data-testid="agent-setup-text">{text}</pre>
-      <div className="flex items-center gap-3">
-        <button type="button" className="btn !px-2.5 !py-1 text-xs" onClick={copy}>{copied ? t("wiz.copied") : t("wiz.copy")}</button>
-        <span className="text-xs text-slate-500">{t("wiz.hashNote")}</span>
-      </div>
+      <p className="text-xs text-slate-400">{t(cur.steps)}</p>
+      {tab === "secret" ? (
+        <div className="space-y-3">
+          <Block text={setup.secretCommand} title={t("wiz.secretStep1")} testid="agent-setup-secret-cmd" {...common} />
+          <Block text={setup.quadletSecret} title={t("wiz.secretStep2")} testid="agent-setup-text" {...common} />
+        </div>
+      ) : (
+        <Block text={tab === "file" ? setup.quadlet : tab === "run" ? setup.podmanRun : setup.hashLine} testid="agent-setup-text" {...common} />
+      )}
+      <span className="block text-xs text-slate-500">{t("wiz.hashNote")}</span>
     </div>
   );
 }
