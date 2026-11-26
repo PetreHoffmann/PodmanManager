@@ -8,7 +8,7 @@ The agent runs as a **rootless container** (Quadlet for permanent operation, `po
 
 The **Master creates the token and its hash**, nothing has to be generated on the host:
 
-1. In the Master open **Hosts → Set up a new agent**, enter the agent address (`http://<host-ip>:9126`) and an agent ID. The Master stores the token and shows the hash (as a ready Quadlet file or as an `AGENT_TOKEN_HASH=…` line).
+1. In the Master open **Hosts → Set up a new agent**, enter the agent address (`http://<host-ip>:9126`) and an agent ID. The Master stores the token and shows the hash as a ready Quadlet file, as a ready `podman run` command (tab **podman run**) or as an `AGENT_TOKEN_HASH=…` line.
 2. Enable the socket (`systemctl --user enable --now podman.socket`) and run the agent as the Podman user:
 
 ```bash
