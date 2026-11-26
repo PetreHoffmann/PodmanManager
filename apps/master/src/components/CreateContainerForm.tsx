@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { createContainerAction, createFormHostDataAction, type CreateContainerOutcome } from "@/app/actions";
-import { podmanRunCommand, quadletFile } from "@/lib/create-preview";
+import { kubePlayCommand, kubeYaml, podmanRunCommand, quadletFile } from "@/lib/create-preview";
 import { splitCommand } from "@/lib/shell-words";
 import { Block } from "./AgentSetupPanel";
 import { useT } from "./I18nProvider";
@@ -72,7 +72,7 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
     if (b.ports.some((p) => !Number.isInteger(p.host) || !Number.isInteger(p.container))) return null;
     if (b.volumes.some((v) => v.name === "" || v.path === "")) return null;
     if (b.memoryMb !== null && !Number.isInteger(b.memoryMb)) return null;
-    return { run: podmanRunCommand(b), quadlet: quadletFile(b), file: `${b.name}.container` };
+    return { run: podmanRunCommand(b), quadlet: quadletFile(b), kube: kubeYaml(b), kubeCmd: kubePlayCommand(b), file: `${b.name}.container` };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, image, pod, ports, env, vols, network, restart, memory, command]);
 
@@ -190,6 +190,8 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
         <div className="space-y-4 border-t border-slate-800 pt-4">
           <Block text={preview.run} title={t("cr.pvRun")} testid="preview-run" copyLabel={t("wiz.copy")} copiedLabel={t("wiz.copied")} />
           <Block text={preview.quadlet} title={t("cr.pvQuadlet", { file: preview.file })} testid="preview-quadlet" copyLabel={t("wiz.copy")} copiedLabel={t("wiz.copied")} />
+          <Block text={preview.kube} title={t("cr.pvKube", { file: `${name.trim()}.yaml` })} testid="preview-kube" copyLabel={t("wiz.copy")} copiedLabel={t("wiz.copied")} />
+          <Block text={preview.kubeCmd} testid="preview-kube-cmd" copyLabel={t("wiz.copy")} copiedLabel={t("wiz.copied")} />
           <p className="text-xs text-slate-500">{t("cr.pvNote")}</p>
         </div>
       )}
