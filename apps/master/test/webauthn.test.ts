@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createSign, generateKeyPairSync, randomBytes, type JsonWebKey } from "node:crypto";
 import { describe, it } from "node:test";
+import { webauthnContext } from "../src/lib/webauthn-context";
 import { decodeCbor } from "../src/lib/cbor";
 import { openDb } from "../src/database/db";
 import { CHALLENGE_TTL_MS, MAX_PASSKEYS, addPasskey, consumeChallenge, deleteAllPasskeys, deletePasskey, findPasskey, issueChallenge, listPasskeys, recordPasskeyUse, userHandleFor } from "../src/lib/passkeys";
@@ -197,5 +198,27 @@ describe("stored passkeys and challenges", () => {
     assert.equal(consumeChallenge(old, "login", 1000 + CHALLENGE_TTL_MS + 1, db), null, "expired");
     assert.equal(consumeChallenge("unknown", "login", 1, db), null);
     assert.equal(b64u(Buffer.from(c, "base64url")), c);
+  });
+});
+
+describe("webauthn context behind a reverse proxy", () => {
+  const hdr = (h: Record<string, string>) => (n: string) => h[n] ?? null;
+  it("uses the proxy headers by default", () => {
+    assert.deepEqual(webauthnContext(hdr({ "x-forwarded-host": "m.example.com", "x-forwarded-proto": "https" }), undefined), { rpId: "m.example.com", origin: "https://m.example.com" });
+    assert.deepEqual(webauthnContext(hdr({ host: "localhost:8080" }), undefined), { rpId: "localhost", origin: "http://localhost:8080" });
+    assert.equal(webauthnContext(hdr({ host: "10.0.0.5:8080" }), undefined), null);
+  });
+  it("takes the browser's Origin when its host is in ALLOWED_ORIGINS, whatever the proxy forwards", () => {
+    const wrong = { origin: "https://m.example.com", host: "localhost:8080", "x-forwarded-proto": "http" };
+    assert.deepEqual(webauthnContext(hdr(wrong), "m.example.com"), { rpId: "m.example.com", origin: "https://m.example.com" });
+    assert.deepEqual(webauthnContext(hdr({ ...wrong, origin: "https://a.example.com:8443" }), "*.example.com:8443"), { rpId: "a.example.com", origin: "https://a.example.com:8443" });
+  });
+  it("ignores an Origin that is not allowed, is http (not localhost) or an IP address", () => {
+    const base = { host: "m.example.com", "x-forwarded-proto": "https" };
+    const fallback = { rpId: "m.example.com", origin: "https://m.example.com" };
+    assert.deepEqual(webauthnContext(hdr({ ...base, origin: "https://evil.example" }), "m.example.com"), fallback);
+    assert.deepEqual(webauthnContext(hdr({ ...base, origin: "http://m.example.com" }), "m.example.com"), fallback);
+    assert.deepEqual(webauthnContext(hdr({ ...base, origin: "https://10.1.2.3" }), "10.1.2.3"), fallback);
+    assert.deepEqual(webauthnContext(hdr({ ...base, origin: "nonsense" }), "m.example.com"), fallback);
   });
 });

@@ -9,6 +9,7 @@ import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
 import { agentSetupFor, checkAgent, createPendingAgent, getAgent, listAgents, registerAgent, removeAgent, rotateAgentToken, setEnabled, targetFor } from "@/lib/agents";
 import type { AgentSetup } from "@/lib/agent-setup";
+import { webauthnContext, type WebauthnContext } from "@/lib/webauthn-context";
 import { LANG_COOKIE, errText, isLang, lastErrText, statusLabel, type Key } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
 import { loadLdapConfig, parseLdapInput, saveLdapConfig } from "@/lib/ldap-config";
@@ -934,15 +935,9 @@ export async function mfaPolicyAction(_: FormState, fd: FormData): Promise<FormS
 
 // ---- Passkeys (WebAuthn) ----
 
-/** Relying party id and origin as the browser sees them (a proxy must pass Host/X-Forwarded-Host and X-Forwarded-Proto). IP addresses cannot be relying party ids. */
-async function webauthnContext(): Promise<{ rpId: string; origin: string } | null> {
+async function webauthnCtx(): Promise<WebauthnContext | null> {
   const h = await headers();
-  const host = (h.get("x-forwarded-host") ?? h.get("host") ?? "").split(",")[0]!.trim();
-  const hostname = host.replace(/:\d+$/, "");
-  if (!hostname || /^[\d.]+$/.test(hostname) || hostname.includes(":") || hostname.includes("[")) return null;
-  const proto = h.get("x-forwarded-proto")?.split(",")[0]!.trim() || (hostname === "localhost" ? "http" : "https");
-  if (proto !== "http" && proto !== "https") return null;
-  return { rpId: hostname, origin: `${proto}://${host}` };
+  return webauthnContext((n) => h.get(n), process.env.ALLOWED_ORIGINS);
 }
 
 export interface PasskeyCreateOptions {
@@ -960,7 +955,7 @@ export interface PasskeyCreateOptions {
 export async function passkeyRegisterOptionsAction(): Promise<{ ok: true; options: PasskeyCreateOptions } | { ok: false; message: string }> {
   const o = await ownAccount();
   if ("error" in o) return { ok: false, message: o.error };
-  const ctx = await webauthnContext();
+  const ctx = await webauthnCtx();
   if (!ctx) return { ok: false, message: o.t("pk.noHost") };
   const existing = listPasskeys(o.session.username);
   if (existing.length >= MAX_PASSKEYS) return { ok: false, message: o.t("pk.limit") };
@@ -983,7 +978,7 @@ export async function passkeyRegisterOptionsAction(): Promise<{ ok: true; option
 export async function passkeyRegisterVerifyAction(resp: { id: string; clientDataJSON: string; attestationObject: string }, name: string): Promise<{ ok: boolean; message: string }> {
   const o = await ownAccount();
   if ("error" in o) return { ok: false, message: o.error };
-  const ctx = await webauthnContext();
+  const ctx = await webauthnCtx();
   if (!ctx) return { ok: false, message: o.t("pk.noHost") };
   try {
     const clientDataJSON = fromB64u(String(resp.clientDataJSON ?? ""));
@@ -1018,7 +1013,7 @@ export async function passkeyDeleteAction(id: number): Promise<{ ok: boolean; me
 export async function passkeyLoginOptionsAction(): Promise<{ ok: true; challenge: string; rpId: string; timeout: number } | { ok: false; message: string }> {
   const t = await getT();
   if (!adminExists()) return { ok: false, message: t("msg.forbidden") };
-  const ctx = await webauthnContext();
+  const ctx = await webauthnCtx();
   if (!ctx) return { ok: false, message: t("pk.noHost") };
   if (loginBlocked("passkey")) return { ok: false, message: t("msg.tooMany") };
   return { ok: true, challenge: issueChallenge("login"), rpId: ctx.rpId, timeout: 120_000 };
@@ -1035,7 +1030,7 @@ export async function passkeyLoginVerifyAction(resp: { id: string; clientDataJSO
   };
   if (!adminExists()) return { ok: false, message: t("msg.forbidden") };
   if (loginBlocked("passkey")) return { ok: false, message: t("msg.tooMany") };
-  const ctx = await webauthnContext();
+  const ctx = await webauthnCtx();
   if (!ctx) return { ok: false, message: t("pk.noHost") };
   let row: ReturnType<typeof findPasskey> = null;
   try {
