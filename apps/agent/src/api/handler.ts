@@ -223,6 +223,10 @@ export function createAgentHandler(deps: HandlerDeps): AgentHandler {
         return reply(200, { ok: true, data: await podman.inspect(id) });
       }
       const action = route[2] ?? "";
+      if (route.length === 3 && action === "config") {
+        if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+        return reply(200, { ok: true, data: await podman.containerConfig(id) });
+      }
       if (route.length === 3 && action === "logs") {
         if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
         const raw = query.get("tail");

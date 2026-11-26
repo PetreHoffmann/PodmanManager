@@ -1,3 +1,4 @@
+import type { ContainerConfig } from "@agent/podman/config";
 import type { CreateContainerResult, CreatePodResult, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, NetworkInfo, RemoveResult, VolumeInfo, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { localCall } from "./local-host";
@@ -56,6 +57,8 @@ const cfg = () => getConfig();
 export const agentHealth = (t: AgentTarget) => call<HealthInfo>(t, "GET", "/api/v1/health", cfg().agentTimeoutSec);
 export const agentList = (t: AgentTarget) => call<ContainerInfo[]>(t, "GET", "/api/v1/containers", cfg().agentTimeoutSec);
 
+/** Settings of a container as the create form knows them (read-only); contains environment values, so administrators only. */
+export const agentContainerConfig = (t: AgentTarget, id: string) => call<ContainerConfig>(t, "GET", `/api/v1/containers/${id}/config`, cfg().agentTimeoutSec);
 export function agentInspect(t: AgentTarget, id: string) {
   if (!CONTAINER_ID_RE.test(id)) return Promise.resolve<CallResult<ContainerInfo>>({ ok: false, code: "INVALID_ID", message: "Invalid container id", unreachable: false });
   return call<ContainerInfo>(t, "GET", `/api/v1/containers/${id}`, cfg().agentTimeoutSec);

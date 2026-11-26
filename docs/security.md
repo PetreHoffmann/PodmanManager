@@ -119,3 +119,5 @@ Unter dem Formular zeigt der Master zum Kopieren den gleichen Container als `pod
 Pods anlegen dürfen ebenfalls nur Administratoren (Audit-Eintrag `pod.create`). Der Agent erlaubt nur Name, veröffentlichte Ports, ein benanntes Netzwerk und einen Hostnamen. Das Formular zeigt dazu `podman pod create` und eine Quadlet-Datei `<name>.pod`.
 
 Im Container-Formular zeigt der Master zusätzlich Kubernetes-YAML für `podman kube play` (Werte im Klartext, nur Text). Das Netzwerk steht nicht im YAML, sondern als Option `--network` im angezeigten Befehl.
+
+Die Container-Detailseite zeigt Administratoren die Konfiguration des Containers als `podman run`, Quadlet und (im Pod) Kube-YAML. Der Agent liefert sie über die lesende Route `GET /containers/<id>/config`. Umgebungsvariablen stehen im Klartext darin (oft Passwörter), deshalb sehen sie nur Administratoren; Gruppenbenutzer bekommen die Route vom Master nie abgefragt. Host-Pfade von Bind-Mounts werden nicht ausgegeben, nur ihre Anzahl.

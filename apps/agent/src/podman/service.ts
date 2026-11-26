@@ -1,6 +1,7 @@
 import type { ContainerAction, ContainerInfo, ContainerStatsRaw, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, LogLine, NetworkInfo, PodInfo, PodLogs, RemoveResult, StorageInfo, VolumeInfo } from "../../../../shared/types/index.js";
 import { PodmanClient, PodmanError, TOO_LARGE_MESSAGE, type PodmanResponse } from "./client.js";
 import { parseLogStream } from "./logs.js";
+import { mapContainerConfig, type ContainerConfig } from "./config.js";
 import { libpodPodSpec, libpodSpec, type CreatePodRequest, type CreateRequest } from "./create.js";
 
 export const CONTAINER_ID_RE = /^[a-f0-9]{12,64}$/;
@@ -287,6 +288,25 @@ export class PodmanService {
       throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     }
     return mapInspect(json(res));
+  }
+
+  /** The settings of a container as the create form knows them (read-only; see config.ts). */
+  async containerConfig(id: string): Promise<ContainerConfig> {
+    this.assertId(id);
+    await this.client.checkSocket();
+    const lp = await this.libpod();
+    const res = await this.client.call("GET", `${lp}/containers/${id}/json`);
+    if (res.status === 404) throw new PodmanError("CONTAINER_NOT_FOUND", "Container not found", 404);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const raw = json(res);
+    const imageId = str(rec(raw).Image);
+    let image: unknown;
+    if (/^[a-f0-9]{12,64}$/.test(imageId)) {
+      // the image tells which settings are only its defaults; without it they are simply all listed
+      const ir = await this.client.call("GET", `${lp}/images/${imageId}/json`).catch(() => null);
+      if (ir && ir.status === 200) image = json(ir);
+    }
+    return mapContainerConfig(raw, image);
   }
 
   /** Last `tail` lines (stdout and stderr, with timestamps). `tail` must be validated by the caller. */
