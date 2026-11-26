@@ -11,37 +11,66 @@ import { latestFor } from "@/lib/metrics";
 import { getConfig } from "@/lib/config";
 import { fmtBytes } from "@/components/ui";
 import AutoRefresh from "@/components/AutoRefresh";
+import SortTh from "@/components/SortTh";
+import SortForm from "@/components/SortForm";
+import { sortLabels } from "@/lib/sort-labels";
+import { parseSortFor, sortRows, timeOf, type SortValue } from "@/lib/table-sort";
 import { requireAuth } from "@/lib/session";
 import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
-type SP = Promise<{ host?: string; status?: string; q?: string }>;
+type SP = Promise<{ host?: string; status?: string; q?: string; sort?: string; dir?: string }>;
+
+const SORT_KEYS = ["name", "pod", "host", "image", "status", "cpu", "ram", "started"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+const STATE_RANK: Record<string, number> = { running: 0, paused: 1, created: 2, exited: 3, stopped: 3 };
 
 export default async function Containers({ searchParams }: { searchParams: SP }) {
   const session = await requireAuth();
   const t = await getT();
-  const { host = "", status = "", q = "" } = await searchParams;
+  const sp = await searchParams;
+  const { host = "", status = "", q = "" } = sp;
+  const sort = parseSortFor(SORT_KEYS, sp.sort, sp.dir);
   const hosts = await fetchAllContainers(undefined, allowedAgentIds(session), hiddenPatternsFor(session));
 
-  const rows = hosts
+  const filtered = hosts
     .flatMap((h) => (h.result.ok ? h.result.data.map((c) => ({ agent: h.agent, c })) : []))
     .filter(({ agent, c }) => (!host || String(agent.id) === host)
       && (!status || (status === "running" ? c.state === "running" : c.state !== "running"))
       && (!q || c.name.toLowerCase().includes(q.toLowerCase())))
     .sort((a, b) => a.c.name.localeCompare(b.c.name));
-  const failed = hosts.filter((h) => !h.result.ok && h.agent.enabled);
   const lang = await getLang();
-  const metricsOn = getConfig().metricsKeepMin > 0;
-  // narrow screens drop the least useful columns first, so the action buttons never run off the edge
-  const cols: [Key, string][] = [
-    ["cont.name", ""], ["cont.pod", "hidden xl:table-cell"], ["cont.host", ""], ["cont.image", "hidden xl:table-cell"], ["cont.status", ""],
-    ...(metricsOn ? ([["cont.cpu", ""], ["cont.ram", ""]] as [Key, string][]) : []),
-    ["cont.started", "hidden lg:table-cell"], ["cont.actions", ""],
-  ];
   const latest = new Map(hosts.map((h) => [h.agent.id, latestFor(h.agent.id)]));
   const cpuOf = (agentId: number, id: string) => { const p = latest.get(agentId)?.get(id); return p && p.cpu !== null ? `${p.cpu.toFixed(p.cpu < 10 ? 1 : 0)} %` : "–"; };
   const ramOf = (agentId: number, id: string) => { const p = latest.get(agentId)?.get(id); return p ? fmtBytes(p.mem, lang) : "–"; };
+
+  const metricOf = (agentId: number, c: { id: string; state: string }, key: "cpu" | "ram"): number | null => {
+    const p = c.state === "running" ? latest.get(agentId)?.get(c.id) : undefined;
+    return !p ? null : key === "cpu" ? p.cpu : p.mem;
+  };
+  const value = ({ agent, c }: { agent: { id: number; hostname: string }; c: (typeof filtered)[number]["c"] }, key: SortKey): SortValue => {
+    switch (key) {
+      case "name": return c.name || c.id;
+      case "pod": return c.podName || c.podId || null;
+      case "host": return agent.hostname;
+      case "image": return c.image;
+      case "status": return STATE_RANK[c.state] ?? 4;
+      case "cpu": return metricOf(agent.id, c, "cpu");
+      case "ram": return metricOf(agent.id, c, "ram");
+      case "started": return timeOf(c.startedAt);
+    }
+  };
+  const rows = sortRows(filtered, sort, value);
+  const failed = hosts.filter((h) => !h.result.ok && h.agent.enabled);
+  const metricsOn = getConfig().metricsKeepMin > 0;
+  // narrow screens drop the least useful columns first, so the action buttons never run off the edge
+  const cols: [Key, string, SortKey | null][] = [
+    ["cont.name", "", "name"], ["cont.pod", "hidden xl:table-cell", "pod"], ["cont.host", "", "host"], ["cont.image", "hidden xl:table-cell", "image"], ["cont.status", "", "status"],
+    ...(metricsOn ? ([["cont.cpu", "", "cpu"], ["cont.ram", "", "ram"]] as [Key, string, SortKey][]) : []),
+    ["cont.started", "hidden lg:table-cell", "started"], ["cont.actions", "", null],
+  ];
+  const params = { host, status, q };
 
   return (
     <div className="space-y-4">
@@ -49,6 +78,8 @@ export default async function Containers({ searchParams }: { searchParams: SP })
       <h1 className="text-xl font-semibold">{t("cont.title")}</h1>
       {session.access === "groups" && <p className="text-xs text-slate-400">{t("scope.note", { groups: groupNames(session).join(", ") || "—" })}</p>}
       <form className="flex flex-wrap gap-2" method="get">
+        {sort && <input type="hidden" name="sort" value={sort.key} />}
+        {sort && <input type="hidden" name="dir" value={sort.dir} />}
         <select name="host" defaultValue={host} className="input w-auto">
           <option value="">{t("cont.allHosts")}</option>
           {hosts.map((h) => <option key={h.agent.id} value={h.agent.id}>{h.agent.agent_id} ({h.agent.hostname})</option>)}
@@ -71,7 +102,7 @@ export default async function Containers({ searchParams }: { searchParams: SP })
       <div className="card hidden overflow-x-auto p-0 md:block">
         <table className="w-full min-w-[640px]">
           <thead className="border-b border-slate-800">
-            <tr>{cols.map(([k, cls]) => <th key={k} className={`th ${cls}`}>{t(k)}</th>)}</tr>
+            <tr>{cols.map(([k, cls, key]) => key ? <SortTh key={k} label={t(k)} sortKey={key} current={sort} base="/containers" params={params} className={cls} /> : <th key={k} className={`th ${cls}`}>{t(k)}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
             {rows.length === 0 && <tr><td className="td text-slate-400" colSpan={9}>{t("cont.none")}</td></tr>}
@@ -92,6 +123,7 @@ export default async function Containers({ searchParams }: { searchParams: SP })
         </table>
       </div>
       <div className="space-y-3 md:hidden">
+        {rows.length > 1 && <SortForm base="/containers" params={params} current={sort} labels={sortLabels(t)} options={cols.flatMap(([k, , key]) => (key ? [{ key, label: t(k) }] : []))} />}
         {rows.length === 0 && <p className="card text-sm text-slate-400">{t("cont.none")}</p>}
         {rows.map(({ agent, c }) => (
           <div key={`${agent.id}-${c.id}`} className="card space-y-2">

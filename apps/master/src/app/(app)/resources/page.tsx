@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const TABS = ["images", "networks", "volumes"] as const;
 type Tab = (typeof TABS)[number];
-type SP = Promise<{ tab?: string; host?: string; q?: string }>;
+type SP = Promise<{ tab?: string; host?: string; q?: string; sort?: string; dir?: string }>;
 
 export default async function Resources({ searchParams }: { searchParams: SP }) {
   const session = await requireAuth();
@@ -19,6 +19,7 @@ export default async function Resources({ searchParams }: { searchParams: SP }) 
   const tab: Tab = TABS.find((x) => x === sp.tab) ?? "images";
   const host = sp.host ?? "";
   const q = sp.q ?? "";
+  const sortQ = { sort: sp.sort, dir: sp.dir };
   const label: Record<Tab, string> = { images: t("res.tabImages"), networks: t("res.tabNetworks"), volumes: t("res.tabVolumes") };
 
   return (
@@ -40,9 +41,9 @@ export default async function Resources({ searchParams }: { searchParams: SP }) 
           ))}
         </ul>
       </nav>
-      {tab === "images" && <ImagesTab host={host} q={q} />}
-      {tab === "networks" && <NetworksTab host={host} q={q} />}
-      {tab === "volumes" && <VolumesTab host={host} q={q} />}
+      {tab === "images" && <ImagesTab host={host} q={q} {...sortQ} />}
+      {tab === "networks" && <NetworksTab host={host} q={q} {...sortQ} />}
+      {tab === "volumes" && <VolumesTab host={host} q={q} {...sortQ} />}
     </div>
   );
 }

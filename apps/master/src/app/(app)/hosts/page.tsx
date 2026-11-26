@@ -4,8 +4,9 @@ import AgentUpdateAll from "@/components/AgentUpdateAll";
 import { compareSemver } from "@/lib/update-check";
 import { getVersion } from "@/lib/version";
 import { Suspense } from "react";
-import Link from "next/link";
-import { nextSort, parseSort, sortHosts, type Sort, type SortKey } from "@/lib/host-sort";
+import SortTh from "@/components/SortTh";
+import SortForm from "@/components/SortForm";
+import { parseSort, sortHosts } from "@/lib/host-sort";
 import HostStorage, { hostStorage } from "@/components/HostStorage";
 import ActionForm from "@/components/ActionForm";
 import AppLogs from "@/components/AppLogs";
@@ -16,14 +17,13 @@ import { addAgentAction, appLogsAction } from "@/app/actions";
 import { fetchAllContainers } from "@/lib/agents";
 import { lastErrText } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
+import { sortLabels } from "@/lib/sort-labels";
 import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { hiddenPatternsFor } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
 import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
-
-const sortHref = (s: Sort | null) => (s ? `/hosts?sort=${s.key}&dir=${s.dir}` : "/hosts");
 
 export default async function Hosts({ searchParams }: { searchParams: Promise<{ sort?: string; dir?: string }> }) {
   const session = await requireAuth();
@@ -55,16 +55,9 @@ export default async function Hosts({ searchParams }: { searchParams: Promise<{ 
         <table className="w-full">
           <thead className="border-b border-slate-800">
             <tr>
-              {([["hosts.agentId", "", "agent"], ["hosts.address", "", "address"], ["hosts.status", "", "status"], ["hosts.heartbeat", "hidden lg:table-cell", "heartbeat"], ["hosts.podman", "hidden xl:table-cell", "podman"], ["hosts.agentVersion", "", "version"], ["hosts.containers", "", "containers"], ["hosts.storage", "", "storage"]] as const).map(([k, c, key]) => {
-                const active = sort?.key === key ? sort.dir : null;
-                return (
-                  <th key={k} className={`th ${c}`} aria-sort={active === "asc" ? "ascending" : active === "desc" ? "descending" : "none"}>
-                    <Link href={sortHref(nextSort(sort, key as SortKey))} className="inline-flex items-center gap-1 hover:text-white" data-testid={`sort-${key}`}>
-                      {t(k)}<span aria-hidden className={active ? "text-sky-400" : "text-slate-600"}>{active === "desc" ? "▼" : active === "asc" ? "▲" : "↕"}</span>
-                    </Link>
-                  </th>
-                );
-              })}
+              {([["hosts.agentId", "", "agent"], ["hosts.address", "", "address"], ["hosts.status", "", "status"], ["hosts.heartbeat", "hidden lg:table-cell", "heartbeat"], ["hosts.podman", "hidden xl:table-cell", "podman"], ["hosts.agentVersion", "", "version"], ["hosts.containers", "", "containers"], ["hosts.storage", "", "storage"]] as const).map(([k, c, key]) => (
+                <SortTh key={k} label={t(k)} sortKey={key} current={sort} base="/hosts" params={{}} className={c} />
+              ))}
               {canManage && <th className="th" />}
             </tr>
           </thead>
@@ -102,18 +95,8 @@ export default async function Hosts({ searchParams }: { searchParams: Promise<{ 
 
       <div className="space-y-3 md:hidden">
         {hosts.length > 1 && (
-          <form action="/hosts" method="get" className="flex flex-wrap items-center gap-2 text-xs" data-testid="sort-form">
-            <label htmlFor="sort-by" className="text-slate-400">{t("hosts.sortBy")}</label>
-            <select id="sort-by" name="sort" defaultValue={sort?.key ?? ""} className="input !w-auto !py-1 text-xs">
-              <option value="">{t("hosts.sortDefault")}</option>
-              {([["agent", "hosts.agentId"], ["address", "hosts.address"], ["status", "hosts.status"], ["heartbeat", "hosts.heartbeat"], ["podman", "hosts.podman"], ["version", "hosts.agentVersion"], ["containers", "hosts.containers"], ["storage", "hosts.storage"]] as const).map(([k, l]) => <option key={k} value={k}>{t(l)}</option>)}
-            </select>
-            <select name="dir" defaultValue={sort?.dir ?? "asc"} className="input !w-auto !py-1 text-xs" aria-label={t("hosts.sortDir")}>
-              <option value="asc">{t("hosts.sortAsc")}</option>
-              <option value="desc">{t("hosts.sortDesc")}</option>
-            </select>
-            <button className="btn !px-2.5 !py-1 text-xs" type="submit">{t("hosts.sortApply")}</button>
-          </form>
+          <SortForm base="/hosts" params={{}} current={sort} labels={sortLabels(t)}
+            options={([["agent", "hosts.agentId"], ["address", "hosts.address"], ["status", "hosts.status"], ["heartbeat", "hosts.heartbeat"], ["podman", "hosts.podman"], ["version", "hosts.agentVersion"], ["containers", "hosts.containers"], ["storage", "hosts.storage"]] as const).map(([key, l]) => ({ key, label: t(l) }))} />
         )}
         {hosts.length === 0 && <p className="card text-sm text-slate-400">{t("hosts.none")}</p>}
         {hosts.map(({ agent: a, result }) => (
