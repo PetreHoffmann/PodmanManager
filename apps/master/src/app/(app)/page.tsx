@@ -1,4 +1,8 @@
-import { fetchAllContainers, fetchAllPods } from "@/lib/agents";
+import { Suspense } from "react";
+import Link from "next/link";
+import { fetchAllContainers, fetchAllImages, fetchAllNetworks, fetchAllPods } from "@/lib/agents";
+import { countLists } from "@/lib/dashboard";
+import DashboardVolumes, { DashboardVolumesFallback } from "@/components/DashboardVolumes";
 import { getT } from "@/lib/lang";
 import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { hiddenPatternsFor } from "@/lib/hidden";
@@ -13,7 +17,9 @@ export default async function Dashboard() {
   const t = await getT();
   const allowed = allowedAgentIds(session);
   const hidden = hiddenPatternsFor(session);
-  const [hosts, podHosts] = await Promise.all([fetchAllContainers(undefined, allowed, hidden), fetchAllPods(undefined, allowed, hidden)]);
+  const [hosts, podHosts, imageHosts, networkHosts] = await Promise.all([fetchAllContainers(undefined, allowed, hidden), fetchAllPods(undefined, allowed, hidden), fetchAllImages(undefined, allowed), fetchAllNetworks(undefined, allowed)]);
+  const images = countLists(imageHosts.map((h) => h.result));
+  const networks = countLists(networkHosts.map((h) => h.result));
   const total = hosts.length;
   const reachable = hosts.filter((h) => h.agent.enabled && (h.agent.status === "online" || h.agent.status === "degraded")).length;
   const unreachable = hosts.filter((h) => h.agent.enabled && h.agent.status === "offline").length;
@@ -59,6 +65,17 @@ export default async function Dashboard() {
           <Stat label={t("dash.podsStopped")} value={pods.length - podRunning - podDegraded} />
         </section>
       </div>
+      <div className="flex items-center gap-4">
+        <div className="hidden w-32 shrink-0 sm:block lg:w-40" aria-hidden />
+        <section className="grid flex-1 grid-cols-2 gap-3 md:grid-cols-4">
+          <Link href="/resources?tab=images" className="block transition hover:opacity-90" data-testid="dash-images"><Stat label={t("dash.images")} value={images.count} /></Link>
+          <Link href="/resources?tab=networks" className="block transition hover:opacity-90" data-testid="dash-networks"><Stat label={t("dash.networks")} value={networks.count} /></Link>
+          <Suspense fallback={<DashboardVolumesFallback label={t("dash.volumes")} />}><DashboardVolumes allowed={allowed} /></Suspense>
+        </section>
+      </div>
+      {(images.missing > 0 || networks.missing > 0) && (
+        <p className="card border-amber-800 text-sm text-amber-300">{t("dash.resExcluded", { n: Math.max(images.missing, networks.missing) })}</p>
+      )}
       {podsMissing.length > 0 && (
         <p className="card border-amber-800 text-sm text-amber-300">
           {t("dash.podsExcluded", { n: podsMissing.length, names: podsMissing.map((h) => h.agent.agent_id).join(", ") })}
