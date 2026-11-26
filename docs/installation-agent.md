@@ -87,3 +87,7 @@ Im Master unter *Hosts* → *Einrichtung* auf *Token erneuern* klicken, den neue
 
 - **Aktualisieren:** Mit `:latest` neues Image laden und neu starten (`podman pull …:latest` und `systemctl --user restart podmanmanager-agent`), oder als Administrator im Master auf *Aktualisieren* klicken (nur Quadlet mit `Restart=always`).
 - **Entfernen:** `systemctl --user stop podmanmanager-agent` und die Datei unter `~/.config/containers/systemd/` löschen, danach `systemctl --user daemon-reload` (bei `podman run`: `podman rm -f podmanmanager-agent`). Danach im Master den Host entfernen.
+
+## Versionen
+
+„Container erstellen“, „Pod erstellen“ und die Konfigurations-Tabs in den Container-Details brauchen einen Agent ab **v0.31.0**; für Podman 5 gilt **v0.31.1** oder neuer (Pod-Namen im Inspect, Meldung bei vergebenem Namen). Ältere Agents laufen weiter, melden bei diesen Funktionen aber einen Fehler. Aktualisieren: im Master unter *Hosts* → *Agent aktualisieren* (oder *Alle veralteten Agents aktualisieren*).

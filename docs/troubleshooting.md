@@ -48,6 +48,16 @@
 | Warnung „SQLite is an experimental feature" | Harmlos (Node 24). |
 | Logs | `journalctl -u podmanmanager-master -f` |
 
+## Container und Pods erstellen
+
+| Symptom | Ursache und Lösung |
+|---|---|
+| „Ein Container mit diesem Namen existiert auf dem Host bereits“ | Der Name ist auf dem Host vergeben (Podman 5 meldet das mit HTTP 500, der Agent übersetzt es). Anderen Namen wählen oder den vorhandenen Container entfernen. Dazu muss der Agent mindestens v0.31.1 sein. |
+| Die Pod-Spalte oder Kube-YAML fehlt in der Konfiguration eines Containers im Pod | Podman 5 liefert im Inspect nur die Pod-ID. Agent auf v0.31.1 oder neuer aktualisieren (löst den Namen aus der Pod-Liste auf). |
+| „Container erstellen“ oder die Konfiguration funktioniert nicht, der Master meldet 404 | Der Agent ist älter als v0.31.0 und kennt die Routen nicht. Agent aktualisieren (Hosts → *Agent aktualisieren*). |
+| Fehler beim Laden des Images | Der Host erreicht die Registry nicht (Proxy, Anmeldung, Name). Das Laden läuft auf dem Host mit dessen Podman; `podman pull <image>` dort probieren. |
+| Ein erstellter Container startet nach einem Neustart des Hosts nicht von selbst | Er wird nicht von systemd verwaltet. `podman-restart.service` für den Benutzer aktivieren (`systemctl --user enable --now podman-restart.service`) oder die angezeigte Quadlet-Datei verwenden. |
+
 ## Update per Web-UI
 
 | Meldung / Symptom | Ursache und Abhilfe |

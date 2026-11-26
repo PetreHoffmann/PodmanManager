@@ -179,6 +179,23 @@ Oben sehen Sie Name, Programmpaket (**Image**), **Status**, Rechner (**Host**), 
 - Logs ändern nichts. Sie zeigen nur an.
 - **Vorsicht:** Logs können vertrauliche Angaben enthalten (zum Beispiel Namen oder interne Adressen). Geben Sie Auszüge nur weiter, wenn das erlaubt ist.
 
+**Konfiguration (nur Administratoren):** Unter den Logs zeigt die Detailseite den Container als **podman run**-Befehl, als **Quadlet**-Datei und, wenn er in einem Pod läuft, als **Kube YAML**. Jeder Reiter hat einen **Kopieren**-Knopf. So lässt sich ein vorhandener Container auf einem anderen Rechner nachbauen:
+
+![Konfiguration als Quadlet](screenshots/handbuch/19-konfiguration.png)
+
+Die Ansicht wird aus dem laufenden Container rekonstruiert und enthält nur die Angaben des Erstellen-Formulars. Capabilities, Healthchecks, Entrypoint und Bind-Mounts fehlen. Umgebungsvariablen stehen im Klartext (oft Passwörter), deshalb sehen nur Administratoren diesen Bereich.
+
+### Eine Anwendung anlegen (nur Administratoren)
+
+Administratoren sehen über der Liste den Knopf **Container erstellen**. Das Formular legt auf einem Rechner einen Container aus einem Image an und startet ihn:
+
+![Container erstellen](screenshots/handbuch/17-container-erstellen.png)
+
+- **Host, Name, Image** sind Pflicht. Das Image wird vorher auf dem Rechner geladen; das kann etwas dauern.
+- **Ports** (Host : Container), **Umgebungsvariablen**, **Volumes** (nur benannte; Host-Pfade, privilegierter Modus und Host-Netzwerk gibt es nicht), **Netzwerk**, **Neustart-Richtlinie**, **Speicherlimit** und **Befehl** sind optional. Hier wählbar ist auch ein vorhandener **Pod**; dann bestimmt der Pod Ports und Netzwerk.
+- Unter dem Formular erscheinen live der **podman run**-Befehl, die **Quadlet**-Datei und das **Kubernetes-YAML** (`podman kube play`) mit **Kopieren**-Knopf, auch wenn Sie den Container gar nicht anlegen.
+- Der Container wird **nicht von systemd verwaltet**. Nach einem Neustart des Rechners startet er nur, wenn `podman-restart.service` für den Benutzer aktiv ist.
+
 ## 7. Pods: zusammengehörende Anwendungen
 
 Ein **Pod** fasst mehrere Anwendungen zusammen, die nur gemeinsam sinnvoll sind, zum Beispiel ein Webshop aus Webserver und Programm. Unter **Pods** sehen Sie sie in einer Liste:
@@ -194,6 +211,10 @@ Ein Klick auf den Namen öffnet die **Detailseite**:
 ![Pod-Details](screenshots/handbuch/08-pod-details.png)
 
 Dort sehen Sie die **enthaltenen Anwendungen** mit ihrem Zustand. Der Eintrag mit der Markierung **INFRA** ist ein technischer Hilfsbaustein des Pods, den Sie ignorieren können. Mit **Logs anzeigen** lesen Sie die **gemischten Logs aller Anwendungen** der Gruppe. Vor jeder Zeile steht der Name der Anwendung, von der sie stammt.
+
+**Einen Pod anlegen (nur Administratoren):** Über der Pod-Liste steht der Knopf **Pod erstellen**. Das Formular legt einen **leeren** Pod an (Name, Ports, Netzwerk, Hostname); er startet mit seinem ersten Container. Container treten ihm über das Feld **Pod** im Container-Formular bei. Auch hier zeigt die Seite zum Kopieren den Befehl `podman pod create` und eine Quadlet-Datei `<name>.pod`.
+
+![Pod erstellen](screenshots/handbuch/18-pod-erstellen.png)
 
 ## 8. Images: die Programmpakete
 
@@ -261,7 +282,7 @@ Das ist **Absicht** und dient der Sicherheit:
 - Sie können **keine Einstellungen ändern** und keine Gruppen verwalten.
 - Die **Logs von PodmanManager selbst** und der Hilfsprogramme sehen nur Administratoren.
 - **Images, Netzwerke und Volumes löschen oder aufräumen** und PodmanManager **aktualisieren** können nur Administratoren. Ebenso das **Einrichten neuer Rechner**, das **Ändern ihrer Adresse** und das **Aktualisieren der Hilfsprogramme** (Agents).
-- Anwendungen **anlegen oder verändern** ist in PodmanManager gar nicht möglich, auch nicht für Administratoren. Es gibt nur Starten, Stoppen und Neustarten.
+- Anwendungen **anlegen** (Container und Pods) dürfen nur Administratoren. **Verändern oder löschen** kann sie in PodmanManager niemand; es gibt nur Starten, Stoppen und Neustarten.
 
 Fehlt Ihnen etwas davon, wenden Sie sich an Ihren Administrator.
 
