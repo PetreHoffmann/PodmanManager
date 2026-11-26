@@ -41,7 +41,7 @@ export default async function HostStorage({ agentId, compact }: { agentId: numbe
   ) : (
     <div title={title}>
       <div className="font-medium tabular-nums">{f(s.total)}</div>
-      <div className="text-xs text-slate-500">{parts}</div>
+      <div className="hidden text-xs text-slate-500 2xl:block">{parts}</div>
       {reclaim > 0 && <div className="text-xs text-slate-500">{t("storage.reclaimable")}: {f(reclaim)}</div>}
     </div>
   );

@@ -24,7 +24,7 @@ export default function HostActions({ id, enabled, hostname, local = false }: { 
     setSetup(await rotateAgentTokenAction(id));
   };
   return (
-    <div className={`flex items-center gap-1 ${confirm ? "flex-wrap" : "flex-nowrap whitespace-nowrap"}`}>
+    <div className="flex flex-wrap items-center gap-1">
       <ActionForm action={testAgentAction} inline>
         <input type="hidden" name="id" value={id} />
         <button className="btn !px-2.5 !py-1 text-xs" disabled={!enabled}><Icon name="plugs-connected" />{t("hosts.test")}</button>
