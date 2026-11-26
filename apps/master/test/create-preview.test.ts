@@ -58,3 +58,27 @@ describe("pod previews", () => {
     assert.match(quadletFile({ ...base, pod: "app" }), /Pod=app\.pod/);
   });
 });
+
+import { kubePlayCommand, kubeYaml } from "../src/lib/create-preview";
+
+describe("kube yaml", () => {
+  it("minimal", () => {
+    assert.equal(kubeYaml(base), "apiVersion: v1\nkind: Pod\nmetadata:\n  name: web\nspec:\n  restartPolicy: Never\n  containers:\n    - name: web\n      image: docker.io/library/nginx:latest\n");
+  });
+  it("full", () => {
+    const y = kubeYaml(full);
+    for (const l of ["restartPolicy: Always", "      args:\n        - nginx\n        - \"-g\"\n        - \"daemon off;\"", "        - name: A\n          value: \"b c\"", "        - containerPort: 80\n          hostPort: 8081\n          protocol: TCP", "protocol: UDP", "          mountPath: /data\n          readOnly: true", "          memory: 256Mi", "  volumes:\n    - name: data\n      persistentVolumeClaim:\n        claimName: data"]) assert.ok(y.includes(l), l);
+  });
+  it("quotes values that YAML would misread", () => {
+    const y = kubeYaml({ ...base, env: [{ key: "A", value: "true" }, { key: "B", value: "line\nbreak \"q\"" }, { key: "C", value: "" }] });
+    assert.ok(y.includes('value: "true"') && y.includes('value: "line\\nbreak \\"q\\""') && y.includes('value: ""'));
+  });
+  it("maps the restart policies and uses the pod name", () => {
+    assert.match(kubeYaml({ ...base, restart: "on-failure" }), /restartPolicy: OnFailure/);
+    assert.match(kubeYaml({ ...base, pod: "app" }), /metadata:\n  name: app\n/);
+  });
+  it("the network goes into the command", () => {
+    assert.equal(kubePlayCommand(full), "podman kube play --network appnet web.yaml");
+    assert.equal(kubePlayCommand(base), "podman kube play web.yaml");
+  });
+});

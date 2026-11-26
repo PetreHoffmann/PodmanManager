@@ -96,6 +96,7 @@ export default function CreatePodForm({ hosts }: { hosts: { id: number; label: s
           <Block text={preview.run} title={t("crp.pvRun")} testid="preview-run" copyLabel={t("wiz.copy")} copiedLabel={t("wiz.copied")} />
           <Block text={preview.quadlet} title={t("crp.pvQuadlet", { file: preview.file })} testid="preview-quadlet" copyLabel={t("wiz.copy")} copiedLabel={t("wiz.copied")} />
           <p className="text-xs text-slate-500">{t("crp.pvNote", { name: name.trim() })}</p>
+          <p className="text-xs text-slate-500">{t("crp.kubeNote")}</p>
         </div>
       )}
       <div className="space-y-2">

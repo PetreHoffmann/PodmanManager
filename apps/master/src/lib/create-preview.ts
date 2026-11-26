@@ -62,3 +62,21 @@ export function podQuadletFile(r: CreatePodRequest): string {
   if (r.network) l.push(`Network=${r.network}`);
   return [...l, "", "[Install]", "WantedBy=default.target", ""].join("\n");
 }
+
+const yq = (s: string): string => (/^[A-Za-z0-9/][A-Za-z0-9_./:-]*$/.test(s) && !/^(true|false|yes|no|null|on|off|~)$/i.test(s) && !/^[0-9.]+$/.test(s) ? s : JSON.stringify(s));
+
+/** Kubernetes YAML for `podman kube play`: one pod with this container (the pod name if the container joins a pod). */
+export function kubeYaml(r: CreateRequest): string {
+  const restart = { no: "Never", always: "Always", "unless-stopped": "Always", "on-failure": "OnFailure" }[r.restart];
+  const l = ["apiVersion: v1", "kind: Pod", "metadata:", `  name: ${yq(r.pod ?? r.name)}`, "spec:", `  restartPolicy: ${restart}`, "  containers:", `    - name: ${yq(r.name)}`, `      image: ${yq(r.image)}`];
+  if (r.command.length) l.push("      args:", ...r.command.map((a) => `        - ${yq(a)}`));
+  if (r.env.length) l.push("      env:", ...r.env.flatMap((e) => [`        - name: ${yq(e.key)}`, `          value: ${JSON.stringify(e.value)}`]));
+  if (r.ports.length) l.push("      ports:", ...r.ports.flatMap((p) => [`        - containerPort: ${p.container}`, `          hostPort: ${p.host}`, `          protocol: ${p.protocol === "udp" ? "UDP" : "TCP"}`]));
+  if (r.volumes.length) l.push("      volumeMounts:", ...r.volumes.flatMap((v) => [`        - name: ${yq(v.name)}`, `          mountPath: ${yq(v.path)}`, ...(v.readOnly ? ["          readOnly: true"] : [])]));
+  if (r.memoryMb) l.push("      resources:", "        limits:", `          memory: ${r.memoryMb}Mi`);
+  if (r.volumes.length) l.push("  volumes:", ...[...new Set(r.volumes.map((v) => v.name))].flatMap((n) => [`    - name: ${yq(n)}`, "      persistentVolumeClaim:", `        claimName: ${yq(n)}`]));
+  return l.join("\n") + "\n";
+}
+
+/** The network is not part of the YAML: `podman kube play` takes it as an option. */
+export const kubePlayCommand = (r: CreateRequest): string => `podman kube play${r.network ? ` --network ${shq(r.network)}` : ""} ${shq(`${r.name}.yaml`)}`;
