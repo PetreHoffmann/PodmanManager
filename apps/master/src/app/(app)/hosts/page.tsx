@@ -1,3 +1,4 @@
+import Link from "next/link";
 import AgentWizard from "@/components/AgentWizard";
 import AgentUpdate from "@/components/AgentUpdate";
 import AgentUpdateAll from "@/components/AgentUpdateAll";
@@ -68,7 +69,7 @@ export default async function Hosts({ searchParams }: { searchParams: Promise<{ 
             {hosts.map(({ agent: a, result }) => (
               <tr key={a.id} className="transition hover:bg-slate-900">
                 <td className="td" title={a.hostname}>
-                  <span className="whitespace-nowrap font-mono text-xs font-medium">{a.agent_id}</span>
+                  <Link href={`/containers?host=${a.id}`} className="whitespace-nowrap font-mono text-xs font-medium text-sky-400 hover:underline" data-testid="host-link">{a.agent_id}</Link>
                   {a.kind === "local" && <div className="text-xs text-slate-500">{a.hostname}</div>}
                   {a.podman_version && <div className="text-xs text-slate-500 xl:hidden">Podman {a.podman_version}</div>}
                 </td>
@@ -102,7 +103,7 @@ export default async function Hosts({ searchParams }: { searchParams: Promise<{ 
         {hosts.map(({ agent: a, result }) => (
           <div key={a.id} className="card space-y-2">
             <div className="flex items-start justify-between gap-2">
-              <div className="font-medium">{a.agent_id}</div>
+              <Link href={`/containers?host=${a.id}`} className="font-medium text-sky-400 hover:underline" data-testid="host-link">{a.agent_id}</Link>
               <StatusBadge status={a.enabled ? a.status : "disabled"} />
             </div>
             <div className="font-mono text-xs text-slate-400">{a.hostname} · {a.kind === "local" ? t("hosts.local") : `${a.address}:${a.port}`}</div>
