@@ -105,3 +105,7 @@ Podman hat keine Pod-Logs-Route (`podman pod logs` mischt im Client); der Agent 
 `POST /api/v1/pods` (JSON, max. 64 KiB) legt einen leeren Pod an (er wird nicht gestartet) → `201 {"id","name"}`. Felder: `name` (Pflicht), `ports` (`[{host,container,protocol}]`, am Pod veröffentlicht), `network` (benanntes Netzwerk), `hostname`. Unbekannte Felder, Host-Netzwerk und Host-Namespaces werden mit `400` abgelehnt, ein vorhandener Name mit `409 NAME_IN_USE`.
 
 Beim Anlegen eines Containers (`POST /api/v1/containers`) tritt das optionale Feld `pod` (Name eines vorhandenen Pods) dem Pod bei; dann sind `ports` und `network` am Container nicht erlaubt, der Pod bestimmt sie.
+
+## Container-Konfiguration (lesend)
+
+`GET /api/v1/containers/<id>/config` → die Einstellungen eines Containers in der Form des Erstellen-Formulars: `name`, `image`, `ports`, `env`, `volumes` (nur benannte), `network`, `pod`, `restart`, `memoryMb`, `command`, dazu `bindMounts` (nur die Anzahl, keine Pfade). Einstellungen, die nur vom Image stammen (Umgebung, Standardbefehl), und von Podman selbst gesetzte Variablen (`container`, `HOSTNAME`, `HOME`, `TERM`, Proxy-Variablen) werden weggelassen. Capabilities, Healthchecks, Entrypoint und weitere Optionen sind nicht enthalten.

@@ -5,7 +5,9 @@ import AutoRefresh from "@/components/AutoRefresh";
 import { MetricsCard } from "@/components/MetricsCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { fmt } from "@/components/ui";
-import { agentInspect } from "@/lib/agent-client";
+import { agentContainerConfig, agentInspect } from "@/lib/agent-client";
+import ContainerConfigTabs from "@/components/ContainerConfigTabs";
+import { kubePlayCommand, kubeYaml, podmanRunCommand, quadletFile } from "@/lib/create-preview";
 import { getAgent, targetFor } from "@/lib/agents";
 import { errText } from "@/lib/i18n";
 import { getConfig } from "@/lib/config";
@@ -34,6 +36,12 @@ export default async function Detail({ params }: { params: Promise<{ host: strin
   }
   const c = r.data;
   if (isHidden(c.name, hiddenPatternsFor(session))) return <div className="space-y-3">{back}<p className="card">{t("detail.notFound")}</p></div>;
+  // the settings contain environment values (often passwords): administrators only
+  const conf = session.access === "all" ? await agentContainerConfig(target!, id) : null;
+  const confTexts = conf?.ok ? {
+    run: podmanRunCommand(conf.data), quadlet: quadletFile(conf.data), file: `${conf.data.name}.container`, bindMounts: conf.data.bindMounts,
+    kube: conf.data.pod ? kubeYaml(conf.data) : null, kubeCmd: conf.data.pod ? kubePlayCommand(conf.data) : null,
+  } : null;
   const rows: [string, React.ReactNode][] = [
     [t("cont.name"), c.name], [t("detail.cid"), <span className="font-mono text-xs break-all" key="i">{c.id}</span>],
     [t("cont.image"), c.image], [t("cont.status"), <StatusBadge key="s" status={c.state} />],
@@ -55,6 +63,7 @@ export default async function Detail({ params }: { params: Promise<{ host: strin
           {getConfig().metricsKeepMin > 0 && <AutoRefresh seconds={getConfig().metricsIntervalSec} />}
         </>
       )}
+      {confTexts && <ContainerConfigTabs texts={confTexts} />}
       <ContainerLogs agentId={agent.id} containerId={c.id} />
     </div>
   );
