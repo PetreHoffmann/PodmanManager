@@ -3,7 +3,8 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, agentVolumeDelete, agentVolumes, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs } from "@/lib/agent-client";
+import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, agentVolumeDelete, agentVolumes, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs, agentCreateContainer, agentImagePull } from "@/lib/agent-client";
+import { parseCreateRequest } from "@agent/podman/create";
 import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
 import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
@@ -313,6 +314,53 @@ export async function containerOpAction(agentId: number, containerId: string, ac
     return { ok: true, message: r.data.changed ? t("msg.opOk", { action: verb, state: label }) : t("msg.opNoChange", { state: label }) };
   }
   return { ok: false, message: t("msg.opFailed", { action: verb, msg: errText(t, r.code, r.message), code: r.code }) };
+}
+
+export type CreateContainerOutcome =
+  | { ok: true; agentId: number; id: string; name: string; warnings: string[] }
+  | { ok: false; message: string };
+
+/** Hosts where an administrator may create a container: names of the networks and volumes (for the form). */
+export async function createFormHostDataAction(agentId: number): Promise<{ ok: true; networks: string[]; volumes: string[] } | { ok: false; message: string }> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  const tg = a && a.enabled ? targetFor(a.id) : null;
+  if (!a || !tg) return { ok: false, message: t("msg.unknownHost") };
+  const [nets, vols] = await Promise.all([agentNetworks(tg), agentVolumes(tg)]);
+  return { ok: true, networks: nets.ok ? nets.data.map((n) => n.name).sort() : [], volumes: vols.ok ? vols.data.filter((v) => !v.anonymous).map((v) => v.name).sort() : [] };
+}
+
+/**
+ * Creates and starts a container on one host (administrators only): the image is loaded first, then the container is
+ * created from the validated fields. The agent validates the request again; nothing but the described fields can be set.
+ */
+export async function createContainerAction(agentId: number, input: unknown): Promise<CreateContainerOutcome> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  if (!a) return { ok: false, message: t("msg.unknownHost") };
+  if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
+  const tg = targetFor(a.id);
+  if (!tg) return { ok: false, message: t("msg.noCreds") };
+  const parsed = parseCreateRequest(input);
+  if (!parsed.ok) return { ok: false, message: parsed.message };
+  const req = parsed.req;
+  const fail = async (code: string, message: string) => {
+    // what was tried, never the environment values
+    await audit(session, "container.create", { target: req.name, host: a.hostname, ok: false, detail: `${req.image}: ${code}` });
+    return { ok: false as const, message: code === "INVALID_PARAM" ? message : errText(t, code, message) };
+  };
+  const pulled = await agentImagePull(tg, req.image);
+  if (!pulled.ok) return fail(pulled.code, pulled.message);
+  const created = await agentCreateContainer(tg, req);
+  if (!created.ok) return fail(created.code, created.message);
+  await audit(session, "container.create", { target: `${created.data.name} (${created.data.id.slice(0, 12)})`, host: a.hostname, detail: req.image });
+  revalidatePath("/containers");
+  revalidatePath("/");
+  return { ok: true, agentId: a.id, id: created.data.id, name: created.data.name, warnings: created.data.warnings };
 }
 
 export async function ldapAction(_: FormState, fd: FormData): Promise<FormState> {

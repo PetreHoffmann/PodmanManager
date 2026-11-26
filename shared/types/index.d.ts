@@ -195,3 +195,10 @@ export interface StatsReport {
   ts: number;
   containers: ContainerStatsRaw[];
 }
+
+/** Result of creating (and starting) a container. */
+export interface CreateContainerResult {
+  id: string;
+  name: string;
+  warnings: string[];
+}

@@ -75,7 +75,10 @@ export default async function Containers({ searchParams }: { searchParams: SP })
   return (
     <div className="space-y-4">
       {metricsOn && <AutoRefresh seconds={getConfig().metricsIntervalSec} />}
-      <h1 className="text-xl font-semibold">{t("cont.title")}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">{t("cont.title")}</h1>
+        {session.access === "all" && <Link href="/containers/new" className="btn btn-primary !px-3 !py-1.5 text-sm" data-testid="create-btn"><Icon name="plus-circle" />{t("cr.btn")}</Link>}
+      </div>
       {session.access === "groups" && <p className="text-xs text-slate-400">{t("scope.note", { groups: groupNames(session).join(", ") || "—" })}</p>}
       <form className="flex flex-wrap gap-2" method="get">
         {sort && <input type="hidden" name="sort" value={sort.key} />}

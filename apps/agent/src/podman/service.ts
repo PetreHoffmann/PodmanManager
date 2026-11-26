@@ -1,6 +1,7 @@
 import type { ContainerAction, ContainerInfo, ContainerStatsRaw, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, LogLine, NetworkInfo, PodInfo, PodLogs, RemoveResult, StorageInfo, VolumeInfo } from "../../../../shared/types/index.js";
 import { PodmanClient, PodmanError, TOO_LARGE_MESSAGE, type PodmanResponse } from "./client.js";
 import { parseLogStream } from "./logs.js";
+import { libpodSpec, type CreateRequest } from "./create.js";
 
 export const CONTAINER_ID_RE = /^[a-f0-9]{12,64}$/;
 
@@ -602,6 +603,28 @@ export class PodmanService {
     }
     if (!id) throw new PodmanError("PODMAN_API_ERROR", "Podman did not report an image id");
     return id;
+  }
+
+  /**
+   * Creates and starts a container from a validated request. A container that was created but cannot be started
+   * is removed again, so that no half-finished container is left behind.
+   */
+  async createContainer(req: CreateRequest): Promise<{ id: string; name: string; warnings: string[] }> {
+    await this.client.checkSocket();
+    const lp = await this.libpod();
+    const res = await this.client.call("POST", `${lp}/containers/create`, { json: libpodSpec(req), timeoutMs: 60_000 });
+    if (res.status === 409) throw new PodmanError("NAME_IN_USE", `Container name "${req.name}" is already in use`, 409);
+    if (res.status !== 201) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const out = rec(json(res));
+    const id = str(out.Id);
+    if (!/^[a-f0-9]{64}$/.test(id)) throw new PodmanError("PODMAN_API_ERROR", "Podman did not report a container id");
+    const warnings = Array.isArray(out.Warnings) ? out.Warnings.filter((w): w is string => typeof w === "string").map((w) => w.slice(0, 200)).slice(0, 5) : [];
+    const started = await this.client.call("POST", `${lp}/containers/${id}/start`, { timeoutMs: 60_000 });
+    if (started.status !== 204 && started.status !== 304) {
+      await this.client.call("DELETE", `${lp}/containers/${id}?force=true`, { timeoutMs: 30_000 }).catch(() => undefined);
+      throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(started), started.status);
+    }
+    return { id, name: req.name, warnings };
   }
 
   async listPods(): Promise<PodInfo[]> {
