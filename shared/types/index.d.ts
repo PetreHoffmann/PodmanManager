@@ -15,6 +15,8 @@ export interface HealthInfo {
   socketStatus: SocketStatus;
   apiStatus: ApiStatus;
   agentStatus: AgentStatus;
+  /** running commands in containers is switched on (EXEC_ENABLED) */
+  execEnabled?: boolean;
   error?: { code: string; message: string };
 }
 
@@ -194,6 +196,15 @@ export interface StatsReport {
   /** when the agent took the sample (ms since epoch) */
   ts: number;
   containers: ContainerStatsRaw[];
+}
+
+/** Result of running one command in a container. */
+export interface ExecResult {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  truncated: boolean;
+  timedOut: boolean;
 }
 
 /** Result of creating a pod. */

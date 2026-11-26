@@ -113,3 +113,7 @@ Beim Anlegen eines Containers (`POST /api/v1/containers`) tritt das optionale Fe
 ## Container-Konfiguration (lesend)
 
 `GET /api/v1/containers/<id>/config` → die Einstellungen eines Containers in der Form des Erstellen-Formulars: `name`, `image`, `ports`, `env`, `volumes` (nur benannte), `network`, `pod`, `restart`, `memoryMb`, `command`, dazu `bindMounts` (nur die Anzahl, keine Pfade). Einstellungen, die nur vom Image stammen (Umgebung, Standardbefehl), und von Podman selbst gesetzte Variablen (`container`, `HOSTNAME`, `HOME`, `TERM`, Proxy-Variablen) werden weggelassen. Capabilities, Healthchecks, Entrypoint und weitere Optionen sind nicht enthalten.
+
+## Befehl ausführen (nur mit `EXEC_ENABLED`)
+
+`POST /api/v1/containers/<id>/exec` mit `{"cmd":["ls","-l","/data"],"timeoutSec":15}` führt einen Befehl im laufenden Container aus → `200 {"exitCode","stdout","stderr","truncated","timedOut"}`. `cmd` ist eine Liste von 1 bis 20 Argumenten (kein Shell-String, je höchstens 1024 Zeichen), `timeoutSec` 1 bis 60 (Standard 15). Es gibt kein stdin und kein TTY. Die Ausgabe ist auf 64 KiB je Strom begrenzt (`truncated`); am Zeitlimit wird die Verbindung zu Podman geschlossen, `timedOut` ist dann `true` und `exitCode` `null`. Ohne `EXEC_ENABLED` am Agent antwortet die Route `403 EXEC_DISABLED`; steht das Programm nicht in `EXEC_ALLOW`, `403 EXEC_NOT_ALLOWED`; ein gestoppter Container ergibt `400`. `GET /health` meldet `execEnabled`.

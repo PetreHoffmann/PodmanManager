@@ -64,6 +64,55 @@ export class PodmanClient {
     }
   }
 
+  /**
+   * POST whose answer is a stream that may not end (exec output). Ends at the end of the stream, when `maxBytes` have
+   * arrived or after `timeoutMs`; in the last two cases the connection is closed (which stops an attached exec).
+   */
+  stream(path: string, json: unknown, opts: { timeoutMs: number; maxBytes: number }): Promise<StreamResult> {
+    const payload = Buffer.from(JSON.stringify(json), "utf8");
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      let size = 0, status = 0, done = false, truncated = false, timedOut = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve({ status, body: Buffer.concat(chunks), truncated, timedOut });
+      };
+      const req = request(
+        { socketPath: this.socketPath, method: "POST", path, headers: { Host: "d", "Content-Type": "application/json", "Content-Length": String(payload.length) } },
+        (res) => {
+          status = res.statusCode ?? 0;
+          res.on("data", (c: Buffer) => {
+            size += c.length;
+            if (size > opts.maxBytes) {
+              truncated = true;
+              req.destroy();
+              return;
+            }
+            chunks.push(c);
+          });
+          res.on("end", finish);
+          res.on("close", finish);
+          res.on("error", () => finish());
+        },
+      );
+      const timer = setTimeout(() => {
+        timedOut = true;
+        req.destroy();
+      }, opts.timeoutMs);
+      req.on("error", (e) => {
+        if (truncated || timedOut) return finish();
+        if (!done) {
+          done = true;
+          clearTimeout(timer);
+          reject(mapError(e));
+        }
+      });
+      req.end(payload);
+    });
+  }
+
   /** Low-level call. Only invoked with fixed paths built by PodmanService. */
   call(method: "GET" | "POST" | "DELETE", path: string, opts: { maxBytes?: number; timeoutMs?: number; json?: unknown } = {}): Promise<PodmanResponse> {
     const limit = opts.maxBytes ?? MAX_BODY;
@@ -101,6 +150,14 @@ export class PodmanClient {
       req.end(payload ?? undefined);
     });
   }
+}
+
+/** Result of {@link PodmanClient.stream}: what arrived before the stream ended, was cut at the size limit or the time limit. */
+export interface StreamResult {
+  status: number;
+  body: Buffer;
+  truncated: boolean;
+  timedOut: boolean;
 }
 
 function mapError(e: unknown): PodmanError {

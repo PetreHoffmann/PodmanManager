@@ -1,6 +1,8 @@
 import type { ApiResponse, AppLogLine, ContainerAction } from "../../../../shared/types/index.js";
 import { PodmanError } from "../podman/client.js";
 import { IMAGE_RE, parseCreatePodRequest, parseCreateRequest } from "../podman/create.js";
+import { parseExecRequest } from "../podman/exec.js";
+import type { ExecSettings } from "../config/config.js";
 import { isValidContainerId, isValidPodId, type PodmanService } from "../podman/service.js";
 import { collectHealth } from "../services/health.js";
 import type { PeerUpdater, SelfUpdater } from "../services/update.js";
@@ -33,6 +35,8 @@ export interface HandlerDeps {
   logs?: { tail(n: number): AppLogLine[] };
   updater?: SelfUpdater;
   peer?: PeerUpdater;
+  /** running commands in containers (off by default) */
+  exec?: ExecSettings;
   /** real name of the host (the in-process agent of the master runs in a container, where the host name is the container id) */
   hostName?: () => Promise<string | undefined>;
 }
@@ -82,7 +86,7 @@ export function createAgentHandler(deps: HandlerDeps): AgentHandler {
 
     if (route.length === 1 && route[0] === "health") {
       if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
-      return reply(200, { ok: true, data: await collectHealth(deps.agentId, podman, await deps.hostName?.().catch(() => undefined)) });
+      return reply(200, { ok: true, data: await collectHealth(deps.agentId, podman, await deps.hostName?.().catch(() => undefined), deps.exec?.enabled === true) });
     }
 
     if (route.length === 2 && route[0] === "agent" && route[1] === "logs") {
@@ -223,6 +227,18 @@ export function createAgentHandler(deps: HandlerDeps): AgentHandler {
         return reply(200, { ok: true, data: await podman.inspect(id) });
       }
       const action = route[2] ?? "";
+      if (route.length === 3 && action === "exec") {
+        if (method !== "POST") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "POST" });
+        if (deps.exec?.enabled !== true) return failR(403, "EXEC_DISABLED", "Running commands is switched off on this host (EXEC_ENABLED)");
+        const parsed = parseExecRequest(body);
+        if (!parsed.ok) return failR(400, "INVALID_PARAM", parsed.message);
+        const allow = deps.exec.allow;
+        if (allow.length > 0 && !allow.includes(parsed.req.cmd[0]!)) return failR(403, "EXEC_NOT_ALLOWED", `The program is not in the allowed list (EXEC_ALLOW)`);
+        const r = await podman.exec(id, parsed.req);
+        // what ran and how it ended, never the output (it may hold secrets)
+        log.info(`exec in ${id.slice(0, 12)}: ${parsed.req.cmd.join(" ").slice(0, 200)} exit=${r.exitCode ?? "-"}${r.timedOut ? " timeout" : ""}`);
+        return reply(200, { ok: true, data: r });
+      }
       if (route.length === 3 && action === "config") {
         if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
         return reply(200, { ok: true, data: await podman.containerConfig(id) });

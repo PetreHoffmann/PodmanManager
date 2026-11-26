@@ -26,7 +26,7 @@ function readBuildVersion(): string | null {
 
 export const AGENT_VERSION = resolveVersion(process.env, readBuildVersion());
 
-export async function collectHealth(agentId: string, podman: PodmanService, hostName?: string): Promise<HealthInfo> {
+export async function collectHealth(agentId: string, podman: PodmanService, hostName?: string, execEnabled = false): Promise<HealthInfo> {
   const info: HealthInfo = {
     agentId,
     agentVersion: AGENT_VERSION,
@@ -36,6 +36,7 @@ export async function collectHealth(agentId: string, podman: PodmanService, host
     socketStatus: "ok",
     apiStatus: "unknown",
     agentStatus: "ok",
+    execEnabled,
   };
   try {
     await podman.ping();
