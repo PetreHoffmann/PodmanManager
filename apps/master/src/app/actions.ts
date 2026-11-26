@@ -700,6 +700,19 @@ export async function masterUpdateStartAction(agentId: number): Promise<{ ok: bo
   return { ok: true, message: t("mupdate.started") };
 }
 
+/** Progress of the update of a remote agent (state and, after a failure, the reason). Admins only. */
+export async function agentUpdateStatusAction(agentId: number): Promise<MasterUpdateStatus | null> {
+  const session = await requireAuth();
+  if (session.access !== "all") return null;
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  const tg = a && a.kind !== "local" ? targetFor(a.id) : null;
+  if (!tg) return null;
+  const r = await agentSelfInfo(tg);
+  if (!r.ok) return null;
+  const st = r.data.state;
+  return { state: st === "pulling" || st === "restarting" || st === "current" || st === "error" ? st : "idle", ...(r.data.message ? { message: r.data.message } : {}) };
+}
+
 export type MasterUpdateStatus = { state: "pulling" | "restarting" | "current" | "error" | "idle"; message?: string };
 
 /** Progress of the master's update of itself (only for the master's own host). Admins only. */

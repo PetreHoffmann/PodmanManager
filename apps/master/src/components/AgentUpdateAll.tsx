@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { agentUpdateAction } from "@/app/actions";
+import { agentUpdateAction, agentUpdateStatusAction } from "@/app/actions";
+import { pollUpdate } from "@/lib/update-poll";
 import { useT } from "./I18nProvider";
 import Icon from "./Icon";
 
@@ -28,11 +29,20 @@ export default function AgentUpdateAll({ hosts }: { hosts: { id: number; label: 
       } catch (e) {
         r = { ok: false, message: e instanceof Error ? e.message : "error" };
       }
-      done.push({ label: h.label, ok: r.ok, text: r.message });
+      let res: Result = { label: h.label, ok: r.ok, text: r.message };
+      if (r.ok) {
+        // wait for the end of this host's update (failed pull, unchanged image, restart) before the next one starts
+        const o = await pollUpdate(() => agentUpdateStatusAction(h.id));
+        res = o.kind === "error" ? { label: h.label, ok: false, text: t("update.failed", { msg: o.message ?? "?" }) }
+          : o.kind === "current" ? { label: h.label, ok: true, text: t("update.current") }
+          : o.kind === "timeout" ? { label: h.label, ok: false, text: t("update.slow") }
+          : { label: h.label, ok: true, text: t("update.restarting") };
+      }
+      done.push(res);
       setResults([...done]);
     }
     setRunning(null);
-    if (done.some((d) => d.ok)) setTimeout(() => router.refresh(), 45000);
+    if (done.some((d) => d.ok)) setTimeout(() => router.refresh(), 15000);
   };
 
   return (
