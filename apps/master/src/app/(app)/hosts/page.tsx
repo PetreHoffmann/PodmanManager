@@ -1,3 +1,4 @@
+import AgentWizard from "@/components/AgentWizard";
 import AgentUpdate from "@/components/AgentUpdate";
 import { compareSemver } from "@/lib/update-check";
 import { getVersion } from "@/lib/version";
@@ -93,8 +94,12 @@ export default async function Hosts() {
         <AppLogs title={t("alogs.agent")} load={appLogsAction} options={hosts.map(({ agent: a }) => ({ id: a.id, label: `${a.agent_id} (${a.hostname})` }))} />
       )}
 
+      {canManage && <AgentWizard />}
+
       {canManage && (
-      <section className="card max-w-xl">
+      <details className="max-w-xl">
+      <summary className="cursor-pointer text-sm text-slate-400 hover:text-slate-200">{t("wiz.manual")}</summary>
+      <section className="card mt-2">
         <h2 className="mb-3 font-medium">{t("hosts.add")}</h2>
         <ActionForm action={addAgentAction} className="space-y-3">
           <label className="block text-sm">{t("hosts.addrLabel")}
@@ -106,6 +111,7 @@ export default async function Hosts() {
           <button className="btn btn-primary" type="submit"><Icon name="plus-circle" />{t("hosts.register")}</button>
         </ActionForm>
       </section>
+      </details>
       )}
     </div>
   );

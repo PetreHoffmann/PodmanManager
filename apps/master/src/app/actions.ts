@@ -7,7 +7,8 @@ import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, a
 import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
 import { appLogTail } from "@/lib/applog";
 import type { AppLogLine, LogLine } from "../../../../shared/types/index.js";
-import { checkAgent, getAgent, listAgents, registerAgent, removeAgent, setEnabled, targetFor } from "@/lib/agents";
+import { agentSetupFor, checkAgent, createPendingAgent, getAgent, listAgents, registerAgent, removeAgent, rotateAgentToken, setEnabled, targetFor } from "@/lib/agents";
+import type { AgentSetup } from "@/lib/agent-setup";
 import { LANG_COOKIE, errText, isLang, lastErrText, statusLabel, type Key } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
 import { loadLdapConfig, parseLdapInput, saveLdapConfig } from "@/lib/ldap-config";
@@ -179,6 +180,40 @@ export async function addAgentAction(_: FormState, fd: FormData): Promise<FormSt
   await audit(session, "host.add", { target: s(fd, "url").trim() });
   revalidatePath("/hosts");
   return { ok: true, message: t("msg.agentAdded") };
+}
+
+export type SetupResult = { ok: true; id: number; setup: AgentSetup; message: string } | { ok: false; message: string };
+
+/** Creates a remote host before its agent exists: the master generates and stores the token, the agent gets the hash. */
+export async function createAgentAction(url: string, agentId: string): Promise<SetupResult> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  const r = createPendingAgent(String(url ?? ""), String(agentId ?? ""));
+  if (!r.ok) return { ok: false, message: t(r.error as Key, r.params ?? {}) };
+  await audit(session, "host.create", { target: r.data.setup.agentId });
+  revalidatePath("/hosts");
+  return { ok: true, id: r.data.id, setup: r.data.setup, message: t("msg.agentCreated", { id: r.data.setup.agentId }) };
+}
+
+/** Setup block of an existing remote host (hash only, never the token). */
+export async function agentSetupAction(id: number): Promise<SetupResult> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  const setup = Number.isInteger(id) && id > 0 ? agentSetupFor(id) : null;
+  return setup ? { ok: true, id, setup, message: "" } : { ok: false, message: t("msg.invalidAgent") };
+}
+
+export async function rotateAgentTokenAction(id: number): Promise<SetupResult> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  const setup = Number.isInteger(id) && id > 0 ? rotateAgentToken(id) : null;
+  if (!setup) return { ok: false, message: t("msg.invalidAgent") };
+  await audit(session, "host.token", { target: setup.agentId });
+  revalidatePath("/hosts");
+  return { ok: true, id, setup, message: t("wiz.rotated") };
 }
 
 function idOf(fd: FormData): number | null {

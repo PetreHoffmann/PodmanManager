@@ -6,6 +6,7 @@ import { getConfig } from "./config";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { isHidden, isPodHidden } from "./hidden";
 import { parseAgentUrl, validToken } from "./validate";
+import { AGENT_ID_RE, agentSetup, hashAgentToken, newAgentToken, type AgentSetup } from "./agent-setup";
 import { localSocket } from "./local-host";
 
 export type AgentStatus = "unknown" | "online" | "degraded" | "offline";
@@ -78,6 +79,40 @@ export async function registerAgent(urlInput: string, token: string, db: Databas
       h.data.agentStatus === "ok" ? "online" : "degraded", now, h.data.agentVersion, h.data.podmanVersion,
     );
   return { ok: true, data: Number(r.lastInsertRowid) };
+}
+
+/**
+ * Creates the host entry before the agent exists: the master generates the token (stored encrypted) and the agent only
+ * needs its hash. The agent id is chosen here and goes into the agent's AGENT_ID; the host stays "unknown" until it runs.
+ */
+export function createPendingAgent(urlInput: string, agentId: string, db: DatabaseSync = getDb()): Result<{ id: number; setup: AgentSetup }> {
+  const addr = parseAgentUrl(urlInput);
+  if (!addr) return { ok: false, error: "err.invalidAddress" };
+  const id = agentId.trim();
+  if (!AGENT_ID_RE.test(id)) return { ok: false, error: "err.invalidAgentId" };
+  if (db.prepare("SELECT id FROM agents WHERE address = ? AND port = ?").get(addr.address, addr.port)) return { ok: false, error: "err.alreadyRegistered" };
+  if (db.prepare("SELECT id FROM agents WHERE agent_id = ?").get(id)) return { ok: false, error: "err.agentIdTaken", params: { id } };
+  const { token, hash } = newAgentToken();
+  const r = db
+    .prepare("INSERT INTO agents (agent_id, hostname, address, port, token_enc, registered_at, enabled, status, fail_count) VALUES (?, ?, ?, ?, ?, ?, 1, 'unknown', 0)")
+    .run(id, id, addr.address, addr.port, encryptSecret(token), new Date().toISOString());
+  return { ok: true, data: { id: Number(r.lastInsertRowid), setup: agentSetup(id, addr.address, hash) } };
+}
+
+/** Setup block of an existing remote host, rebuilt from the stored token (the token itself is never shown). */
+export function agentSetupFor(id: number, db: DatabaseSync = getDb()): AgentSetup | null {
+  const r = db.prepare("SELECT agent_id, address, token_enc, kind FROM agents WHERE id = ?").get(id) as { agent_id: string; address: string; token_enc: string; kind: string } | undefined;
+  if (!r || r.kind === "local" || !r.token_enc) return null;
+  return agentSetup(r.agent_id, r.address, hashAgentToken(decryptSecret(r.token_enc)));
+}
+
+/** New token for a remote host: the agent must get the new hash and a restart; until then the host shows as offline. */
+export function rotateAgentToken(id: number, db: DatabaseSync = getDb()): AgentSetup | null {
+  const r = db.prepare("SELECT agent_id, address, kind FROM agents WHERE id = ?").get(id) as { agent_id: string; address: string; kind: string } | undefined;
+  if (!r || r.kind === "local") return null;
+  const { token, hash } = newAgentToken();
+  db.prepare("UPDATE agents SET token_enc = ? WHERE id = ?").run(encryptSecret(token), id);
+  return agentSetup(r.agent_id, r.address, hash);
 }
 
 /**
