@@ -4,7 +4,9 @@ import AgentUpdateAll from "@/components/AgentUpdateAll";
 import { compareSemver } from "@/lib/update-check";
 import { getVersion } from "@/lib/version";
 import { Suspense } from "react";
-import HostStorage from "@/components/HostStorage";
+import Link from "next/link";
+import { nextSort, parseSort, sortHosts, type Sort, type SortKey } from "@/lib/host-sort";
+import HostStorage, { hostStorage } from "@/components/HostStorage";
 import ActionForm from "@/components/ActionForm";
 import AppLogs from "@/components/AppLogs";
 import HostActions from "@/components/HostActions";
@@ -21,13 +23,26 @@ import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
-export default async function Hosts() {
+const sortHref = (s: Sort | null) => (s ? `/hosts?sort=${s.key}&dir=${s.dir}` : "/hosts");
+
+export default async function Hosts({ searchParams }: { searchParams: Promise<{ sort?: string; dir?: string }> }) {
   const session = await requireAuth();
+  const sp = await searchParams;
+  const sort = parseSort(sp.sort, sp.dir);
   const t = await getT();
   const canManage = session.access === "all";
   const masterVersion = getVersion();
   const outdated = (v: string | null | undefined) => !!v && /^\d+\.\d+\.\d+/.test(v) && compareSemver(masterVersion, v) > 0;
-  const hosts = await fetchAllContainers(undefined, allowedAgentIds(session), hiddenPatternsFor(session));
+  const loaded = await fetchAllContainers(undefined, allowedAgentIds(session), hiddenPatternsFor(session));
+  // Sorting by storage needs every host's figure first (the table otherwise streams them in); the request cache makes the cells instant afterwards.
+  const storage = new Map<number, number | null>();
+  if (sort?.key === "storage") {
+    await Promise.all(loaded.filter(({ agent: a }) => a.enabled && a.status !== "offline").map(async ({ agent: a }) => {
+      const r = await hostStorage(a.id).catch(() => null);
+      storage.set(a.id, r && r.ok ? r.data.total : null);
+    }));
+  }
+  const hosts = sortHosts(loaded.map((h) => ({ ...h, containers: h.result.ok ? h.result.data.length : null, storage: storage.get(h.agent.id) ?? null })), sort);
   const updatable = canManage ? hosts.filter(({ agent: a }) => a.kind !== "local" && a.enabled && a.status !== "offline" && outdated(a.agent_version)).map(({ agent: a }) => ({ id: a.id, label: a.hostname })) : [];
   return (
     <div className="space-y-6">
@@ -40,9 +55,16 @@ export default async function Hosts() {
         <table className="w-full">
           <thead className="border-b border-slate-800">
             <tr>
-              {([["hosts.agentId", ""], ["hosts.address", ""], ["hosts.status", ""], ["hosts.heartbeat", "hidden lg:table-cell"], ["hosts.podman", "hidden xl:table-cell"], ["hosts.agentVersion", ""], ["hosts.containers", ""], ["hosts.storage", ""]] as const).map(([k, c]) => (
-                <th key={k} className={`th ${c}`}>{t(k)}</th>
-              ))}
+              {([["hosts.agentId", "", "agent"], ["hosts.address", "", "address"], ["hosts.status", "", "status"], ["hosts.heartbeat", "hidden lg:table-cell", "heartbeat"], ["hosts.podman", "hidden xl:table-cell", "podman"], ["hosts.agentVersion", "", "version"], ["hosts.containers", "", "containers"], ["hosts.storage", "", "storage"]] as const).map(([k, c, key]) => {
+                const active = sort?.key === key ? sort.dir : null;
+                return (
+                  <th key={k} className={`th ${c}`} aria-sort={active === "asc" ? "ascending" : active === "desc" ? "descending" : "none"}>
+                    <Link href={sortHref(nextSort(sort, key as SortKey))} className="inline-flex items-center gap-1 hover:text-white" data-testid={`sort-${key}`}>
+                      {t(k)}<span aria-hidden className={active ? "text-sky-400" : "text-slate-600"}>{active === "desc" ? "▼" : active === "asc" ? "▲" : "↕"}</span>
+                    </Link>
+                  </th>
+                );
+              })}
               {canManage && <th className="th" />}
             </tr>
           </thead>
@@ -79,6 +101,20 @@ export default async function Hosts() {
       </div>
 
       <div className="space-y-3 md:hidden">
+        {hosts.length > 1 && (
+          <form action="/hosts" method="get" className="flex flex-wrap items-center gap-2 text-xs" data-testid="sort-form">
+            <label htmlFor="sort-by" className="text-slate-400">{t("hosts.sortBy")}</label>
+            <select id="sort-by" name="sort" defaultValue={sort?.key ?? ""} className="input !w-auto !py-1 text-xs">
+              <option value="">{t("hosts.sortDefault")}</option>
+              {([["agent", "hosts.agentId"], ["address", "hosts.address"], ["status", "hosts.status"], ["heartbeat", "hosts.heartbeat"], ["podman", "hosts.podman"], ["version", "hosts.agentVersion"], ["containers", "hosts.containers"], ["storage", "hosts.storage"]] as const).map(([k, l]) => <option key={k} value={k}>{t(l)}</option>)}
+            </select>
+            <select name="dir" defaultValue={sort?.dir ?? "asc"} className="input !w-auto !py-1 text-xs" aria-label={t("hosts.sortDir")}>
+              <option value="asc">{t("hosts.sortAsc")}</option>
+              <option value="desc">{t("hosts.sortDesc")}</option>
+            </select>
+            <button className="btn !px-2.5 !py-1 text-xs" type="submit">{t("hosts.sortApply")}</button>
+          </form>
+        )}
         {hosts.length === 0 && <p className="card text-sm text-slate-400">{t("hosts.none")}</p>}
         {hosts.map(({ agent: a, result }) => (
           <div key={a.id} className="card space-y-2">
