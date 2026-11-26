@@ -26,7 +26,7 @@ Alternativ als Container: [`deployment/quadlet/`](../deployment/quadlet/README.m
 | `PODMAN_SOCKET` | `$XDG_RUNTIME_DIR/podman/podman.sock` | absoluter Pfad |
 | `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MS` | `10` / `60000` | Fehlversuche pro IP und Fenster |
 
-Neuen Token erzeugen: `node ~/.local/share/podmanmanager-agent/dist/index.js --generate-token`.
+Im Master geht es ohne Befehle: *Hosts* → *Neuen Agent einrichten* (bzw. *Einrichtung* → *Token erneuern* bei einem bestehenden Host) erzeugt den Token, trägt ihn im Master ein und zeigt den Hash für den Agent. Manuell: neuen Token erzeugen: `node ~/.local/share/podmanmanager-agent/dist/index.js --generate-token`.
 
 ## Betrieb ohne Login (Lingering)
 User-Services laufen standardmäßig nur während einer Anmeldung. Damit der Agent nach einem Neustart ohne Login startet:
