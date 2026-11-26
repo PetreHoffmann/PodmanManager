@@ -50,7 +50,7 @@ Danach `http://<host>:8080` öffnen und das Admin-Passwort sofort setzen. Ohne S
 
 ### A.2 Agent
 
-Zuerst im Master den Agent einrichten (siehe oben) und den Hash kopieren, dann:
+Zuerst im Master den Agent einrichten (siehe oben). Im Reiter **podman run** steht der fertige Befehl zum Kopieren. Er sieht so aus (Agent-ID und Hash trägt der Master ein):
 
 ```bash
 podman run -d --name podmanmanager-agent --restart=always \

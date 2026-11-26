@@ -31,6 +31,18 @@ describe("agent setup blocks", () => {
     assert.equal(ip.hashLine, `AGENT_TOKEN_HASH=${hash}`);
     assert.match(agentSetup("h", "box.lan", hash).quadlet, /^PublishPort=9126:9126$/m);
   });
+  it("builds a ready podman run command with the agent id, the hash and the same port rule", () => {
+    const hash = "b".repeat(64);
+    const ip = agentSetup("host-1", "192.168.1.21", hash).podmanRun;
+    assert.match(ip, /^podman run -d --name podmanmanager-agent --restart=always \\$/m);
+    assert.match(ip, /^  -p 192\.168\.1\.21:9126:9126 \\$/m);
+    assert.match(ip, /^  -e AGENT_ID=host-1 \\$/m);
+    assert.match(ip, new RegExp(`^  -e AGENT_TOKEN_HASH=${hash} \\\\$`, "m"));
+    assert.match(ip, /--user "\$\(id -u\)" --userns=keep-id/);
+    assert.match(ip, /--security-opt label=disable/);
+    assert.match(ip, /^  docker\.io\/petrecalinoiu\/podmanmanager-agent:latest$/m);
+    assert.match(agentSetup("h", "box.lan", hash).podmanRun, /^  -p 9126:9126 \\$/m);
+  });
 });
 
 describe("host created before its agent exists", () => {

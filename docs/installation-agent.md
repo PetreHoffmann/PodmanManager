@@ -6,10 +6,11 @@ Der Agent läuft als **Rootless-Container** auf jedem Podman-Host, als **normale
 
 Im Master unter *Hosts* → *Neuen Agent einrichten* die **Agent-Adresse** (`http://<host-ip>:9126`) und eine eindeutige **Agent-ID** (`A-Z a-z 0-9 . _ -`) eintragen und auf *Erzeugen und Konfiguration anzeigen* klicken.
 
-Der Master erzeugt den Token, speichert ihn verschlüsselt und legt den Host an. Der Agent bekommt nur den **Hash** des Tokens. Der Master zeigt ihn in zwei Reitern:
+Der Master erzeugt den Token, speichert ihn verschlüsselt und legt den Host an. Der Agent bekommt nur den **Hash** des Tokens. Der Master zeigt ihn in drei Reitern, jeweils mit Kopieren-Knopf:
 
 - **Komplette Quadlet-Datei** mit eingetragener Agent-ID und eingetragenem Hash (für Weg 3a),
-- **Nur Hash** als Zeile `AGENT_TOKEN_HASH=…` (für Weg 3b).
+- **podman run**: der fertige Befehl mit Agent-ID, Hash und Port (für Weg 3b),
+- **Nur Hash** als Zeile `AGENT_TOKEN_HASH=…` (für eigene Dateien oder Befehle).
 
 Im Master ist danach nichts mehr einzutragen. Der Host erscheint zunächst als *unbekannt* und wird *online*, sobald der Agent läuft. Den Block kannst du jederzeit unter *Hosts* → *Einrichtung* erneut anzeigen lassen; der Token selbst wird nie angezeigt.
 
@@ -34,7 +35,7 @@ Quadlet-Units werden nicht mit `enable` aktiviert; `[Install]` wirkt automatisch
 
 ## 3b. Mit `podman run`
 
-Die Zeile mit dem Hash aus dem Reiter *Nur Hash* einsetzen:
+Im Master den Reiter *podman run* öffnen, den Befehl kopieren und auf dem Host als Podman-Benutzer ausführen. Er sieht so aus (Agent-ID und Hash trägt der Master ein):
 
 ```bash
 podman run -d --name podmanmanager-agent --restart=always \

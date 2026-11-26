@@ -15,8 +15,10 @@ export interface AgentSetup {
   hash: string;
   /** complete podmanmanager-agent.container */
   quadlet: string;
-  /** only the hash, for agent.env / own Quadlet files */
+  /** only the hash, for own Quadlet files or podman run commands */
   hashLine: string;
+  /** ready podman run command (to try it out; Quadlet is better for permanent operation) */
+  podmanRun: string;
 }
 
 /** Quadlet file with the values of this host filled in; the hash is an Environment= value (file: chmod 600). */
@@ -53,5 +55,15 @@ TimeoutStartSec=120
 [Install]
 WantedBy=default.target
 `;
-  return { agentId, hash, quadlet, hashLine: `AGENT_TOKEN_HASH=${hash}` };
+  const podmanRun = `podman run -d --name podmanmanager-agent --restart=always \\
+  --hostname "$(hostname)" \\
+  --user "$(id -u)" --userns=keep-id \\
+  -p ${ipv4 ? `${address}:` : ""}9126:9126 \\
+  -v "$XDG_RUNTIME_DIR/podman/podman.sock:/run/podman/podman.sock" \\
+  --security-opt label=disable \\
+  -e AGENT_ID=${agentId} \\
+  -e AGENT_TOKEN_HASH=${hash} \\
+  docker.io/petrecalinoiu/podmanmanager-agent:latest
+`;
+  return { agentId, hash, quadlet, hashLine: `AGENT_TOKEN_HASH=${hash}`, podmanRun };
 }
