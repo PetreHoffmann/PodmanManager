@@ -6,7 +6,7 @@ import { targetFor } from "@/lib/agents";
 import { getLang, getT } from "@/lib/lang";
 
 // desktop table and phone card both ask for the same host: one query per request
-const query = cache(async (agentId: number) => {
+export const hostStorage = cache(async (agentId: number) => {
   const t = targetFor(agentId);
   return t ? agentStorage(t) : null;
 });
@@ -18,7 +18,7 @@ const query = cache(async (agentId: number) => {
 export default async function HostStorage({ agentId, compact }: { agentId: number; compact?: boolean }) {
   const t = await getT();
   const lang = await getLang();
-  const r = await query(agentId);
+  const r = await hostStorage(agentId);
   if (!r || !r.ok) {
     // e.g. Podman's `system df` fails as a whole when a volume directory is missing: show why instead of just "—"
     const why = r ? errText(t, r.code, r.message) : "";
