@@ -8,7 +8,7 @@ import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { hiddenPatternsFor } from "@/lib/hidden";
 import { requireAuth } from "@/lib/session";
 import { Stat } from "@/components/ui";
-import { ContainersArt, HostsArt, PodsArt } from "@/components/Illustrations";
+import { ContainersArt, HostsArt, PodsArt, ResourcesArt } from "@/components/Illustrations";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +66,7 @@ export default async function Dashboard() {
         </section>
       </div>
       <div className="flex items-center gap-4">
-        <div className="hidden w-32 shrink-0 sm:block lg:w-40" aria-hidden />
+        <ResourcesArt className="hidden w-32 shrink-0 sm:block lg:w-40" />
         <section className="grid flex-1 grid-cols-2 gap-3 md:grid-cols-4">
           <Link href="/resources?tab=images" className="block transition hover:opacity-90" data-testid="dash-images"><Stat label={t("dash.images")} value={images.count} /></Link>
           <Link href="/resources?tab=networks" className="block transition hover:opacity-90" data-testid="dash-networks"><Stat label={t("dash.networks")} value={networks.count} /></Link>

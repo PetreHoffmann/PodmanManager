@@ -63,3 +63,21 @@ export function PodsArt({ className = "" }: Props) {
     </svg>
   );
 }
+
+/** Resources: a stack of image layers and a storage cylinder, joined by a network link. */
+export function ResourcesArt({ className = "" }: Props) {
+  return (
+    <svg viewBox="0 0 160 120" className={`text-slate-300 ${className}`} aria-hidden="true" focusable="false">
+      {[50, 36, 22].map((y, i) => (
+        <rect key={y} x={14 + i * 4} y={y} width="54" height="20" rx="5" {...LINE} fill="#fbbf24" fillOpacity={0.14 + i * 0.12} />
+      ))}
+      <path d="M92 34 v42 a30 9 0 0 0 60 0 v-42" {...LINE} fill="#fbbf24" fillOpacity={0.16} />
+      <ellipse cx="122" cy="34" rx="30" ry="9" {...LINE} fill="#fbbf24" fillOpacity={0.34} />
+      <path d="M92 55 a30 9 0 0 0 60 0" {...LINE} opacity={0.6} />
+      <path d="M30 78 v18 H122 v-8" {...LINE} opacity={0.6} />
+      <circle cx="30" cy="78" r="4" fill="#fbbf24" />
+      <circle cx="76" cy="96" r="4" fill="#38bdf8" />
+      <circle cx="122" cy="88" r="4" fill="#fbbf24" />
+    </svg>
+  );
+}
