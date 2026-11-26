@@ -13,7 +13,7 @@ Wants=network-online.target
 [Container]
 # Host mit cgroup v1 (Start scheitert mit "mkdir /sys/fs/cgroup/...: permission denied", Exit-Code 126): Zeile aktivieren
 # PodmanArgs=--cgroups=enabled
-Image=docker.io/petrecalinoiu/podmanmanager-master:0.3.0
+Image=docker.io/petrecalinoiu/podmanmanager-master:latest
 ContainerName=podmanmanager-master
 # Master und Agent auf demselben Host: gemeinsames Netzwerk (podmanmanager.network mit ablegen),
 # der Master erreicht den Agent dann unter http://podmanmanager-agent:9126
@@ -52,7 +52,7 @@ Environment=AGENT_TIMEOUT=5
 # Environment=UPDATE_CHECK=off
 # Images aus eigenem Registry (Nexus): dort statt bei Docker Hub nach neuen Versionen suchen:
 # Environment=UPDATE_CHECK_REGISTRY=nexus.firma.de
-# Automatische Updates (braucht :latest statt festem Tag, dazu podman-auto-update.timer):
+# Automatische Updates (braucht :latest, dazu podman-auto-update.timer):
 # AutoUpdate=registry
 
 [Service]

@@ -8,7 +8,7 @@ After=podman.socket network-online.target
 [Container]
 # Host mit cgroup v1 (Start scheitert mit "mkdir /sys/fs/cgroup/...: permission denied", Exit-Code 126): Zeile aktivieren
 # PodmanArgs=--cgroups=enabled
-Image=docker.io/petrecalinoiu/podmanmanager-agent:0.3.0
+Image=docker.io/petrecalinoiu/podmanmanager-agent:latest
 ContainerName=podmanmanager-agent
 # Der Agent meldet den Hostnamen des Containers; %H = Hostname des Rechners (sonst steht die Container-ID im Master)
 HostName=%H
@@ -37,7 +37,7 @@ Secret=podmanmanager-agent-hash,type=env,target=AGENT_TOKEN_HASH
 
 NoNewPrivileges=true
 DropCapability=ALL
-# Automatische Updates (braucht :latest statt festem Tag, dazu podman-auto-update.timer):
+# Automatische Updates (braucht :latest, dazu podman-auto-update.timer):
 # AutoUpdate=registry
 
 [Service]
