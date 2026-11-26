@@ -51,6 +51,7 @@ function statusFor(e: PodmanError): number {
     case "STATS_UNAVAILABLE":
     case "NETWORK_IN_USE":
     case "NETWORK_PROTECTED":
+    case "SYSTEMD_NOT_RESTARTED":
       return 409;
     case "INVALID_PARAM":
       return 400;
