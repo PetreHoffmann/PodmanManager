@@ -132,6 +132,7 @@ export default function AboutDialog({ version }: { version: string }) {
                     <p className="text-xs text-slate-500">{agents.blocked ? t(agents.blocked) : t("mupdate.noAgent")}</p>
                   )
                 )}
+                {agents && !agents.ok && <p className="text-xs text-slate-500">{t("mupdate.adminOnly")}</p>}
                 {upd && <p className={`text-xs ${upd.ok ? "text-emerald-300" : "text-amber-300"}`}>{upd.text}</p>}
                 <a href={HUB_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-sky-400 hover:underline">Docker Hub ↗</a>
               </div>
