@@ -84,10 +84,11 @@ try {
 
   await step("register two agents; wrong token / duplicate / bad URL rejected", async () => {
     await page.goto(MASTER + "/hosts");
+    await page.click("summary"); // the manual form sits in a collapsed <details> below the setup wizard
     const add = async (url: string, token: string) => {
-      await page.fill('input[name="url"]', url);
-      await page.fill('input[name="token"]', token);
-      await page.click("text=Test connection");
+      await page.fill('details input[name="url"]', url);
+      await page.fill('details input[name="token"]', token);
+      await page.click("details button.btn-primary");
     };
     await add(`http://127.0.0.1:${h1.port}`, "wrong-token-0123456789");
     await page.waitForSelector("text=Authentication failed");
@@ -133,7 +134,9 @@ try {
     await page.goto(MASTER + "/containers");
     await page.click("a:has-text('host-a-db')");
     await page.waitForSelector("text=Container ID");
-    const buttons = (await page.locator("main button").allInnerTexts()).map((t) => t.trim()).sort();
+    // the configuration tabs (podman run / Quadlet / Kube YAML, administrators only) are read-only text with copy buttons
+    await page.waitForSelector("[data-testid=config-tabs]");
+    const buttons = (await page.locator("main button").evaluateAll((els) => els.filter((e) => !e.closest("[data-testid=config-tabs]")).map((e) => (e.textContent ?? "").trim()))).sort();
     // container actions are exactly start/stop/restart; "Show logs" is the read-only log view
     assert.deepEqual(buttons, ["Restart", "Show logs", "Start", "Stop"]);
   });
