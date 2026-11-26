@@ -1,117 +1,103 @@
 # PodmanManager
 
-Schlanke zentrale Verwaltung von **rootless Podman**-Containern auf mehreren Linux-Hosts.
-Funktionsumfang bewusst begrenzt: Container und Pods **anzeigen, starten, stoppen, neustarten**, Logs lesen, Images **ansehen und (Admins) löschen**.
+**Eine Webseite, auf der Sie Ihre Anwendungen auf mehreren Servern sehen, starten, stoppen und neu starten – ohne sich auf den Servern anzumelden.**
 
-- **Master** (`apps/master`): Next.js-Weboberfläche, HTTP `:8080`, SQLite.
-- **Agent** (`apps/agent`): eigenständiger Node.js-Prozess pro Host, HTTP `:9126`, spricht ausschließlich mit dem lokalen Podman-Unix-Socket des eigenen Benutzers. Keine Laufzeit-Abhängigkeiten.
+Die Anwendungen laufen als **Container** (kleine, abgeschottete Programmpakete). PodmanManager verwaltet Container, die mit [Podman](https://podman.io) betrieben werden, ohne Administrator-Rechte (rootless) und ohne Docker.
+
+## Was kann PodmanManager?
+
+- **Überblick:** Welche Server und Anwendungen gibt es, und läuft alles?
+- **Steuern:** Anwendungen starten, stoppen und neu starten (mit Rückfrage).
+- **Nachlesen:** Meldungen (Logs) einer Anwendung lesen und sehen, wie stark sie Prozessor, Arbeitsspeicher, Netzwerk und Festplatte nutzt.
+- **Aufräumen:** Programmpakete (Images), Netzwerke und Datenspeicher (Volumes) auf den Servern ansehen; Administratoren können Unbenutztes löschen.
+- **Für alle Geräte:** Die Oberfläche gibt es auf Deutsch, Englisch, Rumänisch und Spanisch und passt sich dem Handy an.
+
+PodmanManager **legt keine Container an und ändert sie nicht**. Das hält es einfach und sicher.
+
+## So funktioniert es
 
 ```
-Browser ── HTTP :8080 ── Master ── HTTP :9126 (Bearer-Token) ── Agent ── Unix-Socket ── Podman (rootless)
+Ihr Browser ── Master (die Webseite) ── Agent (ein kleines Programm je Server) ── Podman
 ```
 
-Neben Containern zeigt der Master auch **Pods** (Liste, Detail mit Containern, Start/Stop/Restart und die letzten 150 Log-Zeilen des ganzen Pods); in der Container-Liste steht, zu welchem Pod ein Container gehört. Die Host-Tabelle zeigt pro Host den vom Podman-Speicher belegten Platz (Images, Container, Volumes) und die Agent-Version.
+- Der **Master** ist die Webseite. Es gibt ihn einmal.
+- Auf **jedem Server**, den Sie verwalten wollen, läuft ein **Agent**. Er führt nur aus, was der Master ihm sagt, und kennt nichts anderes als den Podman seines Benutzers.
 
-**Ressourcen** (eigener Menüpunkt mit den Reitern *Images*, *Netzwerke* und *Volumes*): je Host alle Images mit Tags, Größe, Alter und nutzenden Containern; Netzwerke mit Treiber, Subnetz, DNS-/IPv6-/intern-Kennzeichen und den angeschlossenen laufenden Containern; Volumes mit Größe und Benutzung. Admins löschen ein Image (oder nur einen Tag), ein Netzwerk oder ein Volume und räumen Unbenutztes auf (Images ohne Tag, unbenutzte Netzwerke, unbenutzte Volumes mit Rückfrage, denn die Daten eines Volumes sind danach weg). Benutztes sowie die von PodmanManager selbst genutzten Images und das Standard-Netzwerk sind gesperrt; Podman verweigert das Löschen von Benutztem zusätzlich.
+Beide sind fertige Container-Images auf Docker Hub: [Master](https://hub.docker.com/r/petrecalinoiu/podmanmanager-master) und [Agent](https://hub.docker.com/r/petrecalinoiu/podmanmanager-agent) (Apache-2.0).
 
-**Updates per Web-UI** (Admins): Agents, die älter als der Master sind, tragen das Label „veraltet“ und lassen sich in der Host-Ansicht per Knopf aktualisieren. Den Master aktualisiert ein Agent auf demselben Host über „Über“ → „Jetzt aktualisieren“ (`UPDATE_UNIT`). Voraussetzung: Quadlet mit `Restart=always` und Image-Tag `:latest` (siehe [Quadlets](deployment/quadlet/README.md)).
+## Bilder
 
-Knöpfe und Navigation tragen Duotone-Icons (Phosphor, MIT, im Image eingebettet, keine externen Anfragen); auf dem Handy erscheinen die Knöpfe nur mit Text. Das Dashboard zeigt je Kartenart (Hosts, Container, Pods) eine statische Illustration.
-
-Die Oberfläche ist in Englisch, Deutsch, Rumänisch und Spanisch verfügbar (Flaggen-Auswahl oben rechts; Standard aus `Accept-Language`, danach per Cookie gemerkt). Die automatische Browser-Übersetzung ist per `translate="no"` und `<meta name="google" content="notranslate">` unterbunden.
-
-Die *Einstellungen* sind in Registerkarten gegliedert (**Allgemein**, **Zugriff**, **SAML**, **LDAP**, **Logs**; direkt aufrufbar mit `/settings?tab=…`). Der Name in der Navigationsleiste lässt sich unter *Allgemein* durch einen eigenen Text oder ein Logo ersetzen (zu große Logos werden skaliert; Standard: „PodmanManager“).
-
-Die Navigationsleiste hat **Help** (öffnet dieses Repository) und **About** (Version, Ersteller, Copyright und Hinweis, ob auf Docker Hub eine neuere Version vorliegt; abschaltbar mit `UPDATE_CHECK=off`).
-
-Optional: Anmeldung per LDAP/Active Directory und/oder **SSO per SAML 2.0** (ADFS, Microsoft Entra ID, Okta, Keycloak oder ein anderer SAML-Anbieter) (siehe [SSO mit SAML 2.0](docs/sso.md)). Agents lassen sich in **Gruppen** zusammenfassen und AD-Gruppen zuordnen: Mitglieder sehen und bedienen nur die Agents ihrer Gruppen (bestimmte Container, z. B. `podmanmanager*`, lassen sich für sie per Namensmuster **verstecken**); eine optionale Administratoren-Gruppe hat Zugriff auf alle (Settings; siehe [Master-Installation](docs/installation-master.md)). Das lokale Konto `admin` bleibt als Notzugang.
-
-Kein Docker, kein Compose, kein HTTPS/TLS, kein Root. **Nur in einem abgeschotteten Netz betreiben** (siehe [Sicherheit](docs/security.md)).
-
-## Screenshots
-
-**Desktop**
-
-| Dashboard | Hosts mit Agent-Logs |
+| Dashboard | Hosts (Server) |
 |---|---|
 | ![Dashboard](docs/screenshots/desktop-dashboard.png) | ![Hosts](docs/screenshots/desktop-hosts.png) |
-| **Container** (mit Pod-Spalte) | **Stop mit Bestätigung** |
-| ![Containers](docs/screenshots/desktop-containers.png) | ![Stop-Bestätigung](docs/screenshots/desktop-stop-confirmation.png) |
-| **Container-Details mit Logs** | **Host nicht erreichbar** (wird separat ausgewiesen) |
-| ![Details](docs/screenshots/desktop-container-detail.png) | ![Dashboard mit Offline-Host](docs/screenshots/desktop-dashboard-host-offline.png) |
-| **Pods** | **Pod-Details mit gemischten Logs** |
-| ![Pods](docs/screenshots/desktop-pods.png) | ![Pod-Details](docs/screenshots/desktop-pod-detail.png) |
-| **Images** (Löschen nur für Admins) | |
-| ![Images](docs/screenshots/desktop-images.png) | |
+| **Container** | **Details mit Auslastung und Logs** |
+| ![Container](docs/screenshots/desktop-containers.png) | ![Details](docs/screenshots/desktop-container-detail.png) |
 
-**Smartphone** (Hamburger-Menü und Kartenansicht statt Tabellen)
+Auf dem Handy:
 
 <p>
   <img src="docs/screenshots/mobile-dashboard.png" alt="Dashboard mobil" width="200">
-  <img src="docs/screenshots/mobile-hosts.png" alt="Hosts mobil" width="200">
   <img src="docs/screenshots/mobile-containers.png" alt="Container mobil" width="200">
-  <img src="docs/screenshots/mobile-pods.png" alt="Pods mobil" width="200">
-  <img src="docs/screenshots/mobile-images.png" alt="Images mobil" width="200">
+  <img src="docs/screenshots/mobile-hosts.png" alt="Hosts mobil" width="200">
 </p>
 
-Die Screenshots zeigen Testdaten (nachgebaute Podman-Sockets). Die Oberfläche gibt es in Englisch, Deutsch, Rumänisch und Spanisch (Flaggen oben rechts).
+Die Bilder zeigen Beispieldaten. Weitere Bilder finden Sie im [Benutzerhandbuch](docs/benutzerhandbuch.md).
 
-## Schnellstart
+## Schnellstart in drei Schritten
 
-Voraussetzungen: Linux, Node.js ≥ 24, auf Agent-Hosts rootless Podman + systemd.
+**Was Sie brauchen:** einen Linux-Server mit Podman (Version 4.4 oder neuer, rootless), auf dem der Master laufen soll, und einen oder mehrere Server, die Sie verwalten wollen (dort ebenfalls Podman). Alle Befehle führen Sie als **normaler Benutzer** aus, nicht als root.
 
-```bash
-# 1. Master (siehe docs/installation-master.md)
-npm ci && npm run build -w apps/master
-MASTER_SECRET_KEY=$(openssl rand -base64 32) deployment/master/start.sh
-
-# 2. http://<master>:8080 öffnen → Admin-Passwort setzen → Hosts → „Neuen Agent einrichten“
-#    (Adresse + Agent-ID). Der Master erzeugt Token und Hash und zeigt die Quadlet-Datei bzw. den Hash.
-
-# 3. Agent auf jedem Podman-Host als Container starten (Quadlet oder podman run):
-#    siehe Abschnitt „Docker-Images“ und docs/installation-agent.md
-```
-
-## Docker-Images
-
-Fertige Images (Apache-2.0) liegen öffentlich auf Docker Hub: [`petrecalinoiu/podmanmanager-master`](https://hub.docker.com/r/petrecalinoiu/podmanmanager-master) und [`petrecalinoiu/podmanmanager-agent`](https://hub.docker.com/r/petrecalinoiu/podmanmanager-agent). Tags: `latest`, die Version (z. B. `0.12.1`) und `sha-<commit>`; sie werden bei jedem Git-Tag `v*` automatisch gebaut. Für Updates per Web-UI `latest` verwenden.
-
-**Master**
+**Schritt 1: Master starten**
 
 ```bash
-docker run -d --name podmanmanager-master -p 8080:8080 \
-  -v pm-data:/data \
-  -e MASTER_SECRET_KEY="<32 Byte, base64: openssl rand -base64 32>" \
-  petrecalinoiu/podmanmanager-master:latest
+# Schlüssel für die gespeicherten Zugangsdaten, einmal anlegen und nie ändern (sichern!)
+openssl rand -base64 32 | tr -d '\n' | podman secret create podmanmanager-key -
+
+podman run -d --name podmanmanager-master --restart=always \
+  -p 8080:8080 -v pm-data:/data \
+  --secret podmanmanager-key,type=env,target=MASTER_SECRET_KEY \
+  docker.io/petrecalinoiu/podmanmanager-master:latest
 ```
 
-`MASTER_SECRET_KEY` einmal festlegen und bei jedem Start wieder verwenden – mit einem neuen Schlüssel sind die gespeicherten Agent-Tokens unlesbar. Die Datenbank liegt im Volume `/data`.
+**Schritt 2: Im Browser einrichten**
 
-**Agent** (als Rootless-Container; er braucht den gemounteten Rootless-Socket und muss mit der UID des Podman-Benutzers laufen, er verweigert Root). Token und Hash erzeugt der **Master** unter *Hosts* → *Neuen Agent einrichten*; auf dem Host wird nichts erzeugt.
+1. `http://<server>:8080` öffnen und ein **Administrator-Passwort** festlegen.
+2. Unter **Hosts** auf **Neuen Agent einrichten** gehen, die Adresse des Servers (`http://<server-ip>:9126`) und einen Namen (Agent-ID) eintragen.
+3. Der Master zeigt nun die Befehle für diesen Server an (Reiter **podman run** oder **Quadlet**).
 
-```bash
-podman run -d --name podmanmanager-agent --restart=always --user $(id -u) --userns=keep-id -p 9126:9126 \
-  -v $XDG_RUNTIME_DIR/podman/podman.sock:/run/podman/podman.sock \
-  -e AGENT_ID=host-1 -e AGENT_TOKEN_HASH=<Hash aus dem Master> \
-  docker.io/petrecalinoiu/podmanmanager-agent:latest
-```
+**Schritt 3: Agent auf dem Server starten**
 
-Für den Dauerbetrieb zeigt der Master dieselben Angaben als fertige Quadlet-Datei. Port 9126 nur für die Master-IP freigeben (siehe [Sicherheit](docs/security.md)).
+Den Befehl aus dem Reiter **podman run** auf dem zu verwaltenden Server ausführen. Danach erscheint der Server im Master als **online**. Für den Dauerbetrieb nutzen Sie stattdessen die Quadlet-Datei aus dem Master.
+
+**Wichtig:**
+
+- PodmanManager nutzt **kein HTTPS**. Betreiben Sie es nur in einem abgeschotteten Netz, und öffnen Sie den Agent-Port `9126` nur für die Adresse des Masters (siehe [Sicherheit](docs/security.md)).
+- Die ausführliche Anleitung mit allen Möglichkeiten steht in [Deployment](deployment/README.md) und [Agent-Installation](docs/installation-agent.md). Den Master ohne Container zu betreiben, beschreibt die [Master-Installation](docs/installation-master.md).
+
+## Weitere Funktionen
+
+Alles Folgende ist optional (die meisten Einstellungen finden Sie im Master unter **Einstellungen**):
+
+- **Anmeldung** mit dem Firmenkonto per LDAP/Active Directory oder **SSO** (SAML 2.0, zum Beispiel ADFS, Entra ID, Okta, Keycloak) – siehe [SSO](docs/sso.md).
+- **Gruppen:** Benutzer sehen nur die Server ihrer Gruppe; bestimmte Container lassen sich für sie ausblenden.
+- **Zweiter Faktor (TOTP) und Passkeys** für das lokale Konto.
+- **Aktualisieren per Knopfdruck:** Der Master meldet veraltete Agents und aktualisiert sie auf Wunsch, auch alle auf einmal.
+- **Protokoll** der Aktionen (Audit-Log), **Sicherung** und Wiederherstellung der Master-Datenbank, eigenes Logo und eigener Name in der Navigationsleiste.
 
 ## Dokumentation
 
 | | |
 |---|---|
-| [Benutzerhandbuch](docs/benutzerhandbuch.md) | Für Benutzer ohne Admin-Rechte, ohne Fachbegriffe, mit Bildern |
-| [Architektur](docs/architecture.md) | Komponenten, Datenfluss, Entscheidungen |
-| [Master-Installation](docs/installation-master.md) | Build, Konfiguration, systemd, Datenbank |
-| [SSO mit SAML 2.0](docs/sso.md) | Anmeldung per SAML 2.0 mit ADFS, Entra ID, Okta, Keycloak oder eigenem Anbieter: Einrichtung, Claims, Fehlersuche |
-| [Agent-Installation](docs/installation-agent.md) | Agent als Container (Quadlet oder `podman run`), Hash vom Master, Podman-Socket, Lingering |
-| [Deployment (Schritt für Schritt)](deployment/README.md) | `podman run` und Quadlet für Master und Agent; der Agent-Hash kommt vom Master |
-| [Quadlets](deployment/quadlet/README.md) | Rootless-Quadlets für Master und Agent (gemeinsames Netzwerk, Updates per Web-UI) |
-| [API](docs/api.md) | Agent-REST-API, Fehlercodes |
-| [Sicherheit](docs/security.md) | Bedrohungsmodell, Tokens, Firewall |
-| [Troubleshooting](docs/troubleshooting.md) | Häufige Fehler |
+| [Benutzerhandbuch](docs/benutzerhandbuch.md) | Für Benutzer ohne Administrator-Rechte, mit Bildern |
+| [Master-Installation](docs/installation-master.md) | Master einrichten und konfigurieren |
+| [Agent-Installation](docs/installation-agent.md) | Agent auf einem Server einrichten |
+| [Deployment (Schritt für Schritt)](deployment/README.md) | `podman run` und Quadlet für Master und Agent |
+| [Quadlets](deployment/quadlet/README.md) | Dauerbetrieb mit systemd, gemeinsames Netzwerk, Updates |
+| [Sicherheit](docs/security.md) | Was zu beachten ist, Firewall, Tokens |
+| [Fehlersuche](docs/troubleshooting.md) | Häufige Fehler und ihre Lösung |
+| [SSO mit SAML 2.0](docs/sso.md) | Anmeldung über das Firmenkonto |
+| [Architektur](docs/architecture.md) | Aufbau und Entscheidungen (für Entwickler) |
+| [API](docs/api.md) | Schnittstelle des Agents (für Entwickler) |
 
 ## Entwicklung & Tests
 
