@@ -18,6 +18,21 @@ const toB64u = (b: ArrayBuffer | null): string => {
 /** Browser and address allow passkeys (https or localhost). */
 export const passkeysSupported = (): boolean => typeof window !== "undefined" && window.isSecureContext && typeof window.PublicKeyCredential !== "undefined";
 
+/**
+ * Tells the browser that the master no longer knows this passkey (WebAuthn Signal API, Chrome/Edge 132+). The browser or password
+ * manager may then remove it; it is a hint, nothing guarantees it. Returns false where the API does not exist or fails.
+ */
+export async function signalPasskeyRemoved(credentialId: string): Promise<boolean> {
+  const pkc = (typeof window !== "undefined" ? window.PublicKeyCredential : undefined) as unknown as { signalUnknownCredential?: (o: { rpId: string; credentialId: string }) => Promise<void> } | undefined;
+  if (!pkc?.signalUnknownCredential) return false;
+  try {
+    await pkc.signalUnknownCredential({ rpId: location.hostname, credentialId });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function createPasskey(o: PasskeyCreateOptions): Promise<{ id: string; clientDataJSON: string; attestationObject: string }> {
   const cred = (await navigator.credentials.create({
     publicKey: {

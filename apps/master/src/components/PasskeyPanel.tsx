@@ -4,9 +4,9 @@ import { useEffect, useState, useTransition } from "react";
 import { passkeyDeleteAction, passkeyRegisterOptionsAction, passkeyRegisterVerifyAction } from "@/app/actions";
 import { useT } from "./I18nProvider";
 import Icon from "./Icon";
-import { createPasskey, passkeysSupported } from "./passkey-client";
+import { createPasskey, passkeysSupported, signalPasskeyRemoved } from "./passkey-client";
 
-export interface PasskeyItem { id: number; name: string; createdAt: string; lastUsed: string | null }
+export interface PasskeyItem { id: number; name: string; credentialId: string; createdAt: string; lastUsed: string | null }
 
 /** Passkeys of the signed-in local account: add and remove. */
 export default function PasskeyPanel({ items }: { items: PasskeyItem[] }) {
@@ -30,9 +30,12 @@ export default function PasskeyPanel({ items }: { items: PasskeyItem[] }) {
       setMsg({ ok: false, text: t("pk.failed", { msg: e instanceof Error ? e.message : "error" }) });
     }
   });
-  const remove = (id: number) => start(async () => {
-    const r = await passkeyDeleteAction(id);
-    setMsg({ ok: r.ok, text: r.message });
+  const remove = (p: PasskeyItem) => start(async () => {
+    const r = await passkeyDeleteAction(p.id);
+    if (!r.ok) return setMsg({ ok: false, text: r.message });
+    // the browser/password manager is told that the passkey is gone; whether it removes it depends on the browser
+    const signalled = await signalPasskeyRemoved(p.credentialId);
+    setMsg({ ok: true, text: `${r.message}. ${t(signalled ? "pk.removedSignalled" : "pk.removedHint")}` });
   });
   const day = (iso: string | null) => (iso ? iso.slice(0, 10) : t("pk.never"));
 
@@ -45,7 +48,7 @@ export default function PasskeyPanel({ items }: { items: PasskeyItem[] }) {
             <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2">
               <span className="font-medium">{p.name}</span>
               <span className="text-xs text-slate-500">{t("pk.created")} {day(p.createdAt)} · {t("pk.lastUsed")} {day(p.lastUsed)}</span>
-              <button type="button" className="btn btn-danger ml-auto !px-3 !py-1 text-xs" disabled={pending} onClick={() => remove(p.id)}><Icon name="trash" />{t("pk.delete")}</button>
+              <button type="button" className="btn btn-danger ml-auto !px-3 !py-1 text-xs" disabled={pending} onClick={() => remove(p)}><Icon name="trash" />{t("pk.delete")}</button>
             </li>
           ))}
         </ul>

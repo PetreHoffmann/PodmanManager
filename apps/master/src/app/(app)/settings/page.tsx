@@ -76,7 +76,7 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
   const passkeyCard = canPw ? (
     <section className="card">
       <h2 className="mb-2 font-medium">{t("pk.title")}</h2>
-      <PasskeyPanel items={listPasskeys(session.username).map((p) => ({ id: p.id, name: p.name, createdAt: p.createdAt, lastUsed: p.lastUsed }))} />
+      <PasskeyPanel items={listPasskeys(session.username).map((p) => ({ id: p.id, name: p.name, credentialId: p.credentialId, createdAt: p.createdAt, lastUsed: p.lastUsed }))} />
     </section>
   ) : null;
   const pwCard = (
