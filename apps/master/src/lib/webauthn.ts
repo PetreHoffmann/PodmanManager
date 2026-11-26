@@ -82,10 +82,14 @@ export function coseToJwk(k: Map<Cbor, Cbor>): { alg: number; jwk: JsonWebKey } 
 
 export interface Expect { rpId: string; origin: string; challenge: string }
 
+// eslint-disable-next-line no-control-regex
+const shown = (v: string) => v.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 120);
+
 function checkCommon(cd: ClientData, ad: AuthData, want: Expect, type: string): void {
   if (cd.type !== type) fail("wrong ceremony type");
   if (cd.challenge !== want.challenge) fail("challenge does not match");
-  if (cd.origin !== want.origin) fail("origin does not match");
+  // both origins are not secret; naming them shows at once whether the proxy passes the wrong scheme, host or port
+  if (cd.origin !== want.origin) fail(`origin does not match (browser: ${shown(cd.origin)}, master expects: ${shown(want.origin)}; the reverse proxy must pass Host and X-Forwarded-Proto: https)`);
   if (!ad.rpIdHash.equals(sha256(want.rpId))) fail("relying party id does not match");
   if (!(ad.flags & FLAG_UP)) fail("user presence missing");
   if (!(ad.flags & FLAG_UV)) fail("user verification missing");

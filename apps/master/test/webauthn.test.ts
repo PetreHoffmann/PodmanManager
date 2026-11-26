@@ -77,6 +77,7 @@ describe("registration", () => {
     const bad = (o: Parameters<typeof register>[2], expect: RegExp, w = want("c")) => assert.throws(() => verifyRegistration(register(a, "c", o).input, w), expect);
     bad({}, /challenge/, want("other"));
     bad({ origin: "https://evil.example" }, /origin/);
+    bad({ origin: "http://master.example.com" }, /browser: http:\/\/master\.example\.com, master expects: https:\/\/master\.example\.com/);
     bad({ rpId: "evil.example" }, /relying party/);
     bad({ type: "webauthn.get" }, /ceremony/);
     bad({ flags: FLAG_UP | FLAG_AT }, /user verification/);
