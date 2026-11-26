@@ -10,6 +10,7 @@ Die Anwendungen laufen als **Container** (kleine, abgeschottete Programmpakete).
 
 - **Überblick:** Welche Server und Anwendungen gibt es, und läuft alles?
 - **Steuern:** Anwendungen starten, stoppen und neu starten (mit Rückfrage).
+- **Anlegen:** Administratoren legen Container und Pods an und bekommen den passenden `podman run`-Befehl, die Quadlet-Datei und das Kubernetes-YAML zum Kopieren; dieselben Texte gibt es für vorhandene Container.
 - **Nachlesen:** Meldungen (Logs) einer Anwendung lesen und sehen, wie stark sie Prozessor, Arbeitsspeicher, Netzwerk und Festplatte nutzt.
 - **Aufräumen:** Programmpakete (Images), Netzwerke und Datenspeicher (Volumes) auf den Servern ansehen; Administratoren können Unbenutztes löschen.
 - **Für alle Geräte:** Die Oberfläche gibt es auf Deutsch, Englisch, Rumänisch und Spanisch und passt sich dem Handy an.
@@ -34,6 +35,8 @@ Beide sind fertige Container-Images auf Docker Hub: [Master](https://hub.docker.
 | ![Dashboard](docs/screenshots/desktop-dashboard.png) | ![Hosts](docs/screenshots/desktop-hosts.png) |
 | **Container** | **Details mit Auslastung und Logs** |
 | ![Container](docs/screenshots/desktop-containers.png) | ![Details](docs/screenshots/desktop-container-detail.png) |
+| **Container erstellen (mit Vorschau)** | **Konfiguration als Quadlet** |
+| ![Container erstellen](docs/screenshots/desktop-create-container.png) | ![Quadlet](docs/screenshots/desktop-config-quadlet.png) |
 
 Auf dem Handy:
 

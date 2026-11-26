@@ -7,14 +7,16 @@ Antwortformat:
 { "ok": true,  "data": { } }
 { "ok": false, "error": { "code": "CONTAINER_NOT_FOUND", "message": "Container not found" } }
 ```
-Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID`. Request-Bodys werden ignoriert (max. 1 KB).
+Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID`. Request-Bodys werden ignoriert (max. 1 KB), außer bei den Anlege-Routen (`POST /containers`, `POST /pods`, `POST /images/pull`: JSON, max. 64 KiB).
 
 ## Endpunkte
 | Methode | Pfad | Beschreibung |
 |---|---|---|
 | GET | `/health` | Agent-/Podman-Status |
 | GET | `/containers` | alle Container (laufend und gestoppt) |
+| POST | `/containers` | Container anlegen und starten (JSON, siehe unten) |
 | GET | `/containers/:id` | Details |
+| GET | `/containers/:id/config` | Einstellungen des Containers in der Form des Erstellen-Formulars (siehe unten) |
 | POST | `/containers/:id/start` | starten |
 | POST | `/containers/:id/stop` | stoppen (Timeout fest 10 s) |
 | POST | `/containers/:id/restart` | neustarten (Timeout fest 10 s) |
@@ -23,6 +25,8 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 | DELETE | `/images/:id[?tag=<repo:tag>]` | Image löschen; mit `tag` nur dieses Tag entfernen, wenn das Image weitere Tags hat. 409 `IMAGE_IN_USE` (Container nutzen es), 409 `IMAGE_PROTECTED` (Image des Agents bzw. der `UPDATE_UNIT`), 404 `IMAGE_NOT_FOUND`; nie mit Force |
 | POST | `/images/prune` | ungenutzte Images ohne Tag entfernen: `{removed, reclaimed}` |
 | GET | `/pods` | alle Pods mit ihren Containern |
+| POST | `/pods` | leeren Pod anlegen (JSON, siehe unten) |
+| POST | `/images/pull` | Image laden (`{reference}`, wartet bis zu 300 s) |
 | GET | `/pods/:id` | ein Pod (ID wie bei Containern, auch Kurzform) |
 | GET | `/pods/:id/logs?tail=<n>` | letzte `n` Log-Zeilen aller Container des Pods, nach Zeit gemischt (1–500, Standard 150), nur lesend |
 | POST | `/pods/:id/start` | alle Container des Pods starten |

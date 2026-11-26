@@ -55,6 +55,9 @@ Der Agent nutzt ausschließlich diese festen Endpunkte (kein Pass-through). `<ba
 | Speicher (lesend) | `GET <base>/system/df` (Images, Container, Volumes mit Größen); der Agent summiert und cached 60 s |
 | Images | `GET <base>/images/json` (Liste), `DELETE <base>/images/{id oder repo:tag}?force=false` (nie mit Force), `POST <base>/images/prune?filters={"dangling":["true"]}`; Nutzung aus `GET <base>/containers/json?all=true` (`ImageID`) |
 | Selbst-Update | `GET <base>/containers/{id}/json` (eigenes Image), `POST <base>/images/pull?reference=<eigenes Image>&quiet=true`; danach beendet sich der Agent bzw. stoppt `POST <base>/containers/{id}/stop` den Master-Container (gefunden per `GET <base>/containers/json?filters={"label":["PODMAN_SYSTEMD_UNIT=<unit>.service"]}`) |
+| Container anlegen (nur auf Anforderung des Masters) | `POST <base>/containers/create` (Spezifikation aus den geprüften Feldern, `privileged:false`), danach `POST <base>/containers/{id}/start`; scheitert der Start, `DELETE <base>/containers/{id}?force=true`. Image vorher: `POST <base>/images/pull?reference=<name>&quiet=true` |
+| Pod anlegen | `POST <base>/pods/create` (Name, Hostname, `portmappings`, `netns`/`Networks`); 409 = Name vergeben |
+| Konfiguration (lesend) | `GET <base>/containers/{id}/json` und `GET <base>/images/{imageId}/json` (um Image-Vorgaben abzuziehen); Pod-Name aus `GET <base>/pods/json`, weil Podman 5 im Inspect nur die Pod-ID liefert |
 | Pod-Logs (lesend) | keine Podman-Route: Container-Logs jedes Pod-Containers (siehe oben), vom Agent nach Zeitstempel gemischt |
 | Logs (lesend) | `GET <base>/containers/{id}/logs?stdout=true&stderr=true&tail=<n>&timestamps=true` (Antwort: Rahmenformat, siehe unten) |
 
@@ -68,6 +71,11 @@ Der Agent nutzt ausschließlich diese festen Endpunkte (kein Pass-through). `<ba
 
 ## Updates per Web-UI
 Podman hat keine REST-Route für Auto-Updates; daher: Der **Agent** zieht sein eigenes Image (nur schwebende Tags wie `latest`, `X`, `X.Y`) erneut und beendet sich mit Fehlercode, systemd (`Restart=always`) erstellt den Container aus dem neuen Image. Für den **Master** (ohne Podman-Zugriff) übernimmt das ein Agent auf demselben Host: Mit `UPDATE_UNIT=<Master-Unit>` zieht er das Master-Image und stoppt dessen Container, systemd startet ihn neu. Ohne Quadlet/systemd oder mit festem Tag wird abgelehnt. Admin-Aktion im Master.
+
+## Container und Pods erstellen
+Nur Administratoren, nur über den Master. Der Master schickt eine kleine, vom Agent erneut streng geprüfte Beschreibung (`POST /api/v1/containers`, `POST /api/v1/pods`); der Agent baut die Podman-Spezifikation selbst. Privilegierter Modus, Capabilities, Host-Pfade, Host-Namespaces und Host-Netzwerk lassen sich nicht ausdrücken. Das Formular zeigt dazu `podman run`, Quadlet und Kube-YAML (reine Textgenerierung im Master); dieselben Texte erzeugt die Container-Detailseite aus dem laufenden Container (`GET /api/v1/containers/<id>/config`, nur Administratoren, Env-Werte im Klartext).
+
+**Geprüft:** gegen Fake-Podman, ein echtes Podman 4.9.3 und ein echtes Podman 5.4.2 (Image laden, Pod und Container anlegen und starten, Namenskonflikt, Rollback, Konfiguration lesen, `podman kube play` mit dem erzeugten YAML). Auf Podman 5 weichen zwei Dinge ab, die der Agent ausgleicht: der Inspect nennt nur die Pod-ID, und ein vergebener Containername wird mit HTTP 500 statt 409 gemeldet. Nicht geprüft: Quadlet-Dateien unter systemd und Memory-Limits beim Start auf Podman 5.
 
 ## Bewusst nicht enthalten
 Pods und Container löschen oder ändern, Images bauen (Images ansehen, löschen; Pull nur als Teil von „Container erstellen“; Pods lassen sich leer anlegen, das nur Administratoren nutzen können: benannte Volumes, kein privilegierter Modus), Volumes, Netzwerke, Exec/Terminal, Statistiken, Compose. (Pods gibt es nur als Liste, Detail, Start/Stop/Restart und schreibgeschützte Logs. Logs gibt es nur als schreibgeschützte Ansicht der letzten 150 Zeilen, kein Live-Stream.)
