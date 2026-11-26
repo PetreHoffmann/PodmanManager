@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { checkUpdateAction, masterUpdateAgentsAction, masterUpdateStartAction, masterUpdateStatusAction, type MasterUpdateAgents } from "@/app/actions";
 import type { UpdateInfo } from "@/lib/update-check";
 import { AUTHOR, APP_NAME, COPYRIGHT_YEAR, REPO_URL } from "@/lib/brand";
+import { masterAnswers } from "@/lib/master-up";
 import { useT } from "./I18nProvider";
 import Icon from "./Icon";
 
@@ -54,12 +55,14 @@ export default function AboutDialog({ version }: { version: string }) {
     const iv = setInterval(async () => {
       let up = false;
       try {
-        up = (await fetch("/login", { cache: "no-store", redirect: "manual" })).status !== 0;
+        up = masterAnswers(await fetch("/login", { cache: "no-store", redirect: "manual" }));
       } catch {
         up = false;
       }
       if (!up) down = true;
-      if ((up && down) || Date.now() - t0 > 180_000) {
+      const waited = Date.now() - t0;
+      // a restart can be shorter than the polling interval: when it was never seen, reload after 45 s anyway
+      if ((up && (down || waited > 45_000)) || waited > 180_000) {
         clearInterval(iv);
         location.reload();
       }
