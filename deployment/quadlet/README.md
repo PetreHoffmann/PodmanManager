@@ -33,7 +33,7 @@ Danach `http://<host>:8080` öffnen und das Admin-Passwort sofort setzen.
 systemctl --user enable --now podman.socket      # Socket des eigenen Benutzers
 
 # Token und Hash erzeugen; Hash als Secret speichern, Token im Master unter "Hosts" eintragen
-out=$(podman run --rm docker.io/petrecalinoiu/podmanmanager-agent:0.3.0 node dist/index.js --generate-token)
+out=$(podman run --rm docker.io/petrecalinoiu/podmanmanager-agent:latest node dist/index.js --generate-token)
 token=$(printf '%s\n' "$out" | awk -F': ' '/^AGENT_TOKEN \(/{print $2}')
 hash=$(printf '%s\n' "$out" | awk -F': ' '/^AGENT_TOKEN_HASH/{print $2}')
 printf '%s' "$hash" | podman secret create podmanmanager-agent-hash -
@@ -138,7 +138,7 @@ Einrichtung im Agent-Quadlet: `Environment=UPDATE_UNIT=podmanmanager-master` (Na
   - **Kontrolle:** `podman stats --no-stream <name>` zeigt in der Spalte `MEM USAGE / LIMIT`, ob das Limit greift. Bei rootless Podman braucht ein Speicherlimit cgroup v2 mit freigegebenem `memory`-Controller (Rocky/RHEL 9: standardmäßig der Fall).
 - **Aktivierung:** Quadlet-Units lassen sich nicht mit `enable` aktivieren; `[Install]` wirkt automatisch nach `daemon-reload`.
 - **Secrets** liegen standardmäßig im Dateitreiber (Base64, nur durch Dateirechte geschützt). Das hält sie aus Unit-Dateien und `podman inspect` heraus, ist aber keine Verschlüsselung.
-- **Updates:** Mit festem Tag bleibt die Version stabil (der About-Dialog des Masters meldet neue Versionen). `AutoUpdate=registry` braucht `:latest` und `systemctl --user enable --now podman-auto-update.timer`.
+- **Updates:** Mit `:latest` bekommt der Host beim nächsten Pull die neueste Version (der About-Dialog des Masters meldet neue Versionen). Wer die Version festhalten will, trägt `X.Y.Z` ein; dann sind Ein-Klick-Updates nicht möglich. `AutoUpdate=registry` braucht `:latest` und `systemctl --user enable --now podman-auto-update.timer`.
 - **Hostname:** `HostName=%H` im Agent-Quadlet sorgt dafür, dass der Master den Rechnernamen statt der Container-ID anzeigt (der Agent meldet den Hostnamen, den er im Container sieht).
 - **Agent sieht sich selbst:** Er verwaltet alle Container des Benutzers, auch den eigenen Agent-Container; ein Stopp über die Oberfläche setzt den Host offline (`Restart=always` startet ihn wieder).
 - **Agent: `NoNewPrivileges`/`DropCapability=ALL`** sind ungetestet; bei Fehlern diese Zeilen zuerst entfernen. **`SecurityLabelDisable=true`** ist nur auf SELinux-Hosts nötig.
