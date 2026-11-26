@@ -1,5 +1,6 @@
 import AgentWizard from "@/components/AgentWizard";
 import AgentUpdate from "@/components/AgentUpdate";
+import AgentUpdateAll from "@/components/AgentUpdateAll";
 import { compareSemver } from "@/lib/update-check";
 import { getVersion } from "@/lib/version";
 import { Suspense } from "react";
@@ -27,16 +28,20 @@ export default async function Hosts() {
   const masterVersion = getVersion();
   const outdated = (v: string | null | undefined) => !!v && /^\d+\.\d+\.\d+/.test(v) && compareSemver(masterVersion, v) > 0;
   const hosts = await fetchAllContainers(undefined, allowedAgentIds(session), hiddenPatternsFor(session));
+  const updatable = canManage ? hosts.filter(({ agent: a }) => a.kind !== "local" && a.enabled && a.status !== "offline" && outdated(a.agent_version)).map(({ agent: a }) => ({ id: a.id, label: a.hostname })) : [];
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">{t("hosts.title")}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">{t("hosts.title")}</h1>
+        {updatable.length > 0 && <AgentUpdateAll hosts={updatable} />}
+      </div>
       {!canManage && <p className="text-xs text-slate-400">{t("scope.note", { groups: groupNames(session).join(", ") || "—" })}</p>}
       <div className="card hidden overflow-x-auto p-0 md:block">
-        <table className="w-full min-w-[1000px]">
+        <table className="w-full">
           <thead className="border-b border-slate-800">
             <tr>
-              {(["hosts.hostname", "hosts.agentId", "hosts.address", "hosts.status", "hosts.heartbeat", "hosts.podman", "hosts.agentVersion", "hosts.containers", "hosts.storage"] as const).map((k) => (
-                <th key={k} className="th">{t(k)}</th>
+              {([["hosts.hostname", ""], ["hosts.agentId", "hidden xl:table-cell"], ["hosts.address", ""], ["hosts.status", ""], ["hosts.heartbeat", "hidden lg:table-cell"], ["hosts.podman", "hidden xl:table-cell"], ["hosts.agentVersion", ""], ["hosts.containers", ""], ["hosts.storage", ""]] as const).map(([k, c]) => (
+                <th key={k} className={`th ${c}`}>{t(k)}</th>
               ))}
               {canManage && <th className="th" />}
             </tr>
@@ -47,8 +52,11 @@ export default async function Hosts() {
             )}
             {hosts.map(({ agent: a, result }) => (
               <tr key={a.id} className="transition hover:bg-slate-900">
-                <td className="td font-medium">{a.hostname}</td>
-                <td className="td font-mono text-xs">{a.agent_id}</td>
+                <td className="td font-medium">
+                  {a.hostname}
+                  <div className="font-mono text-xs font-normal text-slate-500 xl:hidden">{a.agent_id}{a.podman_version ? ` · Podman ${a.podman_version}` : ""}</div>
+                </td>
+                <td className="td hidden font-mono text-xs xl:table-cell">{a.agent_id}</td>
                 <td className="td font-mono text-xs">{a.kind === "local" ? <span className="font-sans">{t("hosts.local")}</span> : <>{a.address}:{a.port}</>}</td>
                 <td className="td">
                   <StatusBadge status={a.enabled ? a.status : "disabled"} />
@@ -56,14 +64,14 @@ export default async function Hosts() {
                     <div className="mt-1 max-w-xs truncate text-xs text-slate-500" title={a.last_error}>{lastErrText(t, a.last_error)}</div>
                   )}
                 </td>
-                <td className="td whitespace-nowrap text-xs" title={fmt(a.last_heartbeat)}>{fmtShort(a.last_heartbeat)}</td>
-                <td className="td text-xs">{a.podman_version ?? "—"}</td>
+                <td className="td hidden whitespace-nowrap text-xs lg:table-cell" title={fmt(a.last_heartbeat)}>{fmtShort(a.last_heartbeat)}</td>
+                <td className="td hidden text-xs xl:table-cell">{a.podman_version ?? "—"}</td>
                 <td className="td font-mono text-xs">{a.agent_version ?? "—"}{outdated(a.agent_version) && <div className="mt-1 space-y-1 font-sans"><span className="rounded border border-amber-500/40 px-1.5 py-0.5 text-xs text-amber-300">{t("update.outdated")}</span>{canManage && a.enabled && a.status !== "offline" && <AgentUpdate id={a.id} />}</div>}</td>
                 <td className="td">{result.ok ? result.data.length : t("common.na")}</td>
-                <td className="td max-w-[15rem]">
+                <td className="td max-w-[11rem]">
                   {a.enabled && a.status !== "offline" ? <Suspense fallback={<span className="animate-pulse text-slate-500">…</span>}><HostStorage agentId={a.id} /></Suspense> : <span className="text-slate-500">—</span>}
                 </td>
-                {canManage && <td className="td w-px"><HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} local={a.kind === "local"} /></td>}
+                {canManage && <td className="td w-[15rem]"><HostActions id={a.id} enabled={!!a.enabled} hostname={a.hostname} local={a.kind === "local"} /></td>}
               </tr>
             ))}
           </tbody>
