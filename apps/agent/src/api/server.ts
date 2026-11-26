@@ -11,7 +11,7 @@ export type { Logger };
 
 const MAX_BODY_BYTES = 1024;
 /** The only requests with a JSON body: creating a container and pulling an image. */
-const BODY_ROUTES = new Set(["/api/v1/containers", "/api/v1/images/pull"]);
+const BODY_ROUTES = new Set(["/api/v1/containers", "/api/v1/pods", "/api/v1/images/pull"]);
 const MAX_JSON_BYTES = 64 * 1024;
 
 function send(res: ServerResponse, status: number, body: ApiResponse<unknown>, extra?: Record<string, string>): void {

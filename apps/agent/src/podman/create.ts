@@ -13,6 +13,8 @@ export interface CreateRequest {
   /** named volumes only (created by Podman if missing) */
   volumes: { name: string; path: string; readOnly: boolean }[];
   network: string | null;
+  /** name of an existing pod; the pod then provides ports and network */
+  pod: string | null;
   restart: RestartPolicy;
   memoryMb: number | null;
   command: string[];
@@ -20,7 +22,7 @@ export interface CreateRequest {
 
 export type ParsedCreate = { ok: true; req: CreateRequest } | { ok: false; message: string };
 
-const ALLOWED_FIELDS = ["name", "image", "ports", "env", "volumes", "network", "restart", "memoryMb", "command"];
+const ALLOWED_FIELDS = ["name", "image", "ports", "env", "volumes", "network", "pod", "restart", "memoryMb", "command"];
 const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
 export const IMAGE_RE = /^[A-Za-z0-9][A-Za-z0-9._\-/:@]{0,254}$/;
 const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
@@ -96,6 +98,13 @@ export function parseCreateRequest(input: unknown): ParsedCreate {
     network = input.network;
   }
 
+  let pod: string | null = null;
+  if (input.pod !== undefined && input.pod !== null && input.pod !== "") {
+    if (typeof input.pod !== "string" || !NAME_RE.test(input.pod)) return fail("Invalid pod name");
+    pod = input.pod;
+    if (ports.length > 0 || network) return fail("In a pod, ports and network are set on the pod, not on the container");
+  }
+
   const restart = input.restart ?? "no";
   if (typeof restart !== "string" || !RESTART.includes(restart)) return fail("Invalid restart policy");
 
@@ -113,7 +122,7 @@ export function parseCreateRequest(input: unknown): ParsedCreate {
     command.push(a);
   }
 
-  return { ok: true, req: { name, image, ports, env, volumes, network, restart: restart as RestartPolicy, memoryMb, command } };
+  return { ok: true, req: { name, image, ports, env, volumes, network, pod, restart: restart as RestartPolicy, memoryMb, command } };
 }
 
 /** The Podman (libpod) container specification, built only from validated fields. Hardening is fixed here. */
@@ -125,11 +134,48 @@ export function libpodSpec(req: CreateRequest): Record<string, unknown> {
     ...(req.env.length > 0 ? { env: Object.fromEntries(req.env.map((e) => [e.key, e.value])) } : {}),
     ...(req.ports.length > 0 ? { portmappings: req.ports.map((p) => ({ container_port: p.container, host_port: p.host, protocol: p.protocol })) } : {}),
     ...(req.volumes.length > 0 ? { volumes: req.volumes.map((v) => ({ Name: v.name, Dest: v.path, Options: v.readOnly ? ["ro"] : [] })) } : {}),
+    ...(req.pod ? { pod: req.pod } : {}),
     ...(req.network ? { netns: { nsmode: "bridge" }, Networks: { [req.network]: {} } } : {}),
     restart_policy: req.restart,
     ...(req.restart === "on-failure" ? { restart_tries: 5 } : {}),
     ...(req.memoryMb !== null ? { resource_limits: { memory: { limit: req.memoryMb * 1024 * 1024 } } } : {}),
     privileged: false,
     remove: false,
+  };
+}
+
+/** Creating a pod: name, published ports, a named network and a host name, nothing else (no host network, no host namespaces). */
+export interface CreatePodRequest {
+  name: string;
+  ports: { host: number; container: number; protocol: "tcp" | "udp" }[];
+  network: string | null;
+  hostname: string | null;
+}
+export type ParsedCreatePod = { ok: true; req: CreatePodRequest } | { ok: false; message: string };
+const HOSTNAME_RE = /^[A-Za-z0-9]([A-Za-z0-9-]{0,62})$/;
+
+export function parseCreatePodRequest(input: unknown): ParsedCreatePod {
+  const f = (message: string): ParsedCreatePod => ({ ok: false, message });
+  if (!isRec(input)) return f("Request body must be an object");
+  for (const k of Object.keys(input)) if (!["name", "ports", "network", "hostname"].includes(k)) return f(`Unknown field "${k.slice(0, 40)}"`);
+  const name = input.name;
+  if (typeof name !== "string" || !NAME_RE.test(name)) return f("Invalid pod name (A-Z a-z 0-9 . _ -, max 64, must start with a letter or digit)");
+  // ports and network share the container rules
+  const shared = parseCreateRequest({ name: "x", image: "x", ports: input.ports, network: input.network });
+  if (!shared.ok) return f(shared.message);
+  let hostname: string | null = null;
+  if (input.hostname !== undefined && input.hostname !== null && input.hostname !== "") {
+    if (typeof input.hostname !== "string" || !HOSTNAME_RE.test(input.hostname)) return f("Invalid host name (letters, digits and hyphens, max 63)");
+    hostname = input.hostname;
+  }
+  return { ok: true, req: { name, ports: shared.req.ports, network: shared.req.network, hostname } };
+}
+
+export function libpodPodSpec(req: CreatePodRequest): Record<string, unknown> {
+  return {
+    name: req.name,
+    ...(req.hostname ? { hostname: req.hostname } : {}),
+    ...(req.ports.length > 0 ? { portmappings: req.ports.map((p) => ({ container_port: p.container, host_port: p.host, protocol: p.protocol })) } : {}),
+    ...(req.network ? { netns: { nsmode: "bridge" }, Networks: { [req.network]: {} } } : {}),
   };
 }

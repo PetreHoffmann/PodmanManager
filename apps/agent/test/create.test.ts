@@ -18,7 +18,7 @@ const base = { name: "web", image: "docker.io/library/nginx:latest" };
 describe("create request validation", () => {
   it("accepts a minimal request and fills the defaults", () => {
     const r = ok(base);
-    assert.deepEqual(r, { name: "web", image: "docker.io/library/nginx:latest", ports: [], env: [], volumes: [], network: null, restart: "no", memoryMb: null, command: [] });
+    assert.deepEqual(r, { name: "web", image: "docker.io/library/nginx:latest", ports: [], env: [], volumes: [], network: null, pod: null, restart: "no", memoryMb: null, command: [] });
   });
   it("accepts ports, env, named volumes, network, restart, memory and command", () => {
     const r = ok({ ...base, ports: [{ host: 8080, container: 80 }, { host: 5353, container: 53, protocol: "udp" }], env: [{ key: "A_B", value: "x y" }], volumes: [{ name: "data", path: "/var/lib/data", readOnly: true }], network: "app-net", restart: "unless-stopped", memoryMb: 512, command: ["nginx", "-g", "daemon off;"] });
@@ -27,7 +27,7 @@ describe("create request validation", () => {
     assert.equal(r.restart, "unless-stopped");
   });
   it("rejects unknown fields (so that nothing like privileged can be smuggled in)", () => {
-    for (const f of ["privileged", "cap_add", "userns", "pid", "mounts", "user", "hostname"]) bad({ ...base, [f]: true }, /Unknown field/);
+    for (const f of ["privileged", "cap_add", "userns", "pid", "mounts", "user", "x_unused"]) bad({ ...base, [f]: true }, /Unknown field/);
   });
   it("rejects bad names, images and non-objects", () => {
     bad(null, /object/); bad([], /object/); bad("x", /object/);
@@ -170,5 +170,57 @@ describe("create container routes", () => {
       assert.equal(e.status, 502);
       assert.match((await e.json()).error.message, /Host not found/);
     } finally { pullError = ""; }
+  });
+});
+
+import { libpodPodSpec, parseCreatePodRequest } from "../src/podman/create.js";
+
+describe("pod requests", () => {
+  const okPod = (i: unknown) => { const r = parseCreatePodRequest(i); assert.equal(r.ok, true, JSON.stringify(r)); return (r as { ok: true; req: import("../src/podman/create.js").CreatePodRequest }).req; };
+  const badPod = (i: unknown, re: RegExp) => { const r = parseCreatePodRequest(i); assert.equal(r.ok, false); assert.match((r as { ok: false; message: string }).message, re); };
+  it("accepts name, ports, network and host name", () => {
+    const r = okPod({ name: "app", ports: [{ host: 8080, container: 80 }], network: "appnet", hostname: "app1" });
+    assert.deepEqual(libpodPodSpec(r), { name: "app", hostname: "app1", portmappings: [{ container_port: 80, host_port: 8080, protocol: "tcp" }], netns: { nsmode: "bridge" }, Networks: { appnet: {} } });
+    assert.deepEqual(libpodPodSpec(okPod({ name: "app" })), { name: "app" });
+  });
+  it("rejects everything else", () => {
+    badPod({ name: "../x" }, /Invalid pod name/);
+    badPod({ name: "a", network: "host" }, /Invalid network/);
+    badPod({ name: "a", hostname: "a b" }, /Invalid host name/);
+    badPod({ name: "a", ports: [{ host: 0, container: 1 }] }, /Ports/);
+    for (const f of ["privileged", "pid", "share", "infra_image", "userns"]) badPod({ name: "a", [f]: true }, /Unknown field/);
+  });
+  it("a container can join a pod, but then sets no ports or network", () => {
+    assert.equal(ok({ ...base, pod: "app" }).pod, "app");
+    assert.equal((libpodSpec(ok({ ...base, pod: "app" })) as { pod: string }).pod, "app");
+    bad({ ...base, pod: "app", ports: [{ host: 1, container: 2 }] }, /in a pod/i);
+    bad({ ...base, pod: "app", network: "n" }, /in a pod/i);
+    bad({ ...base, pod: "a b" }, /Invalid pod name/);
+  });
+});
+
+describe("create pod route", () => {
+  it("creates a pod through podman and rejects invalid requests without calling it", async () => {
+    const seen: { url: string; body: string }[] = [];
+    const fake = await startFakePodman((req, res) => {
+      let b = ""; req.on("data", (c) => (b += c));
+      req.on("end", () => {
+        seen.push({ url: req.url ?? "", body: b });
+        if (/\/libpod\/pods\/create$/.test(req.url ?? "")) return b.includes('"dup"') ? jsonRes(res, 409, { message: "exists", cause: "x", response: 409 }) : jsonRes(res, 201, { Id: "a".repeat(64) });
+        jsonRes(res, 404, { message: "nope" });
+      });
+    });
+    const agent = await startAgent(fake.socketPath, { rateLimitMax: 1000 });
+    const post = (body: unknown) => fetch(agent.base + "/api/v1/pods", { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    try {
+      const r = await post({ name: "app", ports: [{ host: 8080, container: 80 }] });
+      assert.equal(r.status, 201);
+      assert.equal(((await r.json()) as { data: { id: string; name: string } }).data.name, "app");
+      assert.equal((await post({ name: "dup" })).status, 409);
+      const n = seen.length;
+      assert.equal((await post({ name: "x", network: "host" })).status, 400);
+      assert.equal((await post({ name: "x", privileged: true })).status, 400);
+      assert.equal(seen.length, n);
+    } finally { await agent.close(); await fake.close(); }
   });
 });

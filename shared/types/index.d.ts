@@ -196,6 +196,12 @@ export interface StatsReport {
   containers: ContainerStatsRaw[];
 }
 
+/** Result of creating a pod. */
+export interface CreatePodResult {
+  id: string;
+  name: string;
+}
+
 /** Result of creating (and starting) a container. */
 export interface CreateContainerResult {
   id: string;

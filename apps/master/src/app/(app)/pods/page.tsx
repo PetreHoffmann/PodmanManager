@@ -54,7 +54,10 @@ export default async function Pods({ searchParams }: { searchParams: SP }) {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">{t("pods.title")}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">{t("pods.title")}</h1>
+        {session.access === "all" && <Link href="/pods/new" className="btn btn-primary !px-3 !py-1.5 text-sm" data-testid="create-pod-btn"><Icon name="plus-circle" />{t("crp.btn")}</Link>}
+      </div>
       {session.access === "groups" && <p className="text-xs text-slate-400">{t("scope.note", { groups: groupNames(session).join(", ") || "—" })}</p>}
       <form className="flex flex-wrap gap-2" method="get">
         {sort && <input type="hidden" name="sort" value={sort.key} />}

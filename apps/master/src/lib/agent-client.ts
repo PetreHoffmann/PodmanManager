@@ -1,4 +1,4 @@
-import type { CreateContainerResult, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, NetworkInfo, RemoveResult, VolumeInfo, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
+import type { CreateContainerResult, CreatePodResult, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, NetworkInfo, RemoveResult, VolumeInfo, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { localCall } from "./local-host";
 import { CONTAINER_ID_RE } from "./validate";
@@ -120,4 +120,6 @@ export const agentSelfInfo = (t: AgentTarget) => call<UpdateInfo>(t, "GET", "/ap
 /** Loads an image on the host (the host's Podman reaches the registry); can take minutes. */
 export const agentImagePull = (t: AgentTarget, reference: string) => call<{ id: string }>(t, "POST", "/api/v1/images/pull", 330, { reference });
 /** Creates and starts a container; `request` is validated by the agent again (see apps/agent/src/podman/create.ts). */
+/** Creates an empty pod; `request` is validated by the agent again (see apps/agent/src/podman/create.ts). */
+export const agentCreatePod = (t: AgentTarget, request: unknown) => call<CreatePodResult>(t, "POST", "/api/v1/pods", 60, request);
 export const agentCreateContainer = (t: AgentTarget, request: unknown) => call<CreateContainerResult>(t, "POST", "/api/v1/containers", 90, request);

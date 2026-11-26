@@ -29,6 +29,8 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
   const [restart, setRestart] = useState("no");
   const [memory, setMemory] = useState("");
   const [command, setCommand] = useState("");
+  const [pod, setPod] = useState("");
+  const [pods, setPods] = useState<string[]>([]);
   const [networks, setNetworks] = useState<string[]>([]);
   const [volumeNames, setVolumeNames] = useState<string[]>([]);
   const [result, setResult] = useState<CreateContainerOutcome | null>(null);
@@ -36,9 +38,11 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
   useEffect(() => {
     let live = true;
     setNetwork("");
+    setPod("");
+    setPods([]);
     setNetworks([]);
     setVolumeNames([]);
-    if (agentId) createFormHostDataAction(agentId).then((r) => { if (live && r.ok) { setNetworks(r.networks); setVolumeNames(r.volumes); } }).catch(() => undefined);
+    if (agentId) createFormHostDataAction(agentId).then((r) => { if (live && r.ok) { setNetworks(r.networks); setPods(r.pods); setVolumeNames(r.volumes); } }).catch(() => undefined);
     return () => { live = false; };
   }, [agentId]);
 
@@ -51,10 +55,11 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
     return {
       name: name.trim(),
       image: image.trim(),
-      ports: ports.filter((p) => p.host.trim() !== "" || p.container.trim() !== "").map((p) => ({ host: Number(p.host), container: Number(p.container), protocol: p.protocol })),
+      pod: pod || null,
+      ports: pod ? [] : ports.filter((p) => p.host.trim() !== "" || p.container.trim() !== "").map((p) => ({ host: Number(p.host), container: Number(p.container), protocol: p.protocol })),
       env: env.filter((r) => r.key.trim() !== "").map((r) => ({ key: r.key.trim(), value: r.value })),
       volumes: vols.filter((v) => v.name.trim() !== "" || v.path.trim() !== "").map((v) => ({ name: v.name.trim(), path: v.path.trim(), readOnly: v.readOnly })),
-      network: network || null,
+      network: pod ? null : network || null,
       restart: restart as "no" | "always" | "unless-stopped" | "on-failure",
       memoryMb: memory.trim() === "" ? null : Number(memory),
       command: args,
@@ -69,7 +74,7 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
     if (b.memoryMb !== null && !Number.isInteger(b.memoryMb)) return null;
     return { run: podmanRunCommand(b), quadlet: quadletFile(b), file: `${b.name}.container` };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, image, ports, env, vols, network, restart, memory, command]);
+  }, [name, image, pod, ports, env, vols, network, restart, memory, command]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +111,15 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
         <input value={image} onChange={(e) => setImage(e.target.value)} required placeholder="docker.io/library/nginx:latest" className="input mt-1 font-mono text-xs" name="image" />
       </label>
 
-      <fieldset className="space-y-2">
+      <label className="block text-sm">{t("cr.pod")}
+        <select value={pod} onChange={(e) => setPod(e.target.value)} className="input mt-1 max-w-sm" name="pod">
+          <option value="">{t("cr.podNone")}</option>
+          {pods.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </label>
+      {pod && <p className="-mt-3 text-xs text-slate-500">{t("cr.podNote")}</p>}
+
+      {!pod && <fieldset className="space-y-2">
         <legend className="text-sm">{t("cr.ports")}</legend>
         {ports.map((p, i) => (
           <div key={i} className="flex flex-wrap items-center gap-2">
@@ -118,7 +131,7 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
           </div>
         ))}
         <button type="button" className={small} onClick={() => setPorts((r) => [...r, blank.port()])}><Icon name="plus-circle" />{t("cr.add")}</button>
-      </fieldset>
+      </fieldset>}
 
       <fieldset className="space-y-2">
         <legend className="text-sm">{t("cr.env")}</legend>
@@ -149,12 +162,12 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
       </fieldset>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <label className={label}>{t("cr.network")}
+        {!pod && <label className={label}>{t("cr.network")}
           <select value={network} onChange={(e) => setNetwork(e.target.value)} className="input mt-1" name="network">
             <option value="">{t("cr.netDefault")}</option>
             {networks.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
-        </label>
+        </label>}
         <label className={label}>{t("cr.restart")}
           <select value={restart} onChange={(e) => setRestart(e.target.value)} className="input mt-1" name="restart">
             <option value="no">{t("cr.rNo")}</option>

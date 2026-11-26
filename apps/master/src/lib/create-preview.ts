@@ -1,4 +1,4 @@
-import type { CreateRequest } from "@agent/podman/create";
+import type { CreatePodRequest, CreateRequest } from "@agent/podman/create";
 
 /** Text previews of a container request: the equivalent `podman run` command and a Quadlet `.container` file. Pure text, nothing is executed. */
 
@@ -17,6 +17,7 @@ const volStr = (v: CreateRequest["volumes"][number]) => `${v.name}:${v.path}${v.
 
 export function podmanRunCommand(r: CreateRequest): string {
   const lines = [`podman run -d --name ${shq(r.name)}`];
+  if (r.pod) lines.push(`--pod ${shq(r.pod)}`);
   for (const p of r.ports) lines.push(`-p ${portStr(p)}`);
   for (const e of r.env) lines.push(`-e ${shq(`${e.key}=${e.value}`)}`);
   for (const v of r.volumes) lines.push(`-v ${shq(volStr(v))}`);
@@ -30,6 +31,7 @@ export function podmanRunCommand(r: CreateRequest): string {
 
 export function quadletFile(r: CreateRequest): string {
   const c = ["[Container]", `ContainerName=${r.name}`, `Image=${r.image}`];
+  if (r.pod) c.push(`Pod=${r.pod}.pod`);
   for (const p of r.ports) c.push(`PublishPort=${portStr(p)}`);
   for (const e of r.env) c.push(`Environment=${sdq(`${e.key}=${e.value}`)}`);
   for (const v of r.volumes) c.push(`Volume=${volStr(v)}`);
@@ -42,4 +44,21 @@ export function quadletFile(r: CreateRequest): string {
   if (restart !== "no") out.push("[Service]", `Restart=${restart}`, "");
   out.push("[Install]", "WantedBy=default.target", "");
   return out.join("\n");
+}
+
+export function podCreateCommand(r: CreatePodRequest): string {
+  const lines = [`podman pod create --name ${shq(r.name)}`];
+  if (r.hostname) lines.push(`--hostname ${shq(r.hostname)}`);
+  for (const p of r.ports) lines.push(`-p ${portStr(p)}`);
+  if (r.network) lines.push(`--network ${shq(r.network)}`);
+  return lines.join(" \\\n  ");
+}
+
+/** Quadlet `.pod` file; containers join it with `Pod=<name>.pod` in their `.container` file. */
+export function podQuadletFile(r: CreatePodRequest): string {
+  const l = ["[Pod]", `PodName=${r.name}`];
+  if (r.hostname) l.push(`HostName=${r.hostname}`);
+  for (const p of r.ports) l.push(`PublishPort=${portStr(p)}`);
+  if (r.network) l.push(`Network=${r.network}`);
+  return [...l, "", "[Install]", "WantedBy=default.target", ""].join("\n");
 }
