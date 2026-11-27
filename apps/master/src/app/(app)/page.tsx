@@ -42,7 +42,7 @@ export default async function Dashboard() {
       <div className="flex items-center gap-4">
         <HostsArt className="hidden w-32 shrink-0 sm:block lg:w-40" />
         <section className="grid flex-1 grid-cols-2 gap-3 md:grid-cols-4">
-          <Stat label={t("dash.hosts")} value={total} />
+          <Link href="/hosts" className="block transition hover:opacity-90" data-testid="dash-hosts"><Stat label={t("dash.hosts")} value={total} /></Link>
           <Stat label={t("dash.reachable")} value={reachable} tone="ok" />
           <Stat label={t("dash.unreachable")} value={unreachable} tone={unreachable ? "bad" : undefined} />
           <Stat label={t("dash.other")} value={other} tone={other ? "warn" : undefined} />
@@ -51,18 +51,18 @@ export default async function Dashboard() {
       <div className="flex items-center gap-4">
         <ContainersArt className="hidden w-32 shrink-0 sm:block lg:w-40" />
         <section className="grid flex-1 grid-cols-3 gap-3">
-          <Stat label={t("dash.containers")} value={all.length} />
-          <Stat label={t("dash.running")} value={running} tone="ok" />
-          <Stat label={t("dash.stopped")} value={all.length - running} />
+          <Link href="/containers" className="block transition hover:opacity-90" data-testid="dash-containers"><Stat label={t("dash.containers")} value={all.length} /></Link>
+          <Link href="/containers?status=running" className="block transition hover:opacity-90" data-testid="dash-containers-running"><Stat label={t("dash.running")} value={running} tone="ok" /></Link>
+          <Link href="/containers?status=stopped" className="block transition hover:opacity-90" data-testid="dash-containers-stopped"><Stat label={t("dash.stopped")} value={all.length - running} /></Link>
         </section>
       </div>
       <div className="flex items-center gap-4">
         <PodsArt className="hidden w-32 shrink-0 sm:block lg:w-40" />
         <section className="grid flex-1 grid-cols-2 gap-3 md:grid-cols-4">
-          <Stat label={t("dash.pods")} value={pods.length} />
-          <Stat label={t("dash.podsRunning")} value={podRunning} tone="ok" />
-          <Stat label={t("dash.podsDegraded")} value={podDegraded} tone={podDegraded ? "warn" : undefined} />
-          <Stat label={t("dash.podsStopped")} value={pods.length - podRunning - podDegraded} />
+          <Link href="/pods" className="block transition hover:opacity-90" data-testid="dash-pods"><Stat label={t("dash.pods")} value={pods.length} /></Link>
+          <Link href="/pods?status=running" className="block transition hover:opacity-90" data-testid="dash-pods-running"><Stat label={t("dash.podsRunning")} value={podRunning} tone="ok" /></Link>
+          <Link href="/pods?status=degraded" className="block transition hover:opacity-90" data-testid="dash-pods-degraded"><Stat label={t("dash.podsDegraded")} value={podDegraded} tone={podDegraded ? "warn" : undefined} /></Link>
+          <Link href="/pods?status=stopped" className="block transition hover:opacity-90" data-testid="dash-pods-stopped"><Stat label={t("dash.podsStopped")} value={pods.length - podRunning - podDegraded} /></Link>
         </section>
       </div>
       <div className="flex items-center gap-4">
