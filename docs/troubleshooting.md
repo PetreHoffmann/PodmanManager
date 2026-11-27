@@ -68,6 +68,15 @@
 | „Der Container muss zuerst gestoppt werden“ | Es gibt kein Löschen mit `force`. Erst stoppen, dann löschen. |
 | Der Infra-Container eines Pods lässt sich nicht löschen | Er gehört zum Pod. Pods lassen sich in PodmanManager nicht löschen (auf dem Host `podman pod rm`). |
 
+## Pod löschen
+
+| Symptom | Ursache und Lösung |
+|---|---|
+| Der Knopf „Löschen“ fehlt beim Pod | Er erscheint nur für Administratoren, bei gestoppten Pods (keiner der Container läuft), ohne systemd-Label am Pod und an seinen Containern und bei Agents ab dieser Version. |
+| „Der Pod wird von systemd/Quadlet verwaltet“ | Der Pod oder einer seiner Container trägt das Label `PODMAN_SYSTEMD_UNIT`. Entfernen Sie die zugehörigen Quadlet-Dateien (`.pod` und `.container`), danach `systemctl --user daemon-reload`. |
+| „Der Pod muss zuerst gestoppt werden“ | Es gibt kein Löschen mit `force`. Den Pod zuerst stoppen. |
+| Container sind nach dem Löschen des Pods weg | Gewollt: `podman pod rm` entfernt den Pod mit allen Containern. Die Rückfrage nennt sie vorher. Volumes bleiben erhalten. |
+
 ## Befehle in Containern ausführen
 
 | Symptom | Ursache und Lösung |

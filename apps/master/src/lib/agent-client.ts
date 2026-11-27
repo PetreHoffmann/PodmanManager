@@ -1,5 +1,5 @@
 import type { ContainerConfig } from "@agent/podman/config";
-import type { CreateContainerResult, CreatePodResult, DeleteContainerResult, ExecResult, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, NetworkInfo, RemoveResult, VolumeInfo, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
+import type { CreateContainerResult, CreatePodResult, DeleteContainerResult, DeletePodResult, ExecResult, StatsReport, ImageDeleteResult, ImageInfo, ImagePruneResult, NetworkInfo, RemoveResult, VolumeInfo, UpdateInfo, StorageInfo, PodLogs, PodActionResult, PodInfo, ActionResult, ApiResponse, ContainerAction, ContainerInfo, ContainerLogs, AppLogs, HealthInfo } from "../../../../shared/types/index.js";
 import { getConfig } from "./config";
 import { localCall } from "./local-host";
 import { CONTAINER_ID_RE } from "./validate";
@@ -61,6 +61,11 @@ export const agentList = (t: AgentTarget) => call<ContainerInfo[]>(t, "GET", "/a
 export function agentContainerDelete(t: AgentTarget, id: string) {
   if (!CONTAINER_ID_RE.test(id)) return Promise.resolve<CallResult<DeleteContainerResult>>({ ok: false, code: "INVALID_ID", message: "Invalid container id", unreachable: false });
   return call<DeleteContainerResult>(t, "DELETE", `/api/v1/containers/${id}`, cfg().actionTimeoutSec);
+}
+/** Removes a stopped pod that systemd does not manage, with its infra container and all its containers (the agent checks that again; volumes stay). */
+export function agentPodDelete(t: AgentTarget, id: string) {
+  if (!CONTAINER_ID_RE.test(id)) return Promise.resolve<CallResult<DeletePodResult>>({ ok: false, code: "INVALID_ID", message: "Invalid pod id", unreachable: false });
+  return call<DeletePodResult>(t, "DELETE", `/api/v1/pods/${id}`, cfg().actionTimeoutSec);
 }
 /** Runs one command in a container (needs EXEC_ENABLED on the agent); the agent validates the request again and limits time and output. */
 export const agentExec = (t: AgentTarget, id: string, request: unknown) => call<ExecResult>(t, "POST", `/api/v1/containers/${id}/exec`, 90, request);

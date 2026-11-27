@@ -55,6 +55,8 @@ export interface PodInfo {
   status: string;
   createdAt: string | null;
   containers: PodContainer[];
+  /** systemd unit (label PODMAN_SYSTEMD_UNIT) of the pod or of one of its containers; null = not managed by systemd/Quadlet; absent with older agents */
+  systemdUnit?: string | null;
 }
 
 export interface PodActionResult {
@@ -203,6 +205,13 @@ export interface StatsReport {
   /** when the agent took the sample (ms since epoch) */
   ts: number;
   containers: ContainerStatsRaw[];
+}
+
+/** Result of deleting a pod: the pod, its infra container and these containers are gone. */
+export interface DeletePodResult {
+  id: string;
+  name: string;
+  containers: string[];
 }
 
 /** Result of deleting a container. */

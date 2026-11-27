@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, agentVolumeDelete, agentVolumes, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs, agentCreateContainer, agentContainerDelete, agentCreatePod, agentExec, agentHealth, agentImagePull, agentPods } from "@/lib/agent-client";
+import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, agentVolumeDelete, agentVolumes, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs, agentCreateContainer, agentContainerDelete, agentPodDelete, agentCreatePod, agentExec, agentHealth, agentImagePull, agentPods } from "@/lib/agent-client";
 import { parseCreatePodRequest, parseCreateRequest } from "@agent/podman/create";
 import { parseExecRequest } from "@agent/podman/exec";
 import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
@@ -389,6 +389,32 @@ export async function deleteContainerAction(agentId: number, containerId: string
   revalidatePath("/containers");
   revalidatePath("/");
   return { ok: true, message: t("del.done", { name: r.data.name }) };
+}
+
+/**
+ * Deletes a stopped pod that systemd/Quadlet does not manage, with its infra container and all its containers
+ * (administrators only). The agent checks the conditions again; volumes are kept.
+ */
+export async function deletePodAction(agentId: number, podId: string): Promise<{ ok: boolean; message: string }> {
+  const session = await requireAuth();
+  const t = await getT();
+  if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
+  const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
+  if (!a) return { ok: false, message: t("msg.unknownHost") };
+  if (!a.enabled) return { ok: false, message: t("msg.hostDisabled") };
+  if (typeof podId !== "string" || !CONTAINER_ID_RE.test(podId)) return { ok: false, message: t("msg.invalidId") };
+  const tg = targetFor(a.id);
+  if (!tg) return { ok: false, message: t("msg.noCreds") };
+  const r = await agentPodDelete(tg, podId);
+  if (!r.ok) {
+    await audit(session, "pod.delete", { target: podId.slice(0, 12), host: a.hostname, ok: false, detail: r.code });
+    return { ok: false, message: errText(t, r.code, r.message) };
+  }
+  await audit(session, "pod.delete", { target: `${r.data.name} (${r.data.id.slice(0, 12)})`, host: a.hostname, detail: r.data.containers.length > 0 ? r.data.containers.join(", ").slice(0, 300) : "-" });
+  revalidatePath("/pods");
+  revalidatePath("/containers");
+  revalidatePath("/");
+  return { ok: true, message: t("delp.done", { name: r.data.name }) };
 }
 
 export type ExecOutcome =

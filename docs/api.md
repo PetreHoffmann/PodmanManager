@@ -25,7 +25,7 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 | GET | `/images` | alle Images: `id`, `tags`, `size`, `createdAt`, `containers` (nutzende Container), `dangling`, `protected` |
 | DELETE | `/images/:id[?tag=<repo:tag>]` | Image löschen; mit `tag` nur dieses Tag entfernen, wenn das Image weitere Tags hat. 409 `IMAGE_IN_USE` (Container nutzen es), 409 `IMAGE_PROTECTED` (Image des Agents bzw. der `UPDATE_UNIT`), 404 `IMAGE_NOT_FOUND`; nie mit Force |
 | POST | `/images/prune` | ungenutzte Images ohne Tag entfernen: `{removed, reclaimed}` |
-| GET | `/pods` | alle Pods mit ihren Containern |
+| GET | `/pods` | alle Pods mit ihren Containern; `systemdUnit` (Label `PODMAN_SYSTEMD_UNIT` des Pods oder eines seiner Container, `null` = nicht von systemd verwaltet) |
 | POST | `/pods` | leeren Pod anlegen (JSON, siehe unten) |
 | POST | `/images/pull` | Image laden (`{reference}`, wartet bis zu 300 s) |
 | GET | `/pods/:id` | ein Pod (ID wie bei Containern, auch Kurzform) |
@@ -33,6 +33,7 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 | POST | `/pods/:id/start` | alle Container des Pods starten |
 | POST | `/pods/:id/stop` | Pod stoppen (Timeout fest 10 s) |
 | POST | `/pods/:id/restart` | Pod neustarten |
+| DELETE | `/pods/:id` | gestoppten Pod samt Infra-Container und allen Containern löschen, wenn er nicht von systemd/Quadlet verwaltet wird (siehe unten) |
 | GET | `/system/storage` | vom Podman-Speicher belegter Platz (Images, Container, Volumes), 60 s im Agent zwischengespeichert |
 | GET / POST | `/system/update` | Selbst-Update: GET liefert `{possible, reason?, image, tag, state}`, POST (202) zieht das eigene Image neu und beendet den Prozess, damit systemd den Container aus dem neuen Image neu erstellt; 409 `UPDATE_NOT_POSSIBLE` mit Grund (`pinned_tag`, `not_systemd`, `no_container`, `inspect_failed`) |
 | GET / POST | `/system/update-peer` | nur mit `UPDATE_UNIT`: Update des Containers dieser Quadlet-Unit (Master): zieht dessen Image neu und stoppt ihn, systemd erstellt ihn aus dem neuen Image neu; Antworten wie `/system/update` (ohne `UPDATE_UNIT` 404) |
@@ -122,3 +123,7 @@ Beim Anlegen eines Containers (`POST /api/v1/containers`) tritt das optionale Fe
 ## Container löschen
 
 `DELETE /api/v1/containers/<id>` entfernt einen Container → `200 {"id","name","image"}`. Der Agent prüft selbst und lehnt mit `409` ab: Container mit dem Label `PODMAN_SYSTEMD_UNIT` (`MANAGED_BY_SYSTEMD`: ihn verwaltet systemd/Quadlet, die Unit ist zu entfernen), laufende Container (`CONTAINER_RUNNING`) und den Infra-Container eines Pods (`CONTAINER_PROTECTED`). Podman wird ohne `force` und ohne `v` aufgerufen (Volumes bleiben erhalten). `GET /containers` und `GET /containers/:id` liefern `systemdUnit` und `infra`; ältere Agents liefern das Feld nicht (der Master zeigt dann keinen Löschen-Knopf).
+
+## Pod löschen
+
+`DELETE /api/v1/pods/<id>` entfernt einen Pod → `200 {"id","name","containers":[...]}` (die Namen der mitgelöschten Container ohne den Infra-Container). Der Agent entfernt den Pod, seinen **Infra-Container und alle Container im Pod** (wie `podman pod rm`), ohne `force`, Volumes bleiben erhalten. Er lehnt mit `409` ab: Pod oder einer seiner Container trägt das Label `PODMAN_SYSTEMD_UNIT` (`MANAGED_BY_SYSTEMD`) und der Pod läuft oder läuft teilweise (`POD_RUNNING`). Unbekannter Pod → `404 POD_NOT_FOUND`. Leere Pods lassen sich löschen.
