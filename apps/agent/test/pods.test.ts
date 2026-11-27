@@ -15,7 +15,7 @@ const rawPod = (status: string) => ({
 describe("pod mapping", () => {
   it("maps list entries, lower-cases status, marks the infra container", () => {
     assert.deepEqual(mapPod(rawPod("Degraded")), {
-      id: POD, name: "web", status: "degraded", createdAt: "2026-11-10T08:00:00.123Z",
+      id: POD, name: "web", status: "degraded", createdAt: "2026-11-10T08:00:00.123Z", systemdUnit: null,
       containers: [{ id: INFRA, name: "abc-infra", state: "running", infra: true }, { id: APP, name: "web-app", state: "exited", infra: false }],
     });
   });
@@ -100,7 +100,7 @@ describe("pod routes", () => {
     assert.equal((await get("/pods", "POST")).status, 400, "creating needs a valid body");
     assert.equal((await get("/pods", "DELETE")).status, 405);
     assert.equal((await get(`/pods/${POD}/rm`, "POST")).status, 404);
-    assert.equal((await get(`/pods/${POD}`, "DELETE")).status, 405);
+    assert.equal((await get(`/pods/${POD}`, "PUT")).status, 405);
     assert.equal((await get("/pods", "GET", {})).status, 401);
   });
 });

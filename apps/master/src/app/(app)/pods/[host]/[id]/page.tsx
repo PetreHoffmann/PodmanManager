@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ContainerActions from "@/components/ContainerActions";
+import ContainerDelete from "@/components/ContainerDelete";
 import ContainerLogs from "@/components/ContainerLogs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { fmt } from "@/components/ui";
@@ -43,6 +44,10 @@ export default async function PodDetail({ params }: { params: Promise<{ host: st
         {rows.map(([k, v]) => (<><dt key={k} className="text-slate-400">{k}</dt><dd key={k + "v"}>{v}</dd></>))}
       </dl>
       <ContainerActions kind="pod" agentId={agent.id} containerId={p.id} state={p.status} name={p.name} />
+      {session.access === "all" && p.systemdUnit === null && ["exited", "stopped", "created"].includes(p.status) && !p.containers.some((c) => c.state === "running" || c.state === "paused") && (
+        <ContainerDelete kind="pod" agentId={agent.id} containerId={p.id} name={p.name} redirectTo="/pods" members={p.containers.filter((c) => !c.infra).map((c) => c.name)} />
+      )}
+      {session.access === "all" && p.systemdUnit && <p className="text-xs text-slate-500">{t("delp.systemd", { unit: p.systemdUnit })}</p>}
       <section className="space-y-2">
         <h2 className="font-medium">{t("pods.members")}</h2>
         <div className="card overflow-x-auto p-0">

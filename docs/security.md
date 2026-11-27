@@ -131,3 +131,5 @@ Der Befehl ist eine Liste von Argumenten (keine Shell), ohne stdin und ohne TTY;
 ## Container löschen
 
 Nur Administratoren, nur gestoppte Container, die **nicht** von systemd/Quadlet verwaltet werden (Label `PODMAN_SYSTEMD_UNIT` fehlt), nie der Infra-Container eines Pods; der Agent prüft das bei jedem Aufruf selbst, unabhängig davon, was der Master anzeigt. Es gibt kein `force`, Volumes werden nie mitgelöscht, der Master fragt vorher nach. Audit-Eintrag `container.delete` mit Name, Image, Host und Benutzer. Container, die systemd verwaltet (zum Beispiel Agent und Master selbst), lassen sich so nicht entfernen.
+
+Pods löschen gilt dieselben Regeln: nur Administratoren, nur gestoppte Pods, die **nicht** von systemd/Quadlet verwaltet werden (das Label `PODMAN_SYSTEMD_UNIT` fehlt am Pod **und** an allen seinen Containern); der Agent prüft das bei jedem Aufruf selbst. Das Löschen entfernt den Pod, seinen Infra-Container und **alle Container im Pod**; die Rückfrage im Master nennt vorher die Namen. Kein `force`, Volumes bleiben erhalten, Audit-Eintrag `pod.delete` mit den Namen der gelöschten Container.

@@ -63,6 +63,7 @@ function statusFor(e: PodmanError): number {
     case "MANAGED_BY_SYSTEMD":
     case "CONTAINER_RUNNING":
     case "CONTAINER_PROTECTED":
+    case "POD_RUNNING":
       return 409;
     case "INVALID_PARAM":
       return 400;
@@ -189,7 +190,12 @@ export function createAgentHandler(deps: HandlerDeps): AgentHandler {
       const pid = route[1] ?? "";
       if (!isValidPodId(pid)) return failR(400, "INVALID_ID", "Invalid pod id");
       if (route.length === 2) {
-        if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+        if (method === "DELETE") {
+          const r = await podman.deletePod(pid);
+          log.info(`pod ${r.name} deleted with ${r.containers.length} container(s) (${r.id.slice(0, 12)})`);
+          return reply(200, { ok: true, data: r });
+        }
+        if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET, DELETE" });
         return reply(200, { ok: true, data: await podman.pod(pid) });
       }
       const paction = route[2] ?? "";

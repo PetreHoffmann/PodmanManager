@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ContainerActions from "@/components/ContainerActions";
+import ContainerDelete from "@/components/ContainerDelete";
 import { StatusBadge } from "@/components/StatusBadge";
 import { fmt, fmtShort } from "@/components/ui";
 import { fetchAllPods } from "@/lib/agents";
@@ -48,6 +49,8 @@ export default async function Pods({ searchParams }: { searchParams: SP }) {
       case "created": return timeOf(p.createdAt);
     }
   };
+  // delete: administrators only, stopped pods that systemd/Quadlet does not manage (older agents do not report the label: no button)
+  const canDelete = (p: { status: string; systemdUnit?: string | null; containers: { state: string }[] }) => session.access === "all" && p.systemdUnit === null && ["exited", "stopped", "created"].includes(p.status) && !p.containers.some((c) => c.state === "running" || c.state === "paused");
   const rows = sortRows(filtered, sort, value);
   const params = { host, status, q };
   const cols = [["pods.name", "name"], ["cont.id", "id"], ["cont.host", "host"], ["cont.status", "status"], ["pods.containers", "containers"], ["cont.created", "created"]] as const;
@@ -97,7 +100,7 @@ export default async function Pods({ searchParams }: { searchParams: SP }) {
                 <td className="td"><StatusBadge status={p.status} /></td>
                 <td className="td tabular-nums">{count(p)}</td>
                 <td className="td whitespace-nowrap text-xs" title={fmt(p.createdAt)}>{fmtShort(p.createdAt)}</td>
-                <td className="td w-px"><ContainerActions kind="pod" agentId={agent.id} containerId={p.id} state={p.status} name={p.name} /></td>
+                <td className="td w-px"><div className="flex flex-col items-start gap-1"><ContainerActions kind="pod" agentId={agent.id} containerId={p.id} state={p.status} name={p.name} />{canDelete(p) && <ContainerDelete kind="pod" agentId={agent.id} containerId={p.id} name={p.name} members={p.containers.filter((c) => !c.infra).map((c) => c.name)} />}</div></td>
               </tr>
             ))}
           </tbody>
@@ -114,6 +117,7 @@ export default async function Pods({ searchParams }: { searchParams: SP }) {
             </div>
             <div className="text-xs text-slate-500">{agent.agent_id} · {p.id.slice(0, 12)} · {t("pods.containers")}: {count(p)}</div>
             <ContainerActions kind="pod" agentId={agent.id} containerId={p.id} state={p.status} name={p.name} />
+            {canDelete(p) && <ContainerDelete kind="pod" agentId={agent.id} containerId={p.id} name={p.name} members={p.containers.filter((c) => !c.infra).map((c) => c.name)} />}
           </div>
         ))}
       </div>

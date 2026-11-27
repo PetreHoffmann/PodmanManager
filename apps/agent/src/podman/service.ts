@@ -79,6 +79,7 @@ export function mapPod(raw: unknown): PodInfo {
     name: str(o.Name),
     status: str(o.Status).toLowerCase() || "unknown",
     createdAt: isoTime(o.Created),
+    systemdUnit: str(rec(o.Labels).PODMAN_SYSTEMD_UNIT) || null,
     containers: list.map((c) => {
       const r = rec(c);
       const names = Array.isArray(r.Names) ? str(r.Names[0]) : str(r.Names);
@@ -757,7 +758,35 @@ export class PodmanService {
     const res = await this.client.call("GET", `${await this.libpod()}/pods/json`);
     if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
     const arr = json(res);
-    return Array.isArray(arr) ? arr.map(mapPod) : [];
+    const pods = Array.isArray(arr) ? arr.map(mapPod) : [];
+    // a pod counts as managed by systemd if the pod or one of its containers carries the unit label
+    if (pods.some((p) => !p.systemdUnit)) {
+      const cr = await this.client.call("GET", `${await this.libpod()}/containers/json?all=true`).catch(() => null);
+      if (cr && cr.status === 200) {
+        const list = json(cr);
+        const units = new Map<string, string>();
+        for (const c of Array.isArray(list) ? list.map(mapListItem) : []) if (c.podId && c.systemdUnit && !units.has(c.podId)) units.set(c.podId, c.systemdUnit);
+        for (const p of pods) if (!p.systemdUnit) p.systemdUnit = units.get(p.id) ?? null;
+      }
+    }
+    return pods;
+  }
+
+  /**
+   * Removes a stopped pod that systemd/Quadlet does not manage, with its infra container and all its containers
+   * (like `podman pod rm`). No force, volumes are kept. Checked here, whatever the master shows.
+   */
+  async deletePod(id: string): Promise<{ id: string; name: string; containers: string[] }> {
+    this.assertId(id);
+    const pod = await this.pod(id);
+    if (pod.systemdUnit) throw new PodmanError("MANAGED_BY_SYSTEMD", `The pod is managed by systemd (${pod.systemdUnit.slice(0, 80)}); remove its unit instead`, 409);
+    const stopped = ["exited", "stopped", "created"].includes(pod.status) && !pod.containers.some((c) => c.state === "running" || c.state === "paused");
+    if (!stopped) throw new PodmanError("POD_RUNNING", "The pod must be stopped first", 409);
+    const del = await this.client.call("DELETE", `${await this.libpod()}/pods/${pod.id}?force=false`, { timeoutMs: 60_000 });
+    if (del.status === 404) throw new PodmanError("POD_NOT_FOUND", "Pod not found", 404);
+    if (del.status === 409) throw new PodmanError("POD_RUNNING", "The pod is in use and cannot be deleted now", 409);
+    if (del.status !== 200 && del.status !== 204) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(del), del.status);
+    return { id: pod.id, name: pod.name, containers: pod.containers.filter((c) => !c.infra).map((c) => c.name) };
   }
 
   /** Found by id prefix (12-64 hex chars) in the pod list. */
