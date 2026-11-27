@@ -36,6 +36,7 @@ async function startHost(name: string, ids: string[], port = 0, reuse?: Host): P
     if (u === "/libpod/containers/json?all=true") return send(res, 200, ids.map(item));
     if ((m = /^\/libpod\/containers\/([a-f0-9]+)\/json$/.exec(u)) && state.has(m[1]!)) return send(res, 200, { Id: m[1], Name: names[m[1]!], ImageName: "nginx", Created: "2025-01-01T00:00:00Z", State: { Status: state.get(m[1]!) } });
     if ((m = /^\/libpod\/containers\/([a-f0-9]+)\/(start|stop|restart)/.exec(u)) && state.has(m[1]!)) { state.set(m[1]!, m[2] === "stop" ? "exited" : "running"); return send(res, 204); }
+    if (req.method === "DELETE" && (m = /^\/libpod\/containers\/([a-f0-9]+)\?force=false&v=false$/.exec(u)) && state.has(m[1]!)) { state.delete(m[1]!); ids.splice(ids.indexOf(m[1]!), 1); return send(res, 200, [{ Id: m[1] }]); }
     if (req.method === "POST" && u.startsWith("/libpod/images/pull")) return send(res, 200, { id: "f".repeat(64), images: ["f".repeat(64)] });
     if (req.method === "POST" && u === "/libpod/containers/create") {
       const nid = "e".repeat(64);
@@ -142,7 +143,7 @@ try {
     await page.waitForSelector("text=Container ID");
     // the configuration tabs (podman run / Quadlet / Kube YAML, administrators only) are read-only text with copy buttons
     await page.waitForSelector("[data-testid=config-tabs]");
-    const buttons = (await page.locator("main button").evaluateAll((els) => els.filter((e) => !e.closest("[data-testid=config-tabs]")).map((e) => (e.textContent ?? "").trim()))).sort();
+    const buttons = (await page.locator("main button").evaluateAll((els) => els.filter((e) => !e.closest("[data-testid=config-tabs], [data-testid=delete-container]")).map((e) => (e.textContent ?? "").trim()))).sort();
     // container actions are exactly start/stop/restart; "Show logs" is the read-only log view
     assert.deepEqual(buttons, ["Restart", "Show logs", "Start", "Stop"]);
   });
@@ -182,6 +183,18 @@ try {
     await page.click("button:has-text('Create and start')");
     await page.waitForSelector("[data-testid=create-result]");
     assert.equal(h1.state.get("e".repeat(64)), "running", "created and started on the first host");
+  });
+
+  await step("admin deletes a stopped container; running ones have no delete button", async () => {
+    await page.goto(MASTER + "/containers");
+    const row = (n: string) => page.locator("tbody tr", { hasText: n });
+    assert.equal(await row("created-web").locator("[data-testid=delete-btn]").count(), 0, "a running container cannot be deleted");
+    await row("host-a-db").locator("[data-testid=delete-btn]").click();
+    await page.waitForSelector("text=Delete “host-a-db”?");
+    assert.ok(h1.state.has(id("b")), "must not delete before confirmation");
+    await page.click("[data-testid=delete-yes]");
+    await page.waitForSelector("tbody tr:has-text('host-a-db')", { state: "detached" });
+    assert.equal(h1.state.has(id("b")), false);
   });
 
   await step("disabled agent gets no operations", async () => {

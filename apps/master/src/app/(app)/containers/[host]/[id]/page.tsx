@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { fmt } from "@/components/ui";
 import { agentContainerConfig, agentHealth, agentInspect } from "@/lib/agent-client";
 import ContainerExec from "@/components/ContainerExec";
+import ContainerDelete from "@/components/ContainerDelete";
 import ContainerConfigTabs from "@/components/ContainerConfigTabs";
 import { kubePlayCommand, kubeYaml, podmanRunCommand, quadletFile } from "@/lib/create-preview";
 import { getAgent, targetFor } from "@/lib/agents";
@@ -45,6 +46,7 @@ export default async function Detail({ params }: { params: Promise<{ host: strin
   } : null;
   // running commands: administrators only, and only where the agent switched it on (EXEC_ENABLED)
   const execOn = session.access === "all" && c.state === "running" ? await agentHealth(target!).then((h) => h.ok && h.data.execEnabled === true) : false;
+  const canDelete = session.access === "all" && c.systemdUnit === null && c.infra !== true && !["running", "paused", "restarting"].includes(c.state);
   const rows: [string, React.ReactNode][] = [
     [t("cont.name"), c.name], [t("detail.cid"), <span className="font-mono text-xs break-all" key="i">{c.id}</span>],
     [t("cont.image"), c.image], [t("cont.status"), <StatusBadge key="s" status={c.state} />],
@@ -60,6 +62,8 @@ export default async function Detail({ params }: { params: Promise<{ host: strin
         {rows.map(([k, v]) => (<><dt key={k} className="text-slate-400">{k}</dt><dd key={k + "v"}>{v}</dd></>))}
       </dl>
       <ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} />
+      {canDelete && <ContainerDelete agentId={agent.id} containerId={c.id} name={c.name} redirectTo="/containers" />}
+      {session.access === "all" && c.systemdUnit && <p className="text-xs text-slate-500">{t("del.systemd", { unit: c.systemdUnit })}</p>}
       {c.state === "running" && (
         <>
           <MetricsCard t={t} lang={await getLang()} points={seriesFor(agent.id, c.id)?.points ?? null} host={hostState(agent.id)} keepMin={getConfig().metricsKeepMin} />

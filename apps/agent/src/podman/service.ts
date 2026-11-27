@@ -65,6 +65,8 @@ export function mapListItem(raw: unknown): ContainerInfo {
     startedAt: isoTime(o.StartedAt),
     podId: str(o.Pod) || null,
     podName: str(o.PodName) || null,
+    systemdUnit: str(rec(o.Labels).PODMAN_SYSTEMD_UNIT) || null,
+    infra: o.IsInfra === true,
   };
 }
 
@@ -99,6 +101,8 @@ export function mapInspect(raw: unknown): ContainerInfo {
     startedAt: isoTime(st.StartedAt),
     podId: str(o.Pod) || null,
     podName: str(o.PodName) || null,
+    systemdUnit: str(rec(rec(o.Config).Labels).PODMAN_SYSTEMD_UNIT) || null,
+    infra: o.IsInfra === true,
   };
 }
 
@@ -351,6 +355,29 @@ export class PodmanService {
       }
     }
     return { exitCode, stdout: so, stderr: se, truncated: s.truncated || soCut || seCut, timedOut: s.timedOut };
+  }
+
+  /**
+   * Removes a container that is stopped and not managed by systemd/Quadlet (label PODMAN_SYSTEMD_UNIT), never a pod's
+   * infra container. No force, and volumes are kept. Checked here, whatever the master shows.
+   */
+  async deleteContainer(id: string): Promise<{ id: string; name: string; image: string }> {
+    this.assertId(id);
+    await this.client.checkSocket();
+    const lp = await this.libpod();
+    const res = await this.client.call("GET", `${lp}/containers/${id}/json`);
+    if (res.status === 404) throw new PodmanError("CONTAINER_NOT_FOUND", "Container not found", 404);
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const raw = rec(json(res));
+    const info = mapInspect(raw);
+    if (info.systemdUnit) throw new PodmanError("MANAGED_BY_SYSTEMD", `The container is managed by systemd (${info.systemdUnit.slice(0, 80)}); remove its unit instead`, 409);
+    if (raw.IsInfra === true) throw new PodmanError("CONTAINER_PROTECTED", "The infra container of a pod cannot be deleted", 409);
+    if (!["exited", "stopped", "created", "configured", "initialized"].includes(info.state)) throw new PodmanError("CONTAINER_RUNNING", "The container must be stopped first", 409);
+    const del = await this.client.call("DELETE", `${lp}/containers/${info.id}?force=false&v=false`, { timeoutMs: 30_000 });
+    if (del.status === 404) throw new PodmanError("CONTAINER_NOT_FOUND", "Container not found", 404);
+    if (del.status === 409) throw new PodmanError("CONTAINER_RUNNING", "The container is in use and cannot be deleted now", 409);
+    if (del.status !== 200 && del.status !== 204) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(del), del.status);
+    return { id: info.id, name: info.name, image: info.image };
   }
 
   /** The settings of a container as the create form knows them (read-only; see config.ts). */
