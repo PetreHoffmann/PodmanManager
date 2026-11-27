@@ -31,10 +31,14 @@ The host turns **online** in the Master by itself. For permanent operation use t
 | `AGENT_PORT` / `AGENT_HOST` | `9126` / `0.0.0.0` | |
 | `PODMAN_SOCKET` | `/run/podman/podman.sock` | path inside the container |
 | `RATE_LIMIT_MAX` | `10` | failed auth attempts per IP and minute |
+| `PODMAN_TIMEOUT_MS` | `30000` | time limit for calls to Podman (1000 to 120000) |
+| `EXEC_ENABLED` | off | `true` lets Master administrators run single commands in containers of this host |
+| `EXEC_ALLOW` | empty | comma separated list of programs allowed for that (empty: all) |
+| `UPDATE_UNIT` | empty | Quadlet unit of another container (the Master) this agent may update |
 
 ## Security
 
-HTTP only (no TLS) by design. Open port 9126 **only for the Master's IP**. Anyone with the token can start/stop/restart the containers of this user (nothing more). See [docs/security.md](https://github.com/PetreHoffmann/PodmanManager/blob/main/docs/security.md) (German).
+HTTP only (no TLS) by design. Open port 9126 **only for the Master's IP**. Anyone with the token can start, stop and restart the containers of this user, create containers and pods (strictly validated), delete stopped containers and pods that systemd does not manage and, only with `EXEC_ENABLED=true`, run commands in them. Nothing else: no root, no host paths, no privileged containers. See [docs/security.md](https://github.com/PetreHoffmann/PodmanManager/blob/main/docs/security.md) (German).
 
 ## Links
 

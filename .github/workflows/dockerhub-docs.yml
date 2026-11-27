@@ -17,7 +17,7 @@ jobs:
       matrix:
         include:
           - app: master
-            short: "Web UI to view, start, stop and restart rootless Podman containers on many hosts."
+            short: "Web UI for rootless Podman on many hosts: monitor, control, create and delete containers and pods."
           - app: agent
             short: "Agent for PodmanManager: manages rootless Podman via its unix socket. Never root."
     steps:

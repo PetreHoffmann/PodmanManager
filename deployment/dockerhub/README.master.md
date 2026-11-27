@@ -16,7 +16,7 @@ docker run -d --name podmanmanager-master -p 8080:8080 \
   petrecalinoiu/podmanmanager-master:latest
 ```
 
-Open `http://<host>:8080`, set the admin password (do this right away, the first visitor can set it), then add agents under **Hosts**.
+Open `http://<host>:8080`, set the admin password (do this right away, the first visitor can set it), then add agents under **Hosts → Set up a new agent** (the Master creates the token and shows a ready Quadlet file or `podman run` command for the host).
 
 **Keep `MASTER_SECRET_KEY` and reuse it on every start** — it encrypts the stored agent tokens; a new key makes them unreadable.
 
@@ -30,6 +30,10 @@ Open `http://<host>:8080`, set the admin password (do this right away, the first
 | `HEARTBEAT_INTERVAL` | `30` | seconds between agent checks |
 | `AGENT_TIMEOUT` | `5` | seconds |
 | `HEARTBEAT_FAILURES` | `3` | failed checks until "offline" |
+| `LOCAL_PODMAN_SOCKET` | off | path of the Podman socket in the container: the Master then manages its own host without a separate agent |
+| `EXEC_ENABLED` / `EXEC_ALLOW` | off / empty | for the local host only: allow administrators to run single commands in containers (`EXEC_ALLOW`: comma separated list of programs); remote agents have their own switch |
+| `ALLOWED_ORIGINS` | empty | extra host names for passkeys behind a reverse proxy |
+| `UPDATE_CHECK` | `on` | `off` disables the "newer version" check in the About dialog |
 
 ## Security
 
