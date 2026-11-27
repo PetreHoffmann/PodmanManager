@@ -1,6 +1,6 @@
 # PodmanManager Master
 
-Central web UI for managing **rootless Podman** containers on multiple Linux hosts: view, start, stop and restart containers. Part of [PodmanManager](https://github.com/PetreHoffmann/PodmanManager) (Apache-2.0).
+Central web UI for managing **rootless Podman** containers on multiple Linux hosts: view, start, stop and restart containers and pods; administrators can also create containers and pods (with `podman run`, Quadlet and Kube YAML to copy), delete stopped ones that systemd does not manage, and set up new agents. Part of [PodmanManager](https://github.com/PetreHoffmann/PodmanManager) (Apache-2.0).
 
 The Master talks over HTTP to lightweight **PodmanManager Agents** (`petrecalinoiu/podmanmanager-agent`) installed on each host. UI languages: English, German, Romanian, Spanish.
 

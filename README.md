@@ -10,12 +10,13 @@ Die Anwendungen laufen als **Container** (kleine, abgeschottete Programmpakete).
 
 - **Überblick:** Welche Server und Anwendungen gibt es, und läuft alles?
 - **Steuern:** Anwendungen starten, stoppen und neu starten (mit Rückfrage).
-- **Anlegen:** Administratoren legen Container und Pods an und bekommen den passenden `podman run`-Befehl, die Quadlet-Datei und das Kubernetes-YAML zum Kopieren; dieselben Texte gibt es für vorhandene Container.
+- **Anlegen und löschen:** Administratoren legen Container und Pods an und bekommen den passenden `podman run`-Befehl, die Quadlet-Datei und das Kubernetes-YAML zum Kopieren; dieselben Texte gibt es für vorhandene Container. Gestoppte Container und Pods, die nicht von systemd (Quadlet) verwaltet werden, lassen sich löschen.
+- **Befehle ausführen:** Einzelne Befehle in einem Container (ohne Shell-Sitzung), nur Administratoren und nur auf Hosts, bei denen der Agent es erlaubt (`EXEC_ENABLED`, standardmäßig aus).
 - **Nachlesen:** Meldungen (Logs) einer Anwendung lesen und sehen, wie stark sie Prozessor, Arbeitsspeicher, Netzwerk und Festplatte nutzt.
 - **Aufräumen:** Programmpakete (Images), Netzwerke und Datenspeicher (Volumes) auf den Servern ansehen; Administratoren können Unbenutztes löschen.
 - **Für alle Geräte:** Die Oberfläche gibt es auf Deutsch, Englisch, Rumänisch und Spanisch und passt sich dem Handy an.
 
-PodmanManager **ändert keine bestehenden Container**. Administratoren können neue Container und leere Pods anlegen (nur benannte Volumes, kein privilegierter Modus, keine Host-Pfade). Das hält es einfach und sicher.
+PodmanManager **ändert keine bestehenden Container**. Administratoren können neue Container und leere Pods anlegen (nur benannte Volumes, kein privilegierter Modus, keine Host-Pfade) und gestoppte Container und Pods ohne systemd löschen. Das hält es einfach und sicher.
 
 ## So funktioniert es
 

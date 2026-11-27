@@ -1,6 +1,6 @@
 # PodmanManager Agent
 
-Lightweight agent for [PodmanManager](https://github.com/PetreHoffmann/PodmanManager) (Apache-2.0). It talks **only** to the local **rootless Podman unix socket** of its own user and offers a small authenticated HTTP API (port 9126) to the Master: list containers, start, stop, restart. No shell, no arbitrary Podman commands, no dependencies, never runs as root.
+Lightweight agent for [PodmanManager](https://github.com/PetreHoffmann/PodmanManager) (Apache-2.0). It talks **only** to the local **rootless Podman unix socket** of its own user and offers a small authenticated HTTP API (port 9126) to the Master: list and inspect containers, pods, images, networks and volumes, start, stop, restart, logs and metrics. On request of a Master administrator it also creates containers and pods (strictly validated: named volumes only, no privileged mode, no host paths), deletes stopped containers and pods that systemd does not manage, and, only if you switch it on with `EXEC_ENABLED=true`, runs single commands in a container. No shell session, no arbitrary Podman commands, no dependencies, never runs as root.
 
 The agent runs as a **rootless container** (Quadlet for permanent operation, `podman run` to try it out). It needs the rootless socket mounted and must run as the Podman user's UID.
 

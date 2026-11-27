@@ -60,6 +60,8 @@ Der Master kann den Podman-Socket seines eigenen Hosts direkt nutzen; ein Agent-
 
 Quadlet: im Master die auskommentierten Zeilen `Wants=podman.socket` und `After=podman.socket` (im Abschnitt `[Unit]`) sowie `Volume=%t/podman/podman.sock:…`, `Environment=LOCAL_PODMAN_SOCKET=…`, `UserNS=keep-id:uid=1000,gid=1000` und (SELinux) `SecurityLabelDisable=true` aktivieren. **Der Podman-Socket muss laufen:** `systemctl --user enable --now podman.socket` (einmalig; ohne ihn scheitert der Start mit `statfs /run/user/<UID>/podman/podman.sock: no such file or directory`, Exit-Code 125). Ohne Quadlet: `-v $XDG_RUNTIME_DIR/podman/podman.sock:/run/podman/podman.sock --userns=keep-id:uid=1000,gid=1000 -e LOCAL_PODMAN_SOCKET=/run/podman/podman.sock`. Wichtig: nicht `--userns=keep-id --user $(id -u)` wie beim Agent verwenden. Der Master-Container schreibt in `/data`, das dem Benutzer `node` (UID 1000) gehört; mit einer anderen UID startet er nicht (`unable to open database file`). `keep-id:uid=1000,gid=1000` bildet Ihren Host-Benutzer auf diese UID ab, sodass Socket und `/data` zugänglich sind. Geprüft mit Podman 5.8.2 (rootless, Image im Container gebaut und gestartet); ältere Podman-Versionen unterstützen die Optionen `uid`/`gid` von `keep-id` eventuell nicht.
 
+Für den lokalen Host gelten die Agent-Einstellungen aus der Umgebung des Masters: `EXEC_ENABLED=true` schaltet „Befehl ausführen“ für diesen Host ein (Standard: aus), `EXEC_ALLOW` begrenzt die Programme (siehe [Sicherheit](security.md#befehle-in-containern-ausführen)).
+
 **Typische Fehler beim Start mit lokalem Host (Rocky/RHEL mit SELinux, rootless Podman)**
 
 | Meldung | Ursache und Lösung |

@@ -122,6 +122,10 @@ Unter **Hosts** sehen Sie jeden Rechner, den Sie sehen dürfen, in einer Zeile:
 
 Die Spalten sind **sortierbar** (siehe [Kapitel 3](#3-die-oberfläche-im-überblick)). Als Benutzer können Sie hier **nichts ändern**, nur ansehen. Rechner einrichten, deren Adresse ändern und die Hilfsprogramme aktualisieren (einzeln oder alle auf einmal) sind Administratoren vorbehalten.
 
+**Einen neuen Rechner einrichten (nur Administratoren):** Über der Liste steht der Knopf **Neuen Agent einrichten**. Er öffnet eine eigene Seite, auf der Sie die Adresse des Rechners und einen Namen (Agent-ID) eintragen. Der Master erzeugt Token und Hash und zeigt danach fertige Dateien und Befehle zum Kopieren (Reiter **Quadlet**, **Quadlet + Secret**, **podman run** und **Hash**). Ein bereits laufender Agent lässt sich darunter manuell registrieren.
+
+![Neuen Agent einrichten](screenshots/handbuch/20-agent-einrichten.png)
+
 Sehen Sie in der Spalte **Speicher** statt Zahlen einen **orangefarbenen Text** oder nur einen Strich, kann der Rechner den Wert gerade nicht ermitteln. Das beeinträchtigt Ihre Anwendungen nicht. Melden Sie es Ihrem Administrator und geben Sie den angezeigten Text weiter.
 
 ## 6. Container: Ihre Anwendungen

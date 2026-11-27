@@ -34,6 +34,11 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 | POST | `/pods/:id/stop` | Pod stoppen (Timeout fest 10 s) |
 | POST | `/pods/:id/restart` | Pod neustarten |
 | DELETE | `/pods/:id` | gestoppten Pod samt Infra-Container und allen Containern löschen, wenn er nicht von systemd/Quadlet verwaltet wird (siehe unten) |
+| GET | `/volumes` | alle Volumes: `name`, `driver`, `createdAt`, `size` (Byte, `null` wenn nicht rechtzeitig ermittelt), `unused`, `anonymous` |
+| DELETE | `/volumes/:name` | Volume löschen (nicht, wenn ein Container es nutzt: `409 VOLUME_IN_USE`) |
+| GET | `/networks` | alle Netzwerke: `name`, `id`, `driver`, `subnets`, `internal`, `dnsEnabled`, `ipv6`, `containers` (angeschlossene laufende), `protected` |
+| DELETE | `/networks/:name` | Netzwerk löschen (das Standardnetzwerk `podman` ist geschützt: `409 NETWORK_PROTECTED`; genutzte: `409 NETWORK_IN_USE`) |
+| GET | `/stats` | Auslastung (CPU, RAM, Netzwerk, Platte) der laufenden Container; auf Hosts ohne cgroup v2 `STATS_UNAVAILABLE` |
 | GET | `/system/storage` | vom Podman-Speicher belegter Platz (Images, Container, Volumes), 60 s im Agent zwischengespeichert |
 | GET / POST | `/system/update` | Selbst-Update: GET liefert `{possible, reason?, image, tag, state}`, POST (202) zieht das eigene Image neu und beendet den Prozess, damit systemd den Container aus dem neuen Image neu erstellt; 409 `UPDATE_NOT_POSSIBLE` mit Grund (`pinned_tag`, `not_systemd`, `no_container`, `inspect_failed`) |
 | GET / POST | `/system/update-peer` | nur mit `UPDATE_UNIT`: Update des Containers dieser Quadlet-Unit (Master): zieht dessen Image neu und stoppt ihn, systemd erstellt ihn aus dem neuen Image neu; Antworten wie `/system/update` (ohne `UPDATE_UNIT` 404) |
