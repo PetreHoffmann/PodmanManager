@@ -1,5 +1,4 @@
 import Link from "next/link";
-import AgentWizard from "@/components/AgentWizard";
 import AgentUpdate from "@/components/AgentUpdate";
 import AgentUpdateAll from "@/components/AgentUpdateAll";
 import { compareSemver } from "@/lib/update-check";
@@ -9,12 +8,11 @@ import SortTh from "@/components/SortTh";
 import SortForm from "@/components/SortForm";
 import { parseSort, sortHosts } from "@/lib/host-sort";
 import HostStorage, { hostStorage } from "@/components/HostStorage";
-import ActionForm from "@/components/ActionForm";
 import AppLogs from "@/components/AppLogs";
 import HostActions from "@/components/HostActions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { fmt, fmtShort } from "@/components/ui";
-import { addAgentAction, appLogsAction } from "@/app/actions";
+import { appLogsAction } from "@/app/actions";
 import { fetchAllContainers } from "@/lib/agents";
 import { lastErrText } from "@/lib/i18n";
 import { getT } from "@/lib/lang";
@@ -49,7 +47,10 @@ export default async function Hosts({ searchParams }: { searchParams: Promise<{ 
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">{t("hosts.title")}</h1>
-        {updatable.length > 0 && <AgentUpdateAll hosts={updatable} />}
+        <div className="flex flex-wrap items-center gap-3">
+          {updatable.length > 0 && <AgentUpdateAll hosts={updatable} />}
+          {canManage && <Link href="/hosts/new" className="btn btn-primary !px-3 !py-1.5 text-sm" data-testid="new-agent-btn"><Icon name="plus-circle" />{t("wiz.title")}</Link>}
+        </div>
       </div>
       {!canManage && <p className="text-xs text-slate-400">{t("scope.note", { groups: groupNames(session).join(", ") || "—" })}</p>}
       <div className="card hidden overflow-x-auto p-0 md:block">
@@ -64,7 +65,7 @@ export default async function Hosts({ searchParams }: { searchParams: Promise<{ 
           </thead>
           <tbody className="divide-y divide-slate-800">
             {hosts.length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={canManage ? 9 : 8}>{t("hosts.none")}</td></tr>
+              <tr><td className="td text-slate-400" colSpan={canManage ? 9 : 8}>{t("hosts.none")}{canManage && <> <Link className="text-sky-400 hover:underline" href="/hosts/new">{t("wiz.title")}</Link></>}</td></tr>
             )}
             {hosts.map(({ agent: a, result }) => (
               <tr key={a.id} className="transition hover:bg-slate-900">
@@ -99,7 +100,7 @@ export default async function Hosts({ searchParams }: { searchParams: Promise<{ 
           <SortForm base="/hosts" params={{}} current={sort} labels={sortLabels(t)}
             options={([["agent", "hosts.agentId"], ["address", "hosts.address"], ["status", "hosts.status"], ["heartbeat", "hosts.heartbeat"], ["podman", "hosts.podman"], ["version", "hosts.agentVersion"], ["containers", "hosts.containers"], ["storage", "hosts.storage"]] as const).map(([key, l]) => ({ key, label: t(l) }))} />
         )}
-        {hosts.length === 0 && <p className="card text-sm text-slate-400">{t("hosts.none")}</p>}
+        {hosts.length === 0 && <p className="card text-sm text-slate-400">{t("hosts.none")}{canManage && <> <Link className="text-sky-400 hover:underline" href="/hosts/new">{t("wiz.title")}</Link></>}</p>}
         {hosts.map(({ agent: a, result }) => (
           <div key={a.id} className="card space-y-2">
             <div className="flex items-start justify-between gap-2">
@@ -120,26 +121,6 @@ export default async function Hosts({ searchParams }: { searchParams: Promise<{ 
 
       {canManage && hosts.length > 0 && (
         <AppLogs title={t("alogs.agent")} load={appLogsAction} options={hosts.map(({ agent: a }) => ({ id: a.id, label: `${a.agent_id} (${a.hostname})` }))} />
-      )}
-
-      {canManage && <AgentWizard />}
-
-      {canManage && (
-      <details className="max-w-xl">
-      <summary className="cursor-pointer text-sm text-slate-400 hover:text-slate-200">{t("wiz.manual")}</summary>
-      <section className="card mt-2">
-        <h2 className="mb-3 font-medium">{t("hosts.add")}</h2>
-        <ActionForm action={addAgentAction} className="space-y-3">
-          <label className="block text-sm">{t("hosts.addrLabel")}
-            <input name="url" required placeholder="http://192.168.1.21:9126" className="input mt-1" />
-          </label>
-          <label className="block text-sm">{t("hosts.tokenLabel")}
-            <input name="token" type="password" required autoComplete="off" className="input mt-1" />
-          </label>
-          <button className="btn btn-primary" type="submit"><Icon name="plus-circle" />{t("hosts.register")}</button>
-        </ActionForm>
-      </section>
-      </details>
       )}
     </div>
   );

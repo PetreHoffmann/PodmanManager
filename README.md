@@ -67,7 +67,7 @@ podman run -d --name podmanmanager-master --restart=always \
 **Schritt 2: Im Browser einrichten**
 
 1. `http://<server>:8080` öffnen und ein **Administrator-Passwort** festlegen.
-2. Unter **Hosts** auf **Neuen Agent einrichten** gehen, die Adresse des Servers (`http://<server-ip>:9126`) und einen Namen (Agent-ID) eintragen.
+2. Unter **Hosts** oben rechts auf **Neuen Agent einrichten** klicken, die Adresse des Servers (`http://<server-ip>:9126`) und einen Namen (Agent-ID) eintragen.
 3. Der Master zeigt nun die Befehle für diesen Server an (Reiter **podman run** oder **Quadlet**).
 
 **Schritt 3: Agent auf dem Server starten**

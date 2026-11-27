@@ -21,7 +21,7 @@ Ports: Master `8080` (Browser), Agent `9126` (nur für die IP des Masters freige
 
 ## Der Agent bekommt seinen Hash vom Master
 
-Token und Hash erzeugt der **Master**: unter *Hosts* → *Neuen Agent einrichten* Agent-Adresse (`http://<host-ip>:9126`) und Agent-ID eintragen. Der Master speichert den Token selbst, legt den Host an und zeigt den **Hash** als fertige Quadlet-Datei oder als Zeile `AGENT_TOKEN_HASH=…`. Auf dem Host muss nichts erzeugt und nichts im Master nachgetragen werden. Der Hash lässt sich unter *Hosts* → *Einrichtung* jederzeit erneut anzeigen. Er ist nicht der Token: Aus ihm lässt sich der Token nicht zurückrechnen, und mit dem Hash allein kann man sich nicht beim Agent anmelden. Trotzdem die Datei bzw. den Befehl nicht öffentlich ablegen (Rechte `600`).
+Token und Hash erzeugt der **Master**: unter *Hosts* → Knopf *Neuen Agent einrichten* (oben rechts) Agent-Adresse (`http://<host-ip>:9126`) und Agent-ID eintragen. Der Master speichert den Token selbst, legt den Host an und zeigt den **Hash** als fertige Quadlet-Datei oder als Zeile `AGENT_TOKEN_HASH=…`. Auf dem Host muss nichts erzeugt und nichts im Master nachgetragen werden. Der Hash lässt sich unter *Hosts* → *Einrichtung* jederzeit erneut anzeigen. Er ist nicht der Token: Aus ihm lässt sich der Token nicht zurückrechnen, und mit dem Hash allein kann man sich nicht beim Agent anmelden. Trotzdem die Datei bzw. den Befehl nicht öffentlich ablegen (Rechte `600`).
 
 Ausführlich: [Agent-Installation](../docs/installation-agent.md).
 
@@ -111,7 +111,7 @@ Danach `http://<host>:8080` öffnen und das Admin-Passwort sofort setzen. Quadle
 
 ### B.2 Agent
 
-Zuerst im Master den Agent einrichten (*Hosts* → *Neuen Agent einrichten*). Der Master zeigt dort die **fertige** `podmanmanager-agent.container` mit Agent-ID, Hash und `PublishPort`. Diese Datei speichern, nichts weiter anpassen:
+Zuerst im Master den Agent einrichten (*Hosts* → Knopf *Neuen Agent einrichten* (oben rechts)). Der Master zeigt dort die **fertige** `podmanmanager-agent.container` mit Agent-ID, Hash und `PublishPort`. Diese Datei speichern, nichts weiter anpassen:
 
 ```bash
 # Inhalt aus dem Master nach ~/.config/containers/systemd/podmanmanager-agent.container
