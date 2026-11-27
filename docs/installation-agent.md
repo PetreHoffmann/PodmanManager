@@ -65,6 +65,7 @@ podman run -d --name podmanmanager-agent --restart=always \
 | `AGENT_HOST` | `0.0.0.0` | Bind-Adresse |
 | `AGENT_PORT` | `9126` | |
 | `PODMAN_SOCKET` | `/run/podman/podman.sock` | Pfad im Container |
+| `PODMAN_TIMEOUT_MS` | `30000` | Zeitlimit für Aufrufe an Podman (1000 bis 120000 ms) |
 | `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MS` | `10` / `60000` | Fehlversuche pro IP und Fenster |
 | `EXEC_ENABLED` | aus | `true` erlaubt Administratoren des Masters, einzelne Befehle in Containern dieses Hosts auszuführen (siehe [Sicherheit](security.md#befehle-in-containern-ausführen)) |
 | `EXEC_ALLOW` | leer | kommagetrennte Liste erlaubter Programme (z. B. `ls,cat,nginx`); leer = alle |
@@ -92,4 +93,4 @@ Im Master unter *Hosts* → *Einrichtung* auf *Token erneuern* klicken, den neue
 
 ## Versionen
 
-„Container erstellen“, „Pod erstellen“ und die Konfigurations-Tabs in den Container-Details brauchen einen Agent ab **v0.31.0**; für Podman 5 gilt **v0.31.1** oder neuer (Pod-Namen im Inspect, Meldung bei vergebenem Namen). Ältere Agents laufen weiter, melden bei diesen Funktionen aber einen Fehler. Aktualisieren: im Master unter *Hosts* → *Agent aktualisieren* (oder *Alle veralteten Agents aktualisieren*).
+„Container erstellen“, „Pod erstellen“ und die Konfigurations-Tabs in den Container-Details brauchen einen Agent ab **v0.31.0**; für Podman 5 gilt **v0.31.1** oder neuer (Pod-Namen im Inspect, Meldung bei vergebenem Namen). Für **Befehl ausführen** (`EXEC_ENABLED`) gilt v0.32.0, für den Hinweis beim Speicherlimit (`cgroupVersion` und `rootless` in `GET /health`) v0.32.1 und für das **Löschen** von Containern und Pods (Label `PODMAN_SYSTEMD_UNIT`) v0.32.5 bzw. v0.32.6. Ältere Agents laufen weiter, melden bei diesen Funktionen aber einen Fehler oder zeigen den Knopf bzw. Hinweis nicht. Aktualisieren: im Master unter *Hosts* → *Agent aktualisieren* (oder *Alle veralteten Agents aktualisieren*).
