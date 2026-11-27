@@ -98,7 +98,7 @@ Das Dashboard besteht aus vier Reihen mit Zahlen:
 - **Hosts:** wie viele Rechner Sie sehen, davon *erreichbar*, *nicht erreichbar* und *deaktiviert / ausstehend*.
 - **Container:** wie viele Anwendungen es gibt, davon *laufend* und *gestoppt*.
 - **Pods:** wie viele Gruppen es gibt, davon *laufend*, *eingeschränkt* (ein Teil läuft nicht) und *gestoppt*.
-- **Ressourcen:** wie viele **Images**, **Netzwerke** und **Volumes** es auf Ihren Rechnern gibt und wie viel Speicher die Volumes zusammen belegen (**Volumes-Größe**). Ein Klick auf eine dieser Kacheln öffnet die passende Seite unter **Ressourcen**. Die Volumes-Größe erscheint mit kurzer Verzögerung, weil die Rechner sie erst ermitteln müssen.
+- **Ressourcen:** wie viele **Images**, **Netzwerke** und **Volumes** es auf Ihren Rechnern gibt und wie viel Speicher die Images (**Images-Größe**) und die Volumes (**Volumes-Größe**) zusammen belegen. Die Images-Größe zählt gemeinsame Schichten je Rechner nur einmal (wie `podman system df`). Ein Klick auf eine dieser Kacheln öffnet die passende Seite unter **Ressourcen**. Die beiden Größen erscheinen mit kurzer Verzögerung, weil die Rechner sie erst ermitteln müssen; steht eine Kachel orange, haben einzelne Rechner nicht geantwortet.
 
 **Farben:** Grün bedeutet „in Ordnung“, Rot „Problem“, Orange „aufpassen“. Eine Zahl bei **Nicht erreichbar** ist ein Grund, bei Ihrem Administrator nachzufragen.
 
