@@ -31,6 +31,7 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
   const [command, setCommand] = useState("");
   const [pod, setPod] = useState("");
   const [pods, setPods] = useState<string[]>([]);
+  const [limitsIgnored, setLimitsIgnored] = useState(false);
   const [networks, setNetworks] = useState<string[]>([]);
   const [volumeNames, setVolumeNames] = useState<string[]>([]);
   const [result, setResult] = useState<CreateContainerOutcome | null>(null);
@@ -40,9 +41,10 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
     setNetwork("");
     setPod("");
     setPods([]);
+    setLimitsIgnored(false);
     setNetworks([]);
     setVolumeNames([]);
-    if (agentId) createFormHostDataAction(agentId).then((r) => { if (live && r.ok) { setNetworks(r.networks); setPods(r.pods); setVolumeNames(r.volumes); } }).catch(() => undefined);
+    if (agentId) createFormHostDataAction(agentId).then((r) => { if (live && r.ok) { setNetworks(r.networks); setPods(r.pods); setLimitsIgnored(r.limitsIgnored); setVolumeNames(r.volumes); } }).catch(() => undefined);
     return () => { live = false; };
   }, [agentId]);
 
@@ -181,6 +183,7 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
         </label>
       </div>
       <p className="-mt-3 text-xs text-slate-500">{t("cr.restartNote")}</p>
+      {limitsIgnored && memory.trim() !== "" && <p role="note" className="-mt-2 text-xs text-amber-300" data-testid="limits-ignored">{t("cr.limitsIgnored")}</p>}
 
       <label className={label}>{t("cr.command")}
         <input value={command} onChange={(e) => setCommand(e.target.value)} placeholder={`nginx -g "daemon off;"`} className="input mt-1 font-mono text-xs" name="command" />
@@ -193,6 +196,7 @@ export default function CreateContainerForm({ hosts }: { hosts: { id: number; la
           <Block text={preview.kube} title={t("cr.pvKube", { file: `${name.trim()}.yaml` })} testid="preview-kube" copyLabel={t("wiz.copy")} copiedLabel={t("wiz.copied")} />
           <Block text={preview.kubeCmd} testid="preview-kube-cmd" copyLabel={t("wiz.copy")} copiedLabel={t("wiz.copied")} />
           <p className="text-xs text-slate-500">{t("cr.pvNote")}</p>
+          {limitsIgnored && memory.trim() !== "" && <p className="text-xs text-amber-300">{t("cr.limitsIgnored")}</p>}
         </div>
       )}
 

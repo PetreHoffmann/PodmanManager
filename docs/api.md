@@ -12,7 +12,7 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 ## Endpunkte
 | Methode | Pfad | Beschreibung |
 |---|---|---|
-| GET | `/health` | Agent-/Podman-Status |
+| GET | `/health` | Agent-/Podman-Status; zusätzlich `execEnabled`, `cgroupVersion` (`v1`/`v2`) und `rootless` (aus `podman info`, 10 Minuten zwischengespeichert; fehlt, wenn die Abfrage scheitert) |
 | GET | `/containers` | alle Container (laufend und gestoppt) |
 | POST | `/containers` | Container anlegen und starten (JSON, siehe unten) |
 | GET | `/containers/:id` | Details |

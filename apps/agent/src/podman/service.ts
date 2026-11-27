@@ -270,6 +270,24 @@ export class PodmanService {
     return { version: version || null, apiVersion: str(o.ApiVersion) || str(o.APIVersion) || null };
   }
 
+  /**
+   * cgroup version and rootless mode of the host (libpod `info`, read-only), cached for 10 minutes: Podman ignores
+   * resource limits (memory ...) of rootless containers on cgroup v1, which the master points out in its forms.
+   */
+  async hostRuntime(): Promise<{ cgroupVersion: "v1" | "v2" | null; rootless: boolean | null }> {
+    const now = Date.now();
+    if (this.runtimeCache && now - this.runtimeCache.at < 600_000) return this.runtimeCache.value;
+    const res = await this.client.call("GET", `${await this.libpod()}/info`, { timeoutMs: 10_000 });
+    if (res.status !== 200) throw new PodmanError("PODMAN_API_ERROR", upstreamMessage(res), res.status);
+    const host = rec(rec(json(res)).host);
+    const cg = str(host.cgroupVersion);
+    const rl = rec(host.security).rootless;
+    const value = { cgroupVersion: cg === "v1" || cg === "v2" ? (cg as "v1" | "v2") : null, rootless: typeof rl === "boolean" ? rl : null };
+    this.runtimeCache = { at: now, value };
+    return value;
+  }
+  private runtimeCache?: { at: number; value: { cgroupVersion: "v1" | "v2" | null; rootless: boolean | null } };
+
   async list(): Promise<ContainerInfo[]> {
     await this.client.checkSocket();
     const res = await this.client.call("GET", `${await this.libpod()}/containers/json?all=true`);

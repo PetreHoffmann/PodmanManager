@@ -17,6 +17,9 @@ export interface HealthInfo {
   agentStatus: AgentStatus;
   /** running commands in containers is switched on (EXEC_ENABLED) */
   execEnabled?: boolean;
+  /** cgroup version and rootless mode of Podman (from `info`); Podman ignores resource limits of rootless containers on cgroup v1 */
+  cgroupVersion?: "v1" | "v2" | null;
+  rootless?: boolean | null;
   error?: { code: string; message: string };
 }
 

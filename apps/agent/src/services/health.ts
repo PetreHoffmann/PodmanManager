@@ -44,6 +44,13 @@ export async function collectHealth(agentId: string, podman: PodmanService, host
     const v = await podman.version();
     info.podmanVersion = v.version;
     info.podmanApiVersion = v.apiVersion;
+    try {
+      const r = await podman.hostRuntime();
+      info.cgroupVersion = r.cgroupVersion;
+      info.rootless = r.rootless;
+    } catch {
+      /* optional: the forms simply show no hint */
+    }
   } catch (e) {
     info.agentStatus = "degraded";
     if (e instanceof PodmanError) {

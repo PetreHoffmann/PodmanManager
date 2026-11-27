@@ -196,6 +196,7 @@ Administratoren sehen über der Liste den Knopf **Container erstellen**. Das For
 - **Host, Name, Image** sind Pflicht. Das Image wird vorher auf dem Rechner geladen; das kann etwas dauern.
 - **Ports** (Host : Container), **Umgebungsvariablen**, **Volumes** (nur benannte; Host-Pfade, privilegierter Modus und Host-Netzwerk gibt es nicht), **Netzwerk**, **Neustart-Richtlinie**, **Speicherlimit** und **Befehl** sind optional. Hier wählbar ist auch ein vorhandener **Pod**; dann bestimmt der Pod Ports und Netzwerk.
 - Unter dem Formular erscheinen live der **podman run**-Befehl, die **Quadlet**-Datei und das **Kubernetes-YAML** (`podman kube play`) mit **Kopieren**-Knopf, auch wenn Sie den Container gar nicht anlegen.
+- Das **Speicherlimit** wirkt nur auf Rechnern mit cgroup v2. Auf einem Rechner mit cgroup v1 und rootless Podman ignoriert Podman es; das Formular zeigt dann einen orangefarbenen Hinweis.
 - Der Container wird **nicht von systemd verwaltet**. Nach einem Neustart des Rechners startet er nur, wenn `podman-restart.service` für den Benutzer aktiv ist.
 
 ## 7. Pods: zusammengehörende Anwendungen
