@@ -93,7 +93,7 @@ Oben sehen Sie die **Navigationsleiste**. Von dort erreichen Sie alle Bereiche:
 
 ![Dashboard](screenshots/handbuch/02-dashboard.png)
 
-Das Dashboard besteht aus vier Reihen mit Zahlen:
+Das Dashboard besteht aus vier Reihen mit Zahlen. **Die Kacheln sind anklickbar:** *Hosts* öffnet die Host-Liste, *Container* und *Pods* öffnen die jeweilige Liste. Bei Containern und Pods führen auch *laufend*, *gestoppt* und *eingeschränkt* dorthin, schon mit dem passenden Status-Filter. In der Reihe der Ressourcen öffnen die Kacheln die Seite **Ressourcen**.
 
 - **Hosts:** wie viele Rechner Sie sehen, davon *erreichbar*, *nicht erreichbar* und *deaktiviert / ausstehend*.
 - **Container:** wie viele Anwendungen es gibt, davon *laufend* und *gestoppt*.
