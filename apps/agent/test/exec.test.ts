@@ -139,3 +139,25 @@ describe("exec route", () => {
     await fake.close();
   });
 });
+
+describe("host runtime (cgroup version, rootless)", () => {
+  const run = async (info: unknown | null, f: (health: () => Promise<{ cgroupVersion?: unknown; rootless?: unknown }>) => Promise<void>) => {
+    const fake = await startFakePodman((req, res) => {
+      const u = req.url ?? "";
+      if (u === "/libpod/_ping") return jsonRes(res, 200, "OK");
+      if (u === "/libpod/version") return jsonRes(res, 200, { Version: "4.9.4", ApiVersion: "4.9.4" });
+      if (u === "/libpod/info") return info === null ? jsonRes(res, 500, { message: "boom" }) : jsonRes(res, 200, info);
+      jsonRes(res, 404, { message: "nope" });
+    });
+    const agent = await startAgent(fake.socketPath, { rateLimitMax: 1000 });
+    try { await f(async () => ((await (await fetch(`${agent.base}/api/v1/health`, { headers: auth })).json()) as { data: { cgroupVersion?: unknown; rootless?: unknown } }).data); }
+    finally { await agent.close(); await fake.close(); }
+  };
+  it("reports cgroup v1 and rootless from the libpod info", async () => {
+    await run({ host: { cgroupVersion: "v1", security: { rootless: true } } }, async (h) => { const d = await h(); assert.equal(d.cgroupVersion, "v1"); assert.equal(d.rootless, true); });
+    await run({ host: { cgroupVersion: "v2", security: { rootless: false } } }, async (h) => { const d = await h(); assert.equal(d.cgroupVersion, "v2"); assert.equal(d.rootless, false); });
+  });
+  it("a failing info call only drops the two fields", async () => {
+    await run(null, async (h) => { const d = await h(); assert.equal(d.cgroupVersion, undefined); assert.equal(d.rootless, undefined); });
+  });
+});

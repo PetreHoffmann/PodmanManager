@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, agentVolumeDelete, agentVolumes, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs, agentCreateContainer, agentCreatePod, agentExec, agentImagePull, agentPods } from "@/lib/agent-client";
+import { agentImageDelete, agentImagePrune, agentNetworkDelete, agentNetworks, agentVolumeDelete, agentVolumes, agentPeerInfo, agentSelfInfo, agentPeerStart, agentUpdateStart, agentAction, agentAppLogs, agentInspect, agentLogs, agentPod, agentPodAction, agentPodLogs, agentCreateContainer, agentCreatePod, agentExec, agentHealth, agentImagePull, agentPods } from "@/lib/agent-client";
 import { parseCreatePodRequest, parseCreateRequest } from "@agent/podman/create";
 import { parseExecRequest } from "@agent/podman/exec";
 import { MAX_LOGO_BYTES, clearLogo, normalizeText, saveLogo, saveText } from "@/lib/branding";
@@ -322,15 +322,17 @@ export type CreateContainerOutcome =
   | { ok: false; message: string };
 
 /** Hosts where an administrator may create a container: names of the networks and volumes (for the form). */
-export async function createFormHostDataAction(agentId: number): Promise<{ ok: true; networks: string[]; volumes: string[]; pods: string[] } | { ok: false; message: string }> {
+export async function createFormHostDataAction(agentId: number): Promise<{ ok: true; networks: string[]; volumes: string[]; pods: string[]; limitsIgnored: boolean } | { ok: false; message: string }> {
   const session = await requireAuth();
   const t = await getT();
   if (session.access !== "all") return { ok: false, message: t("msg.forbidden") };
   const a = Number.isInteger(agentId) ? getAgent(agentId) : null;
   const tg = a && a.enabled ? targetFor(a.id) : null;
   if (!a || !tg) return { ok: false, message: t("msg.unknownHost") };
-  const [nets, vols, pods] = await Promise.all([agentNetworks(tg), agentVolumes(tg), agentPods(tg)]);
-  return { ok: true, pods: pods.ok ? pods.data.map((p) => p.name).filter(Boolean).sort() : [], networks: nets.ok ? nets.data.map((n) => n.name).sort() : [], volumes: vols.ok ? vols.data.filter((v) => !v.anonymous).map((v) => v.name).sort() : [] };
+  const [nets, vols, pods, health] = await Promise.all([agentNetworks(tg), agentVolumes(tg), agentPods(tg), agentHealth(tg)]);
+  // Podman ignores memory limits of rootless containers on cgroup v1
+  const limitsIgnored = health.ok && health.data.cgroupVersion === "v1" && health.data.rootless === true;
+  return { ok: true, limitsIgnored, pods: pods.ok ? pods.data.map((p) => p.name).filter(Boolean).sort() : [], networks: nets.ok ? nets.data.map((n) => n.name).sort() : [], volumes: vols.ok ? vols.data.filter((v) => !v.anonymous).map((v) => v.name).sort() : [] };
 }
 
 /**
