@@ -17,6 +17,7 @@ import { sortLabels } from "@/lib/sort-labels";
 import { parseSortFor, sortRows, timeOf, type SortValue } from "@/lib/table-sort";
 import { requireAuth } from "@/lib/session";
 import Icon from "@/components/Icon";
+import ContainerDelete from "@/components/ContainerDelete";
 
 export const dynamic = "force-dynamic";
 
@@ -49,11 +50,11 @@ export default async function Containers({ searchParams }: { searchParams: SP })
     const p = c.state === "running" ? latest.get(agentId)?.get(c.id) : undefined;
     return !p ? null : key === "cpu" ? p.cpu : p.mem;
   };
-  const value = ({ agent, c }: { agent: { id: number; hostname: string }; c: (typeof filtered)[number]["c"] }, key: SortKey): SortValue => {
+  const value = ({ agent, c }: { agent: { id: number; hostname: string; agent_id: string }; c: (typeof filtered)[number]["c"] }, key: SortKey): SortValue => {
     switch (key) {
       case "name": return c.name || c.id;
       case "pod": return c.podName || c.podId || null;
-      case "host": return agent.hostname;
+      case "host": return agent.agent_id;
       case "image": return c.image;
       case "status": return STATE_RANK[c.state] ?? 4;
       case "cpu": return metricOf(agent.id, c, "cpu");
@@ -61,6 +62,8 @@ export default async function Containers({ searchParams }: { searchParams: SP })
       case "started": return timeOf(c.startedAt);
     }
   };
+  // delete: administrators only, stopped containers that systemd/Quadlet does not manage (older agents do not report the label: no button)
+  const canDelete = (c: { state: string; systemdUnit?: string | null; infra?: boolean }) => session.access === "all" && c.systemdUnit === null && c.infra !== true && c.state !== "running" && c.state !== "paused" && c.state !== "restarting";
   const rows = sortRows(filtered, sort, value);
   const failed = hosts.filter((h) => !h.result.ok && h.agent.enabled);
   const metricsOn = getConfig().metricsKeepMin > 0;
@@ -113,13 +116,13 @@ export default async function Containers({ searchParams }: { searchParams: SP })
               <tr key={`${agent.id}-${c.id}`} className="transition hover:bg-slate-900">
                 <td className="td max-w-[12rem] break-words font-medium"><Link className="text-sky-400 hover:underline" href={`/containers/${agent.id}/${c.id}`} title={`${c.id}\n${t("cont.created")}: ${fmt(c.createdAt)}`}>{c.name || c.id.slice(0, 12)}</Link></td>
                 <td className="td hidden max-w-[10rem] truncate text-xs xl:table-cell">{c.podId ? <Link className="text-sky-400 hover:underline" href={`/pods/${agent.id}/${c.podId}`}>{c.podName || c.podId.slice(0, 12)}</Link> : "—"}</td>
-                <td className="td max-w-[7rem] truncate lg:max-w-[10rem]" title={agent.hostname}>{agent.hostname}</td>
+                <td className="td max-w-[7rem] truncate lg:max-w-[10rem]" title={agent.hostname}>{agent.agent_id}</td>
                 <td className="td hidden max-w-[12rem] truncate text-xs xl:table-cell" title={c.image}>{c.image}</td>
                 <td className="td"><StatusBadge status={c.state} /></td>
                 {metricsOn && <td className="td whitespace-nowrap text-xs tabular-nums">{c.state === "running" ? cpuOf(agent.id, c.id) : "–"}</td>}
                 {metricsOn && <td className="td whitespace-nowrap text-xs tabular-nums">{c.state === "running" ? ramOf(agent.id, c.id) : "–"}</td>}
                 <td className="td hidden whitespace-nowrap text-xs lg:table-cell" title={fmt(c.startedAt)}>{fmtShort(c.startedAt)}</td>
-                <td className="td w-px"><ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} /></td>
+                <td className="td w-px"><div className="flex flex-col items-start gap-1"><ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} />{canDelete(c) && <ContainerDelete agentId={agent.id} containerId={c.id} name={c.name} />}</div></td>
               </tr>
             ))}
           </tbody>
@@ -139,6 +142,7 @@ export default async function Containers({ searchParams }: { searchParams: SP })
             {c.podId && <div className="text-xs text-slate-500">{t("cont.pod")}: <Link className="text-sky-400" href={`/pods/${agent.id}/${c.podId}`}>{c.podName || c.podId.slice(0, 12)}</Link></div>}
             <div className="text-xs text-slate-500">{t("cont.started")}: {fmt(c.startedAt)}</div>
             <ContainerActions agentId={agent.id} containerId={c.id} state={c.state} name={c.name} />
+            {canDelete(c) && <ContainerDelete agentId={agent.id} containerId={c.id} name={c.name} />}
           </div>
         ))}
       </div>

@@ -15,7 +15,8 @@ Container-IDs: Hex, 12–64 Zeichen (`^[a-f0-9]{12,64}$`), sonst `400 INVALID_ID
 | GET | `/health` | Agent-/Podman-Status; zusätzlich `execEnabled`, `cgroupVersion` (`v1`/`v2`) und `rootless` (aus `podman info`, 10 Minuten zwischengespeichert; fehlt, wenn die Abfrage scheitert) |
 | GET | `/containers` | alle Container (laufend und gestoppt) |
 | POST | `/containers` | Container anlegen und starten (JSON, siehe unten) |
-| GET | `/containers/:id` | Details |
+| GET | `/containers/:id` | Details (inkl. `systemdUnit`: Label `PODMAN_SYSTEMD_UNIT`, `null` = nicht von systemd verwaltet) |
+| DELETE | `/containers/:id` | gestoppten Container löschen, der nicht von systemd/Quadlet verwaltet wird (siehe unten) |
 | GET | `/containers/:id/config` | Einstellungen des Containers in der Form des Erstellen-Formulars (siehe unten) |
 | POST | `/containers/:id/start` | starten |
 | POST | `/containers/:id/stop` | stoppen (Timeout fest 10 s) |
@@ -117,3 +118,7 @@ Beim Anlegen eines Containers (`POST /api/v1/containers`) tritt das optionale Fe
 ## Befehl ausführen (nur mit `EXEC_ENABLED`)
 
 `POST /api/v1/containers/<id>/exec` mit `{"cmd":["ls","-l","/data"],"timeoutSec":15}` führt einen Befehl im laufenden Container aus → `200 {"exitCode","stdout","stderr","truncated","timedOut"}`. `cmd` ist eine Liste von 1 bis 20 Argumenten (kein Shell-String, je höchstens 1024 Zeichen), `timeoutSec` 1 bis 60 (Standard 15). Es gibt kein stdin und kein TTY. Die Ausgabe ist auf 64 KiB je Strom begrenzt (`truncated`); am Zeitlimit wird die Verbindung zu Podman geschlossen, `timedOut` ist dann `true` und `exitCode` `null`. Ohne `EXEC_ENABLED` am Agent antwortet die Route `403 EXEC_DISABLED`; steht das Programm nicht in `EXEC_ALLOW`, `403 EXEC_NOT_ALLOWED`; ein gestoppter Container ergibt `400`. `GET /health` meldet `execEnabled`.
+
+## Container löschen
+
+`DELETE /api/v1/containers/<id>` entfernt einen Container → `200 {"id","name","image"}`. Der Agent prüft selbst und lehnt mit `409` ab: Container mit dem Label `PODMAN_SYSTEMD_UNIT` (`MANAGED_BY_SYSTEMD`: ihn verwaltet systemd/Quadlet, die Unit ist zu entfernen), laufende Container (`CONTAINER_RUNNING`) und den Infra-Container eines Pods (`CONTAINER_PROTECTED`). Podman wird ohne `force` und ohne `v` aufgerufen (Volumes bleiben erhalten). `GET /containers` und `GET /containers/:id` liefern `systemdUnit` und `infra`; ältere Agents liefern das Feld nicht (der Master zeigt dann keinen Löschen-Knopf).

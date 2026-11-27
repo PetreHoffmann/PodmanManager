@@ -42,7 +42,7 @@ export default async function Pods({ searchParams }: { searchParams: SP }) {
     switch (key) {
       case "name": return p.name || p.id;
       case "id": return p.id;
-      case "host": return agent.hostname;
+      case "host": return agent.agent_id;
       case "status": return STATUS_RANK[p.status] ?? 3;
       case "containers": return count(p);
       case "created": return timeOf(p.createdAt);
@@ -93,7 +93,7 @@ export default async function Pods({ searchParams }: { searchParams: SP }) {
               <tr key={`${agent.id}-${p.id}`} className="transition hover:bg-slate-900">
                 <td className="td max-w-[14rem] break-words font-medium"><Link className="text-sky-400 hover:underline" href={`/pods/${agent.id}/${p.id}`}>{p.name || p.id.slice(0, 12)}</Link></td>
                 <td className="td font-mono text-xs">{p.id.slice(0, 12)}</td>
-                <td className="td max-w-[11rem] truncate" title={agent.hostname}>{agent.hostname}</td>
+                <td className="td max-w-[11rem] truncate" title={agent.hostname}>{agent.agent_id}</td>
                 <td className="td"><StatusBadge status={p.status} /></td>
                 <td className="td tabular-nums">{count(p)}</td>
                 <td className="td whitespace-nowrap text-xs" title={fmt(p.createdAt)}>{fmtShort(p.createdAt)}</td>

@@ -187,6 +187,8 @@ Die Ansicht wird aus dem laufenden Container rekonstruiert und enthält nur die 
 
 **Befehl ausführen (nur Administratoren, nur wenn freigegeben):** Läuft der Container und hat der Administrator des Rechners die Funktion am Agent eingeschaltet (`EXEC_ENABLED`), steht oben der Bereich **Befehl ausführen**. Sie geben einen Befehl ein (zum Beispiel `ls -l /data`), wählen ein Zeitlimit und bestätigen die Rückfrage. Der Befehl läuft einmal im Container; angezeigt werden Ausgabe, Fehlerausgabe und Exit-Code. Es gibt keine Shell-Sitzung, keine Eingabe und kein Terminal, die Ausgabe ist auf 64 KiB begrenzt. Jede Ausführung steht mit dem Befehl im Audit-Log.
 
+**Löschen (nur Administratoren):** Bei **gestoppten** Containern, die **nicht von systemd (Quadlet) verwaltet** werden, steht in der Liste und in den Details der Knopf **Löschen** mit Rückfrage. Der Container wird entfernt, **Volumes bleiben erhalten**. Container, die systemd verwaltet (zum Beispiel PodmanManager selbst), und laufende Container haben den Knopf nicht; dort entfernen Sie die Unit bzw. stoppen den Container zuerst. Jedes Löschen steht im Audit-Log.
+
 ### Eine Anwendung anlegen (nur Administratoren)
 
 Administratoren sehen über der Liste den Knopf **Container erstellen**. Das Formular legt auf einem Rechner einen Container aus einem Image an und startet ihn:
@@ -285,8 +287,9 @@ Das ist **Absicht** und dient der Sicherheit:
 - Sie können **keine Einstellungen ändern** und keine Gruppen verwalten.
 - Die **Logs von PodmanManager selbst** und der Hilfsprogramme sehen nur Administratoren.
 - **Images, Netzwerke und Volumes löschen oder aufräumen** und PodmanManager **aktualisieren** können nur Administratoren. Ebenso das **Einrichten neuer Rechner**, das **Ändern ihrer Adresse** und das **Aktualisieren der Hilfsprogramme** (Agents).
+- **Container löschen** dürfen nur Administratoren, und nur gestoppte Container ohne systemd.
 - **Befehle in einem Container ausführen** dürfen nur Administratoren, und nur auf Rechnern, deren Agent das erlaubt.
-- Anwendungen **anlegen** (Container und Pods) dürfen nur Administratoren. **Verändern oder löschen** kann sie in PodmanManager niemand; es gibt nur Starten, Stoppen und Neustarten.
+- Anwendungen **anlegen** (Container und Pods) dürfen nur Administratoren. **Verändern** kann sie in PodmanManager niemand; Löschen können nur Administratoren und nur gestoppte Container ohne systemd, sonst gibt es nur Starten, Stoppen und Neustarten.
 
 Fehlt Ihnen etwas davon, wenden Sie sich an Ihren Administrator.
 

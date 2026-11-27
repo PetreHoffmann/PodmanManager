@@ -60,6 +60,9 @@ function statusFor(e: PodmanError): number {
     case "NETWORK_PROTECTED":
     case "SYSTEMD_NOT_RESTARTED":
     case "NAME_IN_USE":
+    case "MANAGED_BY_SYSTEMD":
+    case "CONTAINER_RUNNING":
+    case "CONTAINER_PROTECTED":
       return 409;
     case "INVALID_PARAM":
       return 400;
@@ -223,7 +226,12 @@ export function createAgentHandler(deps: HandlerDeps): AgentHandler {
       if (!isValidContainerId(id)) return failR(400, "INVALID_ID", "Invalid container id");
 
       if (route.length === 2) {
-        if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET" });
+        if (method === "DELETE") {
+          const r = await podman.deleteContainer(id);
+          log.info(`container ${r.name} deleted (${r.id.slice(0, 12)})`);
+          return reply(200, { ok: true, data: r });
+        }
+        if (method !== "GET") return failR(405, "METHOD_NOT_ALLOWED", "Method not allowed", { Allow: "GET, DELETE" });
         return reply(200, { ok: true, data: await podman.inspect(id) });
       }
       const action = route[2] ?? "";

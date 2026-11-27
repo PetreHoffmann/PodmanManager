@@ -59,6 +59,15 @@
 | Fehler beim Laden des Images | Der Host erreicht die Registry nicht (Proxy, Anmeldung, Name). Das Laden läuft auf dem Host mit dessen Podman; `podman pull <image>` dort probieren. |
 | Ein erstellter Container startet nach einem Neustart des Hosts nicht von selbst | Er wird nicht von systemd verwaltet. `podman-restart.service` für den Benutzer aktivieren (`systemctl --user enable --now podman-restart.service`) oder die angezeigte Quadlet-Datei verwenden. |
 
+## Container löschen
+
+| Symptom | Ursache und Lösung |
+|---|---|
+| Der Knopf „Löschen“ fehlt | Er erscheint nur für Administratoren, bei gestoppten Containern ohne systemd-Label und bei Agents ab dieser Version (ältere liefern das Label nicht). Laufende Container zuerst stoppen. |
+| „Der Container wird von systemd/Quadlet verwaltet“ | Der Container trägt das Label `PODMAN_SYSTEMD_UNIT`. Löschen Sie die Quadlet-Datei (oder stoppen und deaktivieren Sie die Unit) und führen Sie `systemctl --user daemon-reload` aus; systemd entfernt den Container dann selbst. |
+| „Der Container muss zuerst gestoppt werden“ | Es gibt kein Löschen mit `force`. Erst stoppen, dann löschen. |
+| Der Infra-Container eines Pods lässt sich nicht löschen | Er gehört zum Pod. Pods lassen sich in PodmanManager nicht löschen (auf dem Host `podman pod rm`). |
+
 ## Befehle in Containern ausführen
 
 | Symptom | Ursache und Lösung |
