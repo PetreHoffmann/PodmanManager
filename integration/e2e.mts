@@ -91,6 +91,9 @@ try {
 
   await step("register two agents; wrong token / duplicate / bad URL rejected", async () => {
     await page.goto(MASTER + "/hosts");
+    assert.equal(await page.locator("[data-testid=agent-wizard]").count(), 0, "the wizard is on its own page");
+    await page.click("[data-testid=new-agent-btn]");
+    await page.waitForSelector("[data-testid=agent-wizard]");
     await page.click("summary"); // the manual form sits in a collapsed <details> below the setup wizard
     const add = async (url: string, token: string) => {
       await page.fill('details input[name="url"]', url);
@@ -107,7 +110,7 @@ try {
     await page.waitForSelector("text=already registered");
     await add(`http://127.0.0.1:${h2.port}`, h2.token);
     await page.waitForSelector("text=Agent registered");
-    await page.reload();
+    await page.goto(MASTER + "/hosts");
     assert.equal(await page.locator("tbody tr").count(), 2);
     assert.ok(await page.locator("tbody tr", { hasText: "host-a" }).locator("text=online").count());
   });

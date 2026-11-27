@@ -4,7 +4,7 @@ Der Agent läuft als **Rootless-Container** auf jedem Podman-Host, als **normale
 
 ## 1. Token und Hash im Master erzeugen
 
-Im Master unter *Hosts* → *Neuen Agent einrichten* die **Agent-Adresse** (`http://<host-ip>:9126`) und eine eindeutige **Agent-ID** (`A-Z a-z 0-9 . _ -`) eintragen und auf *Erzeugen und Konfiguration anzeigen* klicken.
+Im Master unter *Hosts* → Knopf *Neuen Agent einrichten* (oben rechts) die **Agent-Adresse** (`http://<host-ip>:9126`) und eine eindeutige **Agent-ID** (`A-Z a-z 0-9 . _ -`) eintragen und auf *Erzeugen und Konfiguration anzeigen* klicken.
 
 Der Master erzeugt den Token, speichert ihn verschlüsselt und legt den Host an. Der Agent bekommt nur den **Hash** des Tokens. Der Master zeigt ihn in vier Reitern, jeweils mit Kopieren-Knopf:
 
