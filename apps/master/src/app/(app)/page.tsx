@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { fetchAllContainers, fetchAllImages, fetchAllNetworks, fetchAllPods } from "@/lib/agents";
 import { countLists } from "@/lib/dashboard";
-import DashboardVolumes, { DashboardVolumesFallback } from "@/components/DashboardVolumes";
+import DashboardVolumes, { DashboardImagesSize, DashboardVolumesFallback } from "@/components/DashboardVolumes";
 import { getT } from "@/lib/lang";
 import { allowedAgentIds, groupNames } from "@/lib/groups";
 import { hiddenPatternsFor } from "@/lib/hidden";
@@ -67,8 +67,9 @@ export default async function Dashboard() {
       </div>
       <div className="flex items-center gap-4">
         <ResourcesArt className="hidden w-32 shrink-0 sm:block lg:w-40" />
-        <section className="grid flex-1 grid-cols-2 gap-3 md:grid-cols-4">
+        <section className="grid flex-1 grid-cols-2 gap-3 md:grid-cols-5">
           <Link href="/resources?tab=images" className="block transition hover:opacity-90" data-testid="dash-images"><Stat label={t("dash.images")} value={images.count} /></Link>
+          <Suspense fallback={<DashboardVolumesFallback labels={[t("dash.imagesSize")]} />}><DashboardImagesSize allowed={allowed} /></Suspense>
           <Link href="/resources?tab=networks" className="block transition hover:opacity-90" data-testid="dash-networks"><Stat label={t("dash.networks")} value={networks.count} /></Link>
           <Suspense fallback={<DashboardVolumesFallback labels={[t("dash.volumes"), t("dash.volumesSize")]} />}><DashboardVolumes allowed={allowed} /></Suspense>
         </section>
